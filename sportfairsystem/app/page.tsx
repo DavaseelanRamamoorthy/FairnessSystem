@@ -44,7 +44,21 @@ import {
   Sparkles
 } from 'lucide-react';
 
-const apiKey = "";
+type ExtractedMatchData = {
+  matchSummary: string;
+  moonwalkersPlaying11: string[];
+  moonwalkersTopPerformer: string;
+  matchDate: string;
+  opponentName: string;
+  moonwalkersWhoBatted: { name: string; runs: number; strikeRate: string }[];
+  moonwalkersWhoBowled: { name: string; overs: string; wickets: number }[];
+  moonwalkersNoActivity: string[];
+  matchResult: 'Won' | 'Lost';
+};
+
+const anthropicApiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
+const anthropicModel = process.env.NEXT_PUBLIC_ANTHROPIC_MODEL ?? 'claude-3-5-sonnet-20241022';
+const extractionPrompt = `Analyze this cricket scorecard PDF and return strict JSON with this exact schema: { "matchSummary": "string", "moonwalkersPlaying11": ["name"], "moonwalkersTopPerformer": "string", "matchDate": "YYYY-MM-DD", "opponentName": "string", "moonwalkersWhoBatted": [{"name": "string", "runs": number, "strikeRate": "string"}], "moonwalkersWhoBowled": [{"name": "string", "overs": "string", "wickets": number}], "moonwalkersNoActivity": ["string"], "matchResult": "Won" | "Lost" }. Only output raw JSON.`;
 
 type Theme = {
   id: string;
@@ -112,6 +126,11 @@ const THEMES = {
   }
 };
 
+const parseModelJson = (text: string) => {
+  const cleaned = text.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+  return JSON.parse(cleaned) as ExtractedMatchData;
+};
+
 const App = () => {
   const [view, setView] = useState('planner');
   const [activeTheme, setActiveTheme] = useState<Theme>(THEMES.moonlight);
@@ -146,29 +165,66 @@ const App = () => {
       };
       reader.readAsDataURL(file);
     });
+
     e.target.value = '';
   };
 
   const extractMatchData = async (base64Data: string) => {
+    if (!anthropicApiKey) {
+      console.error('Missing NEXT_PUBLIC_ANTHROPIC_API_KEY');
+      return;
+    }
+
     setIsProcessing(true);
-    const systemPrompt = `Analyze this scorecard PDF and extract Moonwalkers stats. Return JSON: { "matchSummary": "string", "moonwalkersPlaying11": ["name"], "moonwalkersTopPerformer": "string", "matchDate": "YYYY-MM-DD", "opponentName": "string", "moonwalkersWhoBatted": [{"name": "string", "runs": "number", "strikeRate": "string"}], "moonwalkersWhoBowled": [{"name": "string", "overs": "string", "wickets": "number"}], "moonwalkersNoActivity": ["string"], "matchResult": "Won/Lost" }`;
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': anthropicApiKey,
+          'anthropic-version': '2023-06-01'
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: "Extract Moonwalkers stats:" }, { inlineData: { mimeType: "application/pdf", data: base64Data } }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { responseMimeType: "application/json" }
+          model: anthropicModel,
+          max_tokens: 1200,
+          temperature: 0,
+          system: extractionPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'document',
+                  source: {
+                    type: 'base64',
+                    media_type: 'application/pdf',
+                    data: base64Data
+                  }
+                },
+                {
+                  type: 'text',
+                  text: 'Extract Moonwalkers data in the required JSON schema.'
+                }
+              ]
+            }
+          ]
         })
       });
+
+      if (!response.ok) {
+        throw new Error(`Extraction failed: ${response.status}`);
+      }
+
       const result = await response.json();
-      const data = JSON.parse(result.candidates[0].content.parts[0].text);
+      const textBlock = (result.content || []).find((c: { type: string }) => c.type === 'text');
+      if (!textBlock?.text) throw new Error('No text response from model');
+
+      const data = parseModelJson(textBlock.text);
       setExtractedQueue(prev => [...prev, { ...data, tempId: `temp-${Date.now()}` }]);
-    } catch (err) { 
-      console.error(err); 
-    } finally { 
-      setIsProcessing(false); 
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessing(false);
     }
   };
 

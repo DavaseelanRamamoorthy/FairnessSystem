@@ -3,6 +3,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useMemo } from 'react';
+import { cleanName } from './services/cleanName';
+import { parseMatchFromBase64 } from "./services/pdfParser";
+const currentTeamName = "Moonwalkers";
 import { 
   Users, 
   BarChart3, 
@@ -56,8 +59,6 @@ type ExtractedMatchData = {
   matchResult: 'Won' | 'Lost';
 };
 
-const anthropicApiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
-const anthropicModel = process.env.NEXT_PUBLIC_ANTHROPIC_MODEL ?? 'claude-3-5-sonnet-20241022';
 const extractionPrompt = `Analyze this cricket scorecard PDF and return strict JSON with this exact schema: { "matchSummary": "string", "moonwalkersPlaying11": ["name"], "moonwalkersTopPerformer": "string", "matchDate": "YYYY-MM-DD", "opponentName": "string", "moonwalkersWhoBatted": [{"name": "string", "runs": number, "strikeRate": "string"}], "moonwalkersWhoBowled": [{"name": "string", "overs": "string", "wickets": number}], "moonwalkersNoActivity": ["string"], "matchResult": "Won" | "Lost" }. Only output raw JSON.`;
 
 type Theme = {
@@ -79,16 +80,6 @@ type Player = {
 };
 
 type Match = Record<string, any>;
-
-// Utility to clean suffixes like (C), (WK), etc.
-const cleanName = (name: string) => {
-  if (!name) return "";
-  return name
-    .replace(/\s*\([^)]*\)/g, '') 
-    .replace(/\s+(C|WK|CAPT|CAPTAIN|C\s*&\s*WK|WK\s*&\s*C)\b/gi, '') 
-    .trim()
-    .toUpperCase();
-};
 
 const THEMES = {
   moonlight: {
@@ -169,64 +160,27 @@ const App = () => {
     e.target.value = '';
   };
 
-  const extractMatchData = async (base64Data: string) => {
-    if (!anthropicApiKey) {
-      console.error('Missing NEXT_PUBLIC_ANTHROPIC_API_KEY');
-      return;
-    }
-
+  
+  const [parsedMatch, setParsedMatch] = useState<any | null>(null);
+const extractMatchData = async (base64Data: string) => {
+ try {
     setIsProcessing(true);
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': anthropicApiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: anthropicModel,
-          max_tokens: 1200,
-          temperature: 0,
-          system: extractionPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'document',
-                  source: {
-                    type: 'base64',
-                    media_type: 'application/pdf',
-                    data: base64Data
-                  }
-                },
-                {
-                  type: 'text',
-                  text: 'Extract Moonwalkers data in the required JSON schema.'
-                }
-              ]
-            }
-          ]
-        })
-      });
 
-      if (!response.ok) {
-        throw new Error(`Extraction failed: ${response.status}`);
-      }
+    const parsed = await parseMatchFromBase64(
+      base64Data,
+      currentTeamName
+    );
 
-      const result = await response.json();
-      const textBlock = (result.content || []).find((c: { type: string }) => c.type === 'text');
-      if (!textBlock?.text) throw new Error('No text response from model');
+    console.log("FINAL MATCH DATA:", parsed);
 
-      const data = parseModelJson(textBlock.text);
-      setExtractedQueue(prev => [...prev, { ...data, tempId: `temp-${Date.now()}` }]);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+    setParsedMatch(parsed);
+
+  } catch (err) {
+    console.error("PDF Parsing Error:", err);
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+Architecture principle:
+> Parsing logic must remain independent of React state and UI concerns.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🛠 Tech Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Next.js (App Router)
+- React
+- TypeScript
+- PDF.js
+- Tailwind CSS
+- Lucide Icons
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🔮 Roadmap
 
-## Learn More
+### Phase 1 (Completed)
+- PDF parsing engine
+- Structured innings extraction
+- Typed match model
+- Clean service architecture
 
-To learn more about Next.js, take a look at the following resources:
+### Phase 2 (Next)
+- Database integration (multi-team architecture)
+- Persistent match storage
+- Player analytics engine
+- Fairness scoring algorithm
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Phase 3
+- Multi-team SaaS system
+- Admin dashboard
+- Role-based access
+- Season analytics
+- API layer
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 🧩 Vision
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+SportFairSystem is being built not as a single-team prototype,
+but as a scalable sports intelligence platform capable of supporting multiple teams, seasons, and competitions.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The long-term goal is to transform unstructured scorecard PDFs into structured performance intelligence.
+
+---
+
+## ⚠️ Development Status
+
+Active development.
+Architecture-first approach.
+Designed for scalability and future SaaS expansion.
+
+---
+
+Built with precision and long-term scalability in mind.

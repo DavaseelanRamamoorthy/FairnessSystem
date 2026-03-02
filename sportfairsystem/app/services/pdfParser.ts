@@ -105,6 +105,11 @@ export async function parseMatchFromBase64(
 
     inningsSummaries = inningsBlocks.map((block) => {
 
+      // console.log("=================================");
+      // console.log("INNINGS BLOCK RAW:");
+      // console.log(block);
+      // console.log("=================================");
+
       const teamMatch = block.match(
         /^([A-Za-z\s().&]+?)\s+\d+\/\d+\s+\(\d+(\.\d+)?\s+Ov\)/i
       );
@@ -114,6 +119,8 @@ export async function parseMatchFromBase64(
       const totalMatch = block.match(
         /Total:\s*Overs\s*(\d+(\.\d+)?)\s*,?\s*Wickets\s*(\d+)\s+(\d+)/i
       );
+
+      // console.log("Toatal Match Raw:", totalMatch);
 
       let runs = null;
       let wickets = null;
@@ -125,11 +132,57 @@ export async function parseMatchFromBase64(
         runs = parseInt(totalMatch[4]);
       }
 
+      // ============================
+      // EXTRAS EXTRACTION
+      // ============================
+
+      const extrasMatch = block.match(/Extras:\s*\([^)]*\)\s*(\d+)/i);
+
+      let extras = 0;
+
+      if (extrasMatch) {
+        extras = parseInt(extrasMatch[1]);
+      }
+
+      // ============================
+      // BATTING EXTRACTION
+      // ============================
+
+      // Get batting section before "Extras:"
+      const battingSectionMatch = block.match(
+        /No\s+Batsman\s+Status[\s\S]+?Extras:/i
+      );
+
+      let battingStats: any[] = [];
+
+      if (battingSectionMatch) {
+        const battingSection = battingSectionMatch[0];
+
+        // Match each batting row
+        const rowRegex =
+          /\d+\s+([A-Za-z\s().&]+?)\s+(?:c|b|not out|run out|lbw|st)[^0-9]*\s+(\d+)\s+(\d+)\s+\d+\s+(\d+)\s+(\d+)\s+(\d+(\.\d+)?)/g;
+
+        let match;
+
+        while ((match = rowRegex.exec(battingSection)) !== null) {
+          battingStats.push({
+            player_name: match[1].trim(),
+            runs: parseInt(match[2]),
+            balls: parseInt(match[3]),
+            fours: parseInt(match[4]),
+            sixes: parseInt(match[5]),
+            strike_rate: parseFloat(match[6])
+          });
+        }
+      }
+
       return {
         teamName,
         runs,
         wickets,
-        overs
+        overs,
+        extras,
+        battingStats
       };
     });
   }

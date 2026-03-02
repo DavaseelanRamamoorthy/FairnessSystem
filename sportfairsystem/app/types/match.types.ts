@@ -31,10 +31,14 @@ export type Innings = {
   wickets: number | null;
   overs: number | null;
   extras?: number;
-  batsmen?: Batsman[];
-  bowlers?: Bowler[];
-  fallOfWickets?: FallOfWicket[];
-  yetToBat?: string[];
+  battingStats?: {
+    player_name: string;
+    runs: number;
+    balls: number;
+    fours: number;
+    sixes: number;
+    strike_rate: number;
+  }[];
 };
 
 export type ParsedMatch = {

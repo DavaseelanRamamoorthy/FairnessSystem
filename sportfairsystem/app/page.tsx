@@ -76,6 +76,16 @@ const App = () => {
           base64,
           currentTeamName
         );
+// Console.log the full parsed object for debugging
+        console.log("===== FULL PARSED OBJECT =====");
+        console.log(JSON.stringify(parsed, null, 2));
+
+        // 🔥 ADD THIS BELOW
+        console.log("===== BATTING STATS BY INNINGS =====");
+        parsed.innings.forEach((inn: any, index: number) => {
+          console.log(`Innings ${index + 1} - ${inn.teamName}`);
+          console.log(inn.battingStats);
+        });
 
         if (!parsed) return;
 
@@ -88,21 +98,102 @@ const App = () => {
 
         if (!teamData) return;
 
+        // 🔍 Check duplicate
+        const { data: existingMatch } = await supabase
+          .from("matches")
+          .select("id")
+          .eq("match_date", parsed.matchDate)
+          .eq("team_a", parsed.teamA)
+          .eq("team_b", parsed.teamB)
+          .maybeSingle();
+
+        if (existingMatch) {
+          console.log("This match already exists in database.");
+          setIsProcessing(false);
+          return;
+        }else{
+          console.log("No duplicate found, proceeding to insert.");
+        }
+
         // Insert match
-        await supabase.from("matches").insert([
-          {
-            team_id: teamData.id,
-            match_date: parsed.matchDate,
-            opponent_name:
-              parsed.teamA === currentTeamName
-                ? parsed.teamB
-                : parsed.teamA,
-            team_a: parsed.teamA,
-            team_b: parsed.teamB,
-            winner: parsed.winner,
-            result: parsed.matchResult
+        // 1️⃣ Insert match and return inserted row
+        const { data: insertedMatch, error: matchError } = await supabase
+          .from("matches")
+          .insert([
+            {
+              team_id: teamData.id,
+              match_date: parsed.matchDate,
+              opponent_name:
+                parsed.teamA === currentTeamName
+                  ? parsed.teamB
+                  : parsed.teamA,
+              team_a: parsed.teamA,
+              team_b: parsed.teamB,
+              winner: parsed.winner,
+              result: parsed.matchResult
+            }
+          ])
+          .select()
+          .single();
+
+          if (matchError || !insertedMatch) {
+            console.error("Match insert failed:", matchError);
+            return;
           }
-        ]);
+
+          // 2️⃣ Insert innings
+          const inningsToInsert = parsed.innings.map((inn: any) => ({
+            match_id: insertedMatch.id,
+            team_name: inn.teamName,
+            runs: inn.runs,
+            wickets: inn.wickets,
+            overs: inn.overs,
+           // extras: 0 // temporary default until we parse extras properly
+            extras: inn.extras ?? 0 // use parsed extras if available, otherwise default to 0
+          }));
+
+          // ============================
+          // INSERT INNINGS (RETURN ROWS)
+          // ============================
+
+          const { data: insertedInnings, error: inningsError } = await supabase
+            .from("innings")
+            .insert(inningsToInsert)
+            .select();
+
+          if (inningsError || !insertedInnings) {
+            console.error("Innings insert failed:", inningsError);
+            return;
+          }
+
+          // ============================
+          // INSERT BATTING STATS
+          // ============================
+
+          for (let i = 0; i < insertedInnings.length; i++) {
+            const inningsRow = insertedInnings[i];
+            const parsedInnings = parsed.innings[i];
+
+            if (!parsedInnings.battingStats) continue;
+
+            const battingRows = parsedInnings.battingStats.map((b: any) => ({
+              innings_id: inningsRow.id,
+              player_name: b.player_name,
+              runs: b.runs,
+              balls: b.balls,
+              fours: b.fours,
+              sixes: b.sixes,
+              strike_rate: b.strike_rate
+            }));
+
+            const { error: battingError } = await supabase
+              .from("batting_stats")
+              .insert(battingRows);
+
+            if (battingError) {
+              console.error("Batting insert failed:", battingError);
+            }
+          }
 
         await loadMatchesFromDB();
 

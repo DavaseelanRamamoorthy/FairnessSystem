@@ -76,16 +76,27 @@ const App = () => {
           base64,
           currentTeamName
         );
-// Console.log the full parsed object for debugging
-        console.log("===== FULL PARSED OBJECT =====");
-        console.log(JSON.stringify(parsed, null, 2));
+      // Console.log the full parsed object for debugging
+        // console.log("===== FULL PARSED OBJECT =====");
+        // console.log(JSON.stringify(parsed, null, 2));
 
-        // 🔥 ADD THIS BELOW
-        console.log("===== BATTING STATS BY INNINGS =====");
-        parsed.innings.forEach((inn: any, index: number) => {
-          console.log(`Innings ${index + 1} - ${inn.teamName}`);
-          console.log(inn.battingStats);
-        });
+        // // 🔥 ADD THIS BELOW
+        // console.log("===== BATTING STATS BY INNINGS =====");
+        // parsed.innings.forEach((inn: any, index: number) => {
+        //   console.log(`Innings ${index + 1} - ${inn.teamName}`);
+        //   console.log(inn.battingStats);
+        // });
+        // console.log("===== BOWLING STATS BY INNINGS =====");
+        // parsed.innings.forEach((inn: any, index: number) => {
+        //   console.log(`Innings ${index + 1} - ${inn.teamName}`);
+        //   console.log(inn.bowlingStats);
+        // });
+        
+        console.log("===== FALL OF WICKETS =====");
+parsed.innings.forEach((inn: any, index: number) => {
+  console.log(`Innings ${index + 1}`);
+  console.log(inn.fallOfWickets);
+});
 
         if (!parsed) return;
 
@@ -148,7 +159,6 @@ const App = () => {
             runs: inn.runs,
             wickets: inn.wickets,
             overs: inn.overs,
-           // extras: 0 // temporary default until we parse extras properly
             extras: inn.extras ?? 0 // use parsed extras if available, otherwise default to 0
           }));
 
@@ -192,6 +202,62 @@ const App = () => {
 
             if (battingError) {
               console.error("Batting insert failed:", battingError);
+            }
+          }
+
+          // ============================
+          // INSERT BOWLING STATS
+          // ============================
+
+          for (let i = 0; i < insertedInnings.length; i++) {
+            const inningsRow = insertedInnings[i];
+            const parsedInnings = parsed.innings[i];
+
+            if (!parsedInnings.bowlingStats) continue;
+
+            const bowlingRows = parsedInnings.bowlingStats.map((b: any) => ({
+              innings_id: inningsRow.id,
+              player_name: b.player_name,
+              overs: b.overs,
+              maidens: b.maidens,
+              runs: b.runs,
+              wickets: b.wickets,
+              economy: b.economy
+            }));
+
+            const { error: bowlingError } = await supabase
+              .from("bowling_stats")
+              .insert(bowlingRows);
+
+            if (bowlingError) {
+              console.error("Bowling insert failed:", bowlingError);
+            }
+          }
+
+          // ============================
+          // INSERT FALL OF WICKETS
+          // ============================
+
+          for (let i = 0; i < insertedInnings.length; i++) {
+            const inningsRow = insertedInnings[i];
+            const parsedInnings = parsed.innings[i];
+
+            if (!parsedInnings.fallOfWickets) continue;
+
+            const fowRows = parsedInnings.fallOfWickets.map((f: any) => ({
+              innings_id: inningsRow.id,
+              score: f.score,
+              wicket_number: f.wicket_number,
+              batsman: f.batsman,
+              over: f.over
+            }));
+
+            const { error: fowError } = await supabase
+              .from("fall_of_wickets")
+              .insert(fowRows);
+
+            if (fowError) {
+              console.error("FOW insert failed:", fowError);
             }
           }
 

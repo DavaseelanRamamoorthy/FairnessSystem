@@ -31,6 +31,7 @@ export type Innings = {
   wickets: number | null;
   overs: number | null;
   extras?: number;
+
   battingStats?: {
     player_name: string;
     runs: number;
@@ -38,6 +39,22 @@ export type Innings = {
     fours: number;
     sixes: number;
     strike_rate: number;
+  }[];
+
+  bowlingStats?: {
+    player_name: string;
+    overs: number;
+    maidens: number;
+    runs: number;
+    wickets: number;
+    economy: number;
+  }[];
+
+  fallOfWickets?: {
+    score: number;
+    wicket_number: number;  
+    batsman: string;  
+    over: number;
   }[];
 };
 

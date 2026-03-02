@@ -176,13 +176,73 @@ export async function parseMatchFromBase64(
         }
       }
 
+      // ============================
+      // BOWLING EXTRACTION (Stable Version)
+      // ============================
+
+      let bowlingStats: any[] = [];
+
+      const bowlingSectionMatch = block.match(/No\s+Bowler([\s\S]+)/i);
+
+      if (bowlingSectionMatch) {
+        const bowlingSection = bowlingSectionMatch[1];
+
+        const rowRegex =
+          /\d+\s+([A-Za-z\s().&]+?)\s+(\d+(\.\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s+[\d\s]+\s+(\d+\.\d+)/g;
+
+        let match;
+
+        while ((match = rowRegex.exec(bowlingSection)) !== null) {
+          bowlingStats.push({
+            player_name: match[1].trim(),
+            overs: parseFloat(match[2]),
+            maidens: parseInt(match[4]),
+            runs: parseInt(match[5]),
+            wickets: parseInt(match[6]),
+            economy: parseFloat(match[7])
+          });
+        }
+      }
+
+      // ============================
+      // FALL OF WICKETS EXTRACTION
+      // ============================
+
+      let fallOfWickets: any[] = [];
+
+      const fowSectionMatch = block.match(
+        /Fall of Wickets\s+([\s\S]+?)(?=No Bowler|$)/i
+      );
+
+      if (fowSectionMatch) {
+        const fowText = fowSectionMatch[1];
+
+        const fowRegex =
+          /(\d+)-(\d+)\s*\(([^,]+),\s*(\d+(\.\d+)?)\s*ov\)/g;
+
+        let match;
+
+        while ((match = fowRegex.exec(fowText)) !== null) {
+          fallOfWickets.push({
+            score: parseInt(match[1]),
+            wicket_number: parseInt(match[2]),
+            batsman: match[3].trim(),
+            over: parseFloat(match[4])
+          });
+        }
+      }
+
+      
+
       return {
         teamName,
         runs,
         wickets,
         overs,
         extras,
-        battingStats
+        battingStats,
+        bowlingStats,
+        fallOfWickets
       };
     });
   }

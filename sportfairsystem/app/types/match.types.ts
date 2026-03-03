@@ -56,6 +56,8 @@ export type Innings = {
     batsman: string;  
     over: number;
   }[];
+
+  playing11?: string[];
 };
 
 export type ParsedMatch = {

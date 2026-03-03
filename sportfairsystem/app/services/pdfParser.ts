@@ -232,7 +232,38 @@ export async function parseMatchFromBase64(
         }
       }
 
-      
+      // ============================
+      // BUILD PLAYING XI (TEAM ONLY)
+      // ============================
+
+      const normalizeName = (name: string) =>
+        name
+          .replace(/\(.*?\)/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const battingNames =
+        battingStats?.map((b: any) =>
+          normalizeName(b.player_name)
+        ) || [];
+
+      let toBatNames: string[] = [];
+
+      const toBatMatch = block.match(/To Bat:\s+([\s\S]+?)(?=Fall of Wickets|No Bowler|$)/i);
+
+      if (toBatMatch) {
+        toBatNames = toBatMatch[1]
+          .split(',')
+          .map(p => normalizeName(p));
+      }
+
+      // Combine only team players
+      const playing11 = Array.from(
+        new Set([
+          ...battingNames,
+          ...toBatNames
+        ])
+      );
 
       return {
         teamName,
@@ -242,7 +273,8 @@ export async function parseMatchFromBase64(
         extras,
         battingStats,
         bowlingStats,
-        fallOfWickets
+        fallOfWickets,
+        playing11
       };
     });
   }

@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Lexend_Deca } from "next/font/google";
 import "./globals.css";
+import Provider from "./providers";
+import Providers from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const lexendDeca = Lexend_Deca({
   subsets: ["latin"],
+  variable: "--font-lexend-deca",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -24,10 +28,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${plusJakarta.variable} ${lexendDeca.variable}`}>
+        <Providers> {children} </Providers> 
       </body>
     </html>
   );

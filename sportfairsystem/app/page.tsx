@@ -29,59 +29,27 @@ import Header from "./components/layout/Header";
 import { parseMatchFromBase64 } from "./services/pdfParser";
 import { supabase } from "@/app/services/supabaseClient";
 import { saveMatchToDatabase } from "./services/matchInsertService";
-import MatchSummaryCard from "./components/matches/MatchSummaryCard";
-import MatchDetailPanel, { MatchWithStats } from "./components/matches/MatchDetailPanel";
 
 const currentTeamName = "Moonwalkers";
-type Match = MatchWithStats &{
-  id: string;
-}
+type Match = Record<string, any>;
 
 export default function App() {
   const [view, setView] = useState("dashboard");
-  const [isProcessing, setIsProcessing] = useState(false);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [previewMatch, setPreviewMatch] = useState<any | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Load Matches
   const loadMatchesFromDB = async () => {
-  const { data, error } = await supabase
-    .from("matches")
-    .select(`
-      *,
-      innings (
-        id,
-        team_name,
-        runs,
-        wickets,
-        overs,
-        batting_stats (
-          player_name,
-          runs,
-          balls,
-          fours,
-          sixes,
-          strike_rate
-        )
-      ),
-      match_players (
-        player_name,
-        team_name,
-        did_bat,
-        did_bowl
-      )
-    `)
-    .order("match_date", { ascending: false });
+    const { data } = await supabase
+      .from("matches")
+      .select("*")
+      .order("match_date", { ascending: false });
 
-    if (error) {
-    console.error(error);
-    return;
-  }
-
-  setMatches(data || []);
-};
+    setMatches(data || []);
+  };
 
   useEffect(() => {
     loadMatchesFromDB();
@@ -184,23 +152,81 @@ export default function App() {
                 </Typography>
 
                 {matches.map((match) => (
-                  <MatchSummaryCard
+                  <Card
                     key={match.id}
-                    match={match}
-                    isSelected={selectedMatch?.id === match.id}
                     onClick={() => setSelectedMatch(match)}
-                  />
+                    sx={{
+                      cursor: "pointer",
+                      border:
+                        selectedMatch?.id === match.id
+                          ? "2px solid"
+                          : "1px solid transparent",
+                      borderColor:
+                        selectedMatch?.id === match.id
+                          ? "primary.main"
+                          : "transparent",
+                    }}
+                  >
+                    <CardContent>
+                      <Typography variant="body2">
+                        {match.match_date}
+                      </Typography>
+
+                      <Typography variant="h6">
+                        vs {match.opponent_name}
+                      </Typography>
+
+                      <Typography
+                        color={
+                          match.result === "Won"
+                            ? "success.main"
+                            : "error.main"
+                        }
+                      >
+                        {match.result}
+                      </Typography>
+                    </CardContent>
+                  </Card>
                 ))}
               </Stack>
             </Box>
 
             {/* RIGHT COLUMN */}
             <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 65%" } }}>
-              {/* <MatchDetailPanel match={selectedMatch} /> */}
-              <MatchDetailPanel
-                match={selectedMatch}
-                teamName={currentTeamName}
-              />
+              <Paper sx={{ p: 4, minHeight: 400 }}>
+                {!selectedMatch ? (
+                  <Typography variant="h5" color="text.secondary">
+                    Click Matches to display in Detail
+                  </Typography>
+                ) : (
+                  <>
+                    <Typography variant="h4" gutterBottom>
+                      {selectedMatch.team_a} vs {selectedMatch.team_b}
+                    </Typography>
+
+                    <Typography gutterBottom>
+                      Date: {selectedMatch.match_date}
+                    </Typography>
+
+                    <Typography
+                      variant="h6"
+                      color={
+                        selectedMatch.result === "Won"
+                          ? "success.main"
+                          : "error.main"
+                      }
+                    >
+                      Result: {selectedMatch.result}
+                    </Typography>
+
+                    <Divider sx={{ my: 3 }} />
+
+                    <Typography>
+                      Winner: {selectedMatch.winner}
+                    </Typography>
+                  </>
+                )}
+              </Paper>
             </Box>
           </Box>
         )}

@@ -32,8 +32,9 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
   const innings = match.innings || [];
 
   return (
-
     <Box>
+
+      {/* MATCH HEADER */}
 
       <Typography variant="h4" gutterBottom>
         {match.team_a} vs {match.team_b}
@@ -51,6 +52,8 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
       </Typography>
 
       <Divider sx={{ my: 3 }} />
+
+      {/* INNINGS LOOP */}
 
       {innings.map((inn: any) => {
 
@@ -71,15 +74,33 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
           .map((p: any) => p.player_name)
           .filter((name: string) => !playersWhoBatted.has(name));
 
+        // Run Rate Calculation
+        const runRate =
+          inn.overs && inn.runs
+            ? (inn.runs / inn.overs).toFixed(2)
+            : null;
+
         return (
 
           <Box key={inn.id} sx={{ mb: 6 }}>
 
-            <Typography variant="h5" sx={{ mb: 2 }}>
-              {formatName(inn.team_name)} — {inn.runs}/{inn.wickets} ({inn.overs} overs)
-            </Typography>
+            {/* INNINGS HEADER */}
 
-            {/* BATTING */}
+            <Box sx={{ mb: 2 }}>
+
+              <Typography variant="h5">
+                {formatName(inn.team_name)} — {inn.runs}/{inn.wickets} ({inn.overs} Ov)
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                CRR: {runRate} • Extras: {inn.extras ?? 0}
+              </Typography>
+
+            </Box>
+
+            {/* ========================= */}
+            {/* BATTING TABLE */}
+            {/* ========================= */}
 
             <TableContainer component={Paper} sx={{ mb: 3 }}>
 
@@ -131,7 +152,9 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
 
             </TableContainer>
 
+            {/* ========================= */}
             {/* YET TO BAT */}
+            {/* ========================= */}
 
             {yetToBat.length > 0 && (
 
@@ -141,7 +164,9 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
 
             )}
 
-            {/* BOWLING */}
+            {/* ========================= */}
+            {/* BOWLING TABLE */}
+            {/* ========================= */}
 
             <TableContainer component={Paper} sx={{ mb: 3 }}>
 
@@ -188,7 +213,9 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
 
             </TableContainer>
 
+            {/* ========================= */}
             {/* FALL OF WICKETS */}
+            {/* ========================= */}
 
             {fallOfWickets.length > 0 && (
 
@@ -217,6 +244,5 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
       })}
 
     </Box>
-
   );
 }

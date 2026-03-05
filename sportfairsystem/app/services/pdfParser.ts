@@ -1,5 +1,7 @@
 // app/services/pdfParser.ts
+
 import { ParsedMatch } from "../types/match.types";
+
 export async function parseMatchFromBase64(
   base64Data: string,
   currentTeamName: string
@@ -12,7 +14,6 @@ export async function parseMatchFromBase64(
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-  // Convert base64 → bytes
   const binary = atob(base64Data);
   const length = binary.length;
   const bytes = new Uint8Array(length);
@@ -24,12 +25,12 @@ export async function parseMatchFromBase64(
   const loadingTask = pdfjsLib.getDocument({ data: bytes });
   const pdf = await loadingTask.promise;
 
-  // BUILD TEXT
   let rawText = "";
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
+
     const pageText = content.items
       .map((item: any) => item.str)
       .join(" ");
@@ -92,23 +93,18 @@ export async function parseMatchFromBase64(
   }
 
   // ============================
-  // INNINGS BLOCK ISOLATION
+  // INNINGS BLOCK
   // ============================
 
   const inningsBlocks = fullText.match(
     /([A-Za-z\s().&]+?\s+\d+\/\d+\s+\(\d+(\.\d+)?\s+Ov\)\s+\(1st Innings\)[^]+?)(?=[A-Za-z\s().&]+?\s+\d+\/\d+\s+\(\d+(\.\d+)?\s+Ov\)\s+\(1st Innings\)|Match Officials|$)/g
   );
 
-  let inningsSummaries: ParsedMatch["innings"] = [];    
+  let inningsSummaries: ParsedMatch["innings"] = [];
 
   if (inningsBlocks && inningsBlocks.length > 0) {
 
     inningsSummaries = inningsBlocks.map((block) => {
-
-      // console.log("=================================");
-      // console.log("INNINGS BLOCK RAW:");
-      // console.log(block);
-      // console.log("=================================");
 
       const teamMatch = block.match(
         /^([A-Za-z\s().&]+?)\s+\d+\/\d+\s+\(\d+(\.\d+)?\s+Ov\)/i
@@ -119,8 +115,6 @@ export async function parseMatchFromBase64(
       const totalMatch = block.match(
         /Total:\s*Overs\s*(\d+(\.\d+)?)\s*,?\s*Wickets\s*(\d+)\s+(\d+)/i
       );
-
-      // console.log("Toatal Match Raw:", totalMatch);
 
       let runs = null;
       let wickets = null;
@@ -133,7 +127,7 @@ export async function parseMatchFromBase64(
       }
 
       // ============================
-      // EXTRAS EXTRACTION
+      // EXTRAS
       // ============================
 
       const extrasMatch = block.match(/Extras:\s*\([^)]*\)\s*(\d+)/i);
@@ -145,10 +139,9 @@ export async function parseMatchFromBase64(
       }
 
       // ============================
-      // BATTING EXTRACTION
+      // BATTING EXTRACTION (STABLE)
       // ============================
 
-      // Get batting section before "Extras:"
       const battingSectionMatch = block.match(
         /No\s+Batsman\s+Status[\s\S]+?Extras:/i
       );
@@ -156,28 +149,64 @@ export async function parseMatchFromBase64(
       let battingStats: any[] = [];
 
       if (battingSectionMatch) {
+
         const battingSection = battingSectionMatch[0];
 
-        // Match each batting row
-        const rowRegex =
-          /\d+\s+([A-Za-z\s().&]+?)\s+(?:c|b|not out|run out|lbw|st)[^0-9]*\s+(\d+)\s+(\d+)\s+\d+\s+(\d+)\s+(\d+)\s+(\d+(\.\d+)?)/g;
+        const rows = battingSection.match(/\d+\s+[A-Za-z].+?\d+\.\d+/g);
 
-        let match;
+        if (rows) {
 
-        while ((match = rowRegex.exec(battingSection)) !== null) {
-          battingStats.push({
-            player_name: match[1].trim(),
-            runs: parseInt(match[2]),
-            balls: parseInt(match[3]),
-            fours: parseInt(match[4]),
-            sixes: parseInt(match[5]),
-            strike_rate: parseFloat(match[6])
+          rows.forEach((row) => {
+
+            let tokens = row.trim().split(/\s+/);
+
+            // remove row number
+            if (!isNaN(Number(tokens[0]))) {
+              tokens.shift();
+            }
+
+            const sr = parseFloat(tokens.pop()!);
+            const sixes = parseInt(tokens.pop()!);
+            const fours = parseInt(tokens.pop()!);
+            const minutes = tokens.pop();
+            const balls = parseInt(tokens.pop()!);
+            const runs = parseInt(tokens.pop()!);
+
+            const dismissalTokens: string[] = [];
+
+            while (
+              tokens.length &&
+              !tokens[tokens.length - 1].includes("(")
+            ) {
+              dismissalTokens.unshift(tokens.pop()!);
+            }
+
+            const dismissal = dismissalTokens.join(" ");
+
+            const rawName = tokens.join(" ");
+
+            const cleanedName = rawName
+              .replace(/\(.*?\)/g, "")
+              .replace(/\s+/g, " ")
+              .trim();
+
+            battingStats.push({
+              player_name: cleanedName,
+              dismissal: dismissal || "not out",
+              runs,
+              balls,
+              fours,
+              sixes,
+              strike_rate: sr
+            });
+
           });
+
         }
       }
 
       // ============================
-      // BOWLING EXTRACTION (Stable Version)
+      // BOWLING EXTRACTION
       // ============================
 
       let bowlingStats: any[] = [];
@@ -185,6 +214,7 @@ export async function parseMatchFromBase64(
       const bowlingSectionMatch = block.match(/No\s+Bowler([\s\S]+)/i);
 
       if (bowlingSectionMatch) {
+
         const bowlingSection = bowlingSectionMatch[1];
 
         const rowRegex =
@@ -193,6 +223,7 @@ export async function parseMatchFromBase64(
         let match;
 
         while ((match = rowRegex.exec(bowlingSection)) !== null) {
+
           bowlingStats.push({
             player_name: match[1].trim(),
             overs: parseFloat(match[2]),
@@ -201,11 +232,12 @@ export async function parseMatchFromBase64(
             wickets: parseInt(match[6]),
             economy: parseFloat(match[7])
           });
+
         }
       }
 
       // ============================
-      // FALL OF WICKETS EXTRACTION
+      // FALL OF WICKETS
       // ============================
 
       let fallOfWickets: any[] = [];
@@ -215,6 +247,7 @@ export async function parseMatchFromBase64(
       );
 
       if (fowSectionMatch) {
+
         const fowText = fowSectionMatch[1];
 
         const fowRegex =
@@ -223,47 +256,16 @@ export async function parseMatchFromBase64(
         let match;
 
         while ((match = fowRegex.exec(fowText)) !== null) {
+
           fallOfWickets.push({
             score: parseInt(match[1]),
             wicket_number: parseInt(match[2]),
             batsman: match[3].trim(),
             over: parseFloat(match[4])
           });
+
         }
       }
-
-      // ============================
-      // BUILD PLAYING XI (TEAM ONLY)
-      // ============================
-
-      const normalizeName = (name: string) =>
-        name
-          .replace(/\(.*?\)/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-      const battingNames =
-        battingStats?.map((b: any) =>
-          normalizeName(b.player_name)
-        ) || [];
-
-      let toBatNames: string[] = [];
-
-      const toBatMatch = block.match(/To Bat:\s+([\s\S]+?)(?=Fall of Wickets|No Bowler|$)/i);
-
-      if (toBatMatch) {
-        toBatNames = toBatMatch[1]
-          .split(',')
-          .map(p => normalizeName(p));
-      }
-
-      // Combine only team players
-      const playing11 = Array.from(
-        new Set([
-          ...battingNames,
-          ...toBatNames
-        ])
-      );
 
       return {
         teamName,
@@ -273,15 +275,12 @@ export async function parseMatchFromBase64(
         extras,
         battingStats,
         bowlingStats,
-        fallOfWickets,
-        playing11
+        fallOfWickets
       };
-    });
-  }
 
-  // ============================
-  // FINAL RETURN
-  // ============================
+    });
+
+  }
 
   return {
     matchDate,

@@ -86,16 +86,17 @@ export async function saveMatchToDatabase(
     // =========================
     // 5️⃣ Batting Stats
     // =========================
+
     const battingNames: string[] = [];
 
     if (inn.battingStats) {
       for (const bat of inn.battingStats) {
         const normalized = normalizeName(bat.player_name);
         battingNames.push(normalized);
-
         await supabase.from("batting_stats").insert({
           innings_id: inningsRow.id,
           player_name: normalized,
+          dismissal: bat.dismissal ?? null,
           runs: bat.runs,
           balls: bat.balls,
           fours: bat.fours,

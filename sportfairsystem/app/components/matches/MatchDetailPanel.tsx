@@ -1,163 +1,222 @@
-
-'use client';
+"use client";
 
 import {
-  Paper,
+  Box,
   Typography,
-  Stack,
-  Divider,
   Table,
+  TableBody,
+  TableCell,
   TableHead,
   TableRow,
-  TableCell,
-  TableBody,
+  Paper,
+  TableContainer,
+  Divider
 } from "@mui/material";
 
-import { Innings } from "@/app/types/match.types";
+import { formatName } from "@/app/services/formatname";
 
-type BattingStat = {
-  player_name: string;
-  runs: number;
-  balls: number;
-  fours: number;
-  sixes: number;
-  strike_rate: number;
-};
+interface MatchDetailPanelProps {
+  match: any;
+}
 
-type MatchPlayer = {
-  player_name: string;
-  team_name: string;
-};
-
-export type MatchWithStats = {
-  id: string;
-  team_a: string;
-  team_b: string;
-  match_date: string;
-  result: "Won" | "Lost" | "Unknown";
-
-  innings?: Innings[];
-  match_players?: MatchPlayer[];
-};
-
-type Props = {
-  match: MatchWithStats | null;
-  teamName: string;
-};
-
-export default function MatchDetailPanel({ match, teamName }: Props) {
+export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
 
   if (!match) {
     return (
-      <Paper sx={{ p: 4, minHeight: 400 }}>
-        <Typography variant="h5" color="text.secondary">
-          Click Matches to display in Detail
-        </Typography>
-      </Paper>
+      <Box p={3}>
+        <Typography>Select a match to view details</Typography>
+      </Box>
     );
   }
 
-  const innings: Innings[] = match.innings || [];
-
-  // Collect batting stats from innings
-  const batting: BattingStat[] =
-    innings.flatMap((inn: any) => inn.batting_stats || []);
-
-  const battingMap = new Map<string, BattingStat>(
-    batting.map((b) => [b.player_name, b])
-  );
-
-  // Filter players only from our team
-  const players =
-    match.match_players?.filter(
-      (p) => p.team_name === teamName
-    ) ?? [];
+  const innings = match.innings || [];
 
   return (
-    <Paper sx={{ p: 4 }}>
 
-      {/* MATCH HEADER */}
-      <Stack spacing={1}>
-        <Typography variant="h4">
-          {match.team_a} vs {match.team_b}
-        </Typography>
+    <Box>
 
-        <Typography color="text.secondary">
-          {match.match_date}
-        </Typography>
-
-        <Typography
-          variant="h6"
-          color={match.result === "Won" ? "success.main" : "error.main"}
-        >
-          {match.result}
-        </Typography>
-      </Stack>
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* INNINGS SUMMARY */}
-      <Stack spacing={1}>
-        {innings.map((inn, index) => (
-          <Typography key={index}>
-            {inn.teamName} {inn.runs}/{inn.wickets} ({inn.overs})
-          </Typography>
-        ))}
-      </Stack>
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* BATTING TABLE */}
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Batting
+      <Typography variant="h4" gutterBottom>
+        {match.team_a} vs {match.team_b}
       </Typography>
 
-      <Table size="small">
+      <Typography gutterBottom>
+        Date: {match.match_date}
+      </Typography>
 
-        <TableHead>
-          <TableRow>
-            <TableCell>Player</TableCell>
-            <TableCell align="right">R</TableCell>
-            <TableCell align="right">B</TableCell>
-            <TableCell align="right">4s</TableCell>
-            <TableCell align="right">6s</TableCell>
-            <TableCell align="right">SR</TableCell>
-          </TableRow>
-        </TableHead>
+      <Typography
+        variant="h6"
+        color={match.result === "Won" ? "success.main" : "error.main"}
+      >
+        Result: {match.result}
+      </Typography>
 
-        <TableBody>
+      <Divider sx={{ my: 3 }} />
 
-          {players.map((player) => {
+      {innings.map((inn: any) => {
 
-            const stats = battingMap.get(player.player_name);
+        const battingStats = inn.batting_stats || [];
+        const bowlingStats = inn.bowling_stats || [];
+        const fallOfWickets = inn.fall_of_wickets || [];
 
-            if (!stats) {
-              return (
-                <TableRow key={player.player_name}>
-                  <TableCell>{player.player_name}</TableCell>
-                  <TableCell colSpan={5}>
-                    Yet to bat
-                  </TableCell>
-                </TableRow>
-              );
-            }
+        const players =
+          match.match_players?.filter(
+            (p: any) => p.team_name === inn.team_name
+          ) || [];
 
-            return (
-              <TableRow key={player.player_name}>
-                <TableCell>{player.player_name}</TableCell>
-                <TableCell align="right">{stats.runs}</TableCell>
-                <TableCell align="right">{stats.balls}</TableCell>
-                <TableCell align="right">{stats.fours}</TableCell>
-                <TableCell align="right">{stats.sixes}</TableCell>
-                <TableCell align="right">{stats.strike_rate}</TableCell>
-              </TableRow>
-            );
-          })}
+        const playersWhoBatted = new Set(
+          battingStats.map((b: any) => b.player_name)
+        );
 
-        </TableBody>
+        const yetToBat = players
+          .map((p: any) => p.player_name)
+          .filter((name: string) => !playersWhoBatted.has(name));
 
-      </Table>
+        return (
 
-    </Paper>
+          <Box key={inn.id} sx={{ mb: 6 }}>
+
+            <Typography variant="h5" sx={{ mb: 2 }}>
+              {formatName(inn.team_name)} — {inn.runs}/{inn.wickets} ({inn.overs} overs)
+            </Typography>
+
+            {/* BATTING */}
+
+            <TableContainer component={Paper} sx={{ mb: 3 }}>
+
+              <Typography variant="h6" sx={{ p: 2 }}>
+                Batting
+              </Typography>
+
+              <Table size="small">
+
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Batsman</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>R</TableCell>
+                    <TableCell>B</TableCell>
+                    <TableCell>4s</TableCell>
+                    <TableCell>6s</TableCell>
+                    <TableCell>SR</TableCell>
+                  </TableRow>
+                </TableHead>
+
+                <TableBody>
+
+                  {battingStats.map((batsman: any, index: number) => (
+
+                    <TableRow key={index}>
+
+                      <TableCell>
+                        {formatName(batsman.player_name)}
+                      </TableCell>
+
+                      <TableCell>
+                        {batsman.dismissal ?? "not out"}
+                      </TableCell>
+
+                      <TableCell>{batsman.runs}</TableCell>
+                      <TableCell>{batsman.balls}</TableCell>
+                      <TableCell>{batsman.fours}</TableCell>
+                      <TableCell>{batsman.sixes}</TableCell>
+                      <TableCell>{batsman.strike_rate}</TableCell>
+
+                    </TableRow>
+
+                  ))}
+
+                </TableBody>
+
+              </Table>
+
+            </TableContainer>
+
+            {/* YET TO BAT */}
+
+            {yetToBat.length > 0 && (
+
+              <Typography sx={{ mb: 3 }}>
+                Yet to Bat: {yetToBat.map(formatName).join(", ")}
+              </Typography>
+
+            )}
+
+            {/* BOWLING */}
+
+            <TableContainer component={Paper} sx={{ mb: 3 }}>
+
+              <Typography variant="h6" sx={{ p: 2 }}>
+                Bowling
+              </Typography>
+
+              <Table size="small">
+
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Bowler</TableCell>
+                    <TableCell>Overs</TableCell>
+                    <TableCell>M</TableCell>
+                    <TableCell>Runs</TableCell>
+                    <TableCell>Wkts</TableCell>
+                    <TableCell>Eco</TableCell>
+                  </TableRow>
+                </TableHead>
+
+                <TableBody>
+
+                  {bowlingStats.map((bowler: any, index: number) => (
+
+                    <TableRow key={index}>
+
+                      <TableCell>
+                        {formatName(bowler.player_name)}
+                      </TableCell>
+
+                      <TableCell>{bowler.overs}</TableCell>
+                      <TableCell>{bowler.maidens}</TableCell>
+                      <TableCell>{bowler.runs}</TableCell>
+                      <TableCell>{bowler.wickets}</TableCell>
+                      <TableCell>{bowler.economy}</TableCell>
+
+                    </TableRow>
+
+                  ))}
+
+                </TableBody>
+
+              </Table>
+
+            </TableContainer>
+
+            {/* FALL OF WICKETS */}
+
+            {fallOfWickets.length > 0 && (
+
+              <Box>
+
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  Fall of Wickets
+                </Typography>
+
+                {fallOfWickets.map((f: any, i: number) => (
+
+                  <Typography key={i} variant="body2">
+                    {f.score}/{f.wicket_number} — {formatName(f.batsman)} ({f.over})
+                  </Typography>
+
+                ))}
+
+              </Box>
+
+            )}
+
+          </Box>
+
+        );
+
+      })}
+
+    </Box>
+
   );
 }

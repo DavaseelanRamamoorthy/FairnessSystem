@@ -1,30 +1,5 @@
 export type MatchResult = "Won" | "Lost" | "Unknown";
 
-export type Batsman = {
-  name: string;
-  runs: number | null;
-  balls?: number;
-  fours?: number;
-  sixes?: number;
-  strikeRate?: number;
-};
-
-export type Bowler = {
-  name: string;
-  overs: number | null;
-  maidens?: number;
-  runs?: number;
-  wickets?: number;
-  economy?: number;
-};
-
-export type FallOfWicket = {
-  score: number;
-  wicketNumber: number;
-  batsman: string;
-  over: number;
-};
-
 export type Innings = {
   teamName: string | null;
   runs: number | null;
@@ -34,6 +9,7 @@ export type Innings = {
 
   battingStats?: {
     player_name: string;
+    dismissal?: string;
     runs: number;
     balls: number;
     fours: number;
@@ -52,8 +28,8 @@ export type Innings = {
 
   fallOfWickets?: {
     score: number;
-    wicket_number: number;  
-    batsman: string;  
+    wicket_number: number;
+    batsman: string;
     over: number;
   }[];
 

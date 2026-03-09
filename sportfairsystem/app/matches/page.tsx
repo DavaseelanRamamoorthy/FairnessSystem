@@ -1,8 +1,8 @@
 "use client";
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useEffect } from "react";
+
 import {
   Box,
   Typography,
@@ -17,11 +17,12 @@ import {
 } from "@mui/material";
 
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
+
 import { parseMatchFromBase64 } from "@/app/services/pdfParser";
 import { supabase } from "@/app/services/supabaseClient";
 import { saveMatchToDatabase } from "@/app/services/matchInsertService";
 
-const currentTeamName = "Moonwalkers";
+import { currentTeamName } from "@/app/config/teamConfig";
 
 type Match = Record<string, any>;
 
@@ -29,7 +30,6 @@ export default function MatchesPage() {
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewMatch, setPreviewMatch] = useState<any | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -60,6 +60,7 @@ export default function MatchesPage() {
     }
 
     setMatches(data || []);
+
   };
 
   useEffect(() => {
@@ -101,6 +102,7 @@ export default function MatchesPage() {
     };
 
     reader.readAsDataURL(file);
+
   };
 
   // ============================
@@ -137,108 +139,126 @@ export default function MatchesPage() {
 
   return (
 
-    <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+    <Box>
 
-      {/* LEFT COLUMN — MATCH LIST */}
+      {/* PAGE TITLE */}
 
-      <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 30%" } }}>
+      <Typography variant="h4" sx={{ mb: 4 }}>
+        Matches
+      </Typography>
 
-        <Stack spacing={2}>
+      <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
 
-          <Typography variant="h4">
-            Match Summary
-          </Typography>
+        {/* ============================ */}
+        {/* LEFT COLUMN — MATCH LIST */}
+        {/* ============================ */}
 
-          {matches.map((match) => (
+        <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 30%" } }}>
 
-            <Card
-              key={match.id}
-              onClick={() => setSelectedMatch(match)}
-              sx={{
-                cursor: "pointer",
-                border:
-                  selectedMatch?.id === match.id
-                    ? "2px solid"
-                    : "1px solid transparent",
-                borderColor:
-                  selectedMatch?.id === match.id
-                    ? "primary.main"
-                    : "transparent",
-              }}
-            >
+          <Stack spacing={2}>
 
-              <CardContent>
+            {matches.map((match) => (
 
-                <Typography variant="body2">
-                  {match.match_date}
-                </Typography>
+              <Card
+                key={match.id}
+                onClick={() => setSelectedMatch(match)}
+                sx={{
+                  cursor: "pointer",
+                  border:
+                    selectedMatch?.id === match.id
+                      ? "2px solid"
+                      : "1px solid transparent",
+                  borderColor:
+                    selectedMatch?.id === match.id
+                      ? "primary.main"
+                      : "transparent"
+                }}
+              >
 
-                <Typography variant="h6">
-                  vs {match.opponent_name}
-                </Typography>
+                <CardContent>
 
-                <Typography
-                  color={
-                    match.result === "Won"
-                      ? "success.main"
-                      : "error.main"
-                  }
-                >
-                  {match.result}
-                </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {match.match_date}
+                  </Typography>
 
-              </CardContent>
+                  <Typography variant="h6">
+                    vs {match.opponent_name}
+                  </Typography>
 
-            </Card>
+                  <Typography
+                    color={
+                      match.result === "Won"
+                        ? "success.main"
+                        : "error.main"
+                    }
+                  >
+                    {match.result}
+                  </Typography>
 
-          ))}
+                </CardContent>
 
-        </Stack>
+              </Card>
+
+            ))}
+
+          </Stack>
+
+        </Box>
+
+        {/* ============================ */}
+        {/* RIGHT COLUMN — SCORECARD */}
+        {/* ============================ */}
+
+        <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 65%" } }}>
+
+          <Paper sx={{ p: 4, minHeight: 500 }}>
+
+            {!selectedMatch ? (
+
+              <Typography variant="h5" color="text.secondary">
+                Click a match to view full scorecard
+              </Typography>
+
+            ) : (
+
+              <MatchDetailPanel match={selectedMatch} />
+
+            )}
+
+          </Paper>
+
+        </Box>
 
       </Box>
 
-      {/* RIGHT COLUMN — MATCH DETAIL */}
-
-      <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 65%" } }}>
-
-        <Paper sx={{ p: 4, minHeight: 400 }}>
-
-          {!selectedMatch ? (
-
-            <Typography variant="h5" color="text.secondary">
-              Click a match to view full scorecard
-            </Typography>
-
-          ) : (
-
-            <MatchDetailPanel match={selectedMatch} />
-
-          )}
-
-        </Paper>
-
-      </Box>
-
-      {/* FILE UPLOAD */}
+      {/* ============================ */}
+      {/* FILE UPLOAD BUTTON */}
+      {/* ============================ */}
 
       <Box sx={{ position: "fixed", bottom: 30, right: 30 }}>
 
         <Button
           variant="contained"
+          size="large"
           component="label"
         >
+
           Upload Scorecard
+
           <input
             hidden
             type="file"
             accept="application/pdf"
             onChange={handleFileUpload}
           />
+
         </Button>
 
       </Box>
 
+      {/* ============================ */}
       {/* PREVIEW MODAL */}
+      {/* ============================ */}
 
       <Modal
         open={!!previewMatch}
@@ -251,9 +271,9 @@ export default function MatchesPage() {
             p: 4,
             borderRadius: 3,
             width: "90%",
-            maxWidth: 600,
+            maxWidth: 700,
             mx: "auto",
-            mt: "10vh",
+            mt: "10vh"
           }}
         >
 
@@ -287,7 +307,9 @@ export default function MatchesPage() {
 
       </Modal>
 
-      {/* Loader */}
+      {/* ============================ */}
+      {/* LOADER */}
+      {/* ============================ */}
 
       {isProcessing && (
 
@@ -298,7 +320,7 @@ export default function MatchesPage() {
             bgcolor: "rgba(0,0,0,0.5)",
             display: "flex",
             justifyContent: "center",
-            alignItems: "center",
+            alignItems: "center"
           }}
         >
 
@@ -308,7 +330,9 @@ export default function MatchesPage() {
 
       )}
 
-      {/* Toast */}
+      {/* ============================ */}
+      {/* TOAST */}
+      {/* ============================ */}
 
       <Snackbar
         open={!!toastMessage}

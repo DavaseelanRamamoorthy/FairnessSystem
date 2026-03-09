@@ -1,29 +1,37 @@
 "use client";
 
-import { AppBar, Toolbar, Typography, Box } from "@mui/material";
+import { Box, IconButton, Typography } from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import { currentTeamName } from "@/app/config/teamConfig";
 
-const drawerWidth = 240;
+interface Props {
+  toggleSidebar?: () => void;
+}
 
-export default function Topbar() {
+export default function Topbar({ toggleSidebar }: Props) {
+
   return (
-    <AppBar
-      position="fixed"
-      elevation={0}
+
+    <Box
       sx={{
-        width: `calc(100% - ${drawerWidth}px)`,
-        ml: `${drawerWidth}px`,
-        backgroundColor: "background.paper",
-        color: "text.primary",
-        borderBottom: "1px solid #eee",
+        height: 64,
+        display: "flex",
+        alignItems: "center",
+        px: 3,
+        borderBottom: "1px solid",
+        borderColor: "divider"
       }}
     >
-      <Toolbar>
 
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          Moonwalkers Dashboard
-        </Typography>
-        
-      </Toolbar>
-    </AppBar>
+      <IconButton onClick={toggleSidebar}>
+        <MenuIcon />
+      </IconButton>
+
+      <Typography sx={{ ml: 2 }}>
+        Welcome back 👋 {currentTeamName}
+      </Typography>
+
+    </Box>
+
   );
 }

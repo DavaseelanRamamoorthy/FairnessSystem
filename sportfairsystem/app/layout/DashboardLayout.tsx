@@ -1,37 +1,38 @@
 "use client";
 
-import { Box, Toolbar } from "@mui/material";
+import { useState } from "react";
+import { Box } from "@mui/material";
+
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <Box sx={{ display: "flex" }}>
 
-      <Sidebar />
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
 
-      <Topbar />
+      <Sidebar collapsed={collapsed} />
 
       <Box
-        component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          backgroundColor: "background.default",
-          minHeight: "100vh",
+          ml: collapsed ? "80px" : "260px",
+          transition: "margin-left .2s"
         }}
       >
-        {/* pushes content below topbar */}
-        <Toolbar />
 
-        {children}
+        <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
+
+        <Box sx={{ p: 4 }}>
+          {children}
+        </Box>
 
       </Box>
 
     </Box>
+
   );
 }

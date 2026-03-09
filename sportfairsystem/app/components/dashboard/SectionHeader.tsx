@@ -1,32 +1,17 @@
 "use client";
 
-import { Box, Typography } from "@mui/material";
+import { Stack, Typography } from "@mui/material";
 
-interface SectionHeaderProps {
+interface Props {
   title: string;
-  icon?: React.ReactNode;
 }
 
-export default function SectionHeader({ title, icon }: SectionHeaderProps) {
+export default function SectionHeader({ title }: Props) {
   return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-        mb: 2,
-      }}
-    >
-      {icon}
-
-      <Typography
-        variant="h6"
-        sx={{
-          fontWeight: 600,
-        }}
-      >
+    <Stack sx={{ mb: 2 }}>
+      <Typography variant="h6">
         {title}
       </Typography>
-    </Box>
+    </Stack>
   );
 }

@@ -1,144 +1,156 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import {
-  Drawer,
+  Box,
+  Typography,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Toolbar,
-  Typography,
-  Box
+  Select,
+  MenuItem
 } from "@mui/material";
 
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import SportsCricketIcon from "@mui/icons-material/SportsCricket";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import Image from "next/image";
+import GroupIcon from "@mui/icons-material/Group";
+import { currentTeamName } from "@/app/config/teamConfig";
 
-import { useRouter, usePathname } from "next/navigation";
+interface Props {
+  collapsed?: boolean;
+}
 
-const drawerWidth = 240;
+const navItems = [
+  { title: "Dashboard", path: "/dashboard", icon: <DashboardIcon /> },
+  { title: "Matches", path: "/matches", icon: <SportsCricketIcon /> },
+  { title: "Players", path: "/players", icon: <GroupIcon /> }
+];
 
-export default function Sidebar() {
+export default function Sidebar({ collapsed }: Props) {
 
-  const router = useRouter();
   const pathname = usePathname();
 
-  const menuItems = [
-    {
-      label: "Dashboard",
-      icon: <DashboardIcon />,
-      path: "/dashboard",
-    },
-    {
-      label: "Matches",
-      icon: <SportsCricketIcon />,
-      path: "/matches",
-    },
-    {
-      label: "Upload Match",
-      icon: <UploadFileIcon />,
-      path: "/upload",
-    },
-    {
-      label: "Analytics",
-      icon: <BarChartIcon />,
-      path: "/analytics",
-    },
-  ];
-
   return (
-    <Drawer
-      variant="permanent"
+
+    <Box
       sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        [`& .MuiDrawer-paper`]: {
-          width: drawerWidth,
-          boxSizing: "border-box",
-        },
+        width: collapsed ? 80 : 260,
+        borderRight: "1px solid",
+        borderColor: "divider",
+        minHeight: "100vh",
+        p: 3,
+        position: "fixed",
+        overflowY: "auto",
+        transition: "width .2s"
       }}
     >
-      <Toolbar
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          py: 2,
-        }}
-      >
-        <Image
-          src="/cricket-crew-logo.png"
-          alt="Cricket Crew"
-          width={180}
-          height={60}
-          priority
-          style={{
-            objectFit: "contain",
-          }}
-        />
-      </Toolbar>
 
-      <Box sx={{ overflow: "auto" }}>
+      {/* Logo */}
 
-        <List sx={{ px: 2, pt: 1 }}>
+      {!collapsed && (
 
-          {menuItems.map((item) => {
+        <Typography
+          variant="h5"
+          sx={{ fontWeight: 700, mb: 3 }}
+        >
+          SportFair
+        </Typography>
 
-            const isActive = pathname === item.path;
+      )}
 
-            return (
+      {/* Team Switcher */}
+
+      {!collapsed && (
+
+        <Select
+          fullWidth
+          size="small"
+          defaultValue={currentTeamName}
+          sx={{ mb: 4 }}
+        >
+          <MenuItem value={currentTeamName}>{currentTeamName}</MenuItem>
+        </Select>
+
+      )}
+
+      {/* Navigation */}
+
+      <List>
+
+        {navItems.map((item) => {
+
+          const active = pathname === item.path;
+
+          return (
+
+            <Link
+              key={item.title}
+              href={item.path}
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
 
               <ListItemButton
-                key={item.label}
-                onClick={() => router.push(item.path)}
-                selected={isActive}
                 sx={{
                   borderRadius: 2,
-                  mb: 0.5,
-                  px: 2,
+                  mb: 1,
+                  position: "relative",
+                  justifyContent: collapsed ? "center" : "flex-start",
 
-                  "&.Mui-selected": {
-                    backgroundColor: "primary.main",
-                    color: "primary.contrastText",
-                    fontWeight: 600,
-                  },
+                  bgcolor: active ? "action.selected" : "transparent",
 
                   "&:hover": {
-                    backgroundColor: "action.hover",
+                    bgcolor: "action.hover"
                   },
+
+                  "&::before": active
+                    ? {
+                        content: '""',
+                        position: "absolute",
+                        left: -12,
+                        top: "20%",
+                        height: "60%",
+                        width: 4,
+                        borderRadius: 2,
+                        bgcolor: "primary.main"
+                      }
+                    : {}
                 }}
               >
 
                 <ListItemIcon
                   sx={{
-                    minWidth: 36,
-                    color: isActive ? "primary.contrastText" : "text.secondary",
+                    minWidth: collapsed ? 0 : 40,
+                    color: active ? "primary.main" : "text.secondary"
                   }}
                 >
                   {item.icon}
                 </ListItemIcon>
 
-                <ListItemText
-                  primary={item.label}
-                  primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: isActive ? 600 : 500,
-                  }}
-                />
+                {!collapsed && (
+
+                  <ListItemText
+                    primary={item.title}
+                    primaryTypographyProps={{
+                      fontWeight: active ? 600 : 400
+                    }}
+                  />
+
+                )}
 
               </ListItemButton>
 
-            );
+            </Link>
 
-          })}
+          );
 
-        </List>
+        })}
 
-      </Box>
+      </List>
 
-    </Drawer>
+    </Box>
+
   );
 }

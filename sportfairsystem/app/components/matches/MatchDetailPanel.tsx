@@ -3,17 +3,15 @@
 import {
   Box,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Paper,
-  TableContainer,
-  Divider
+  Divider,
+  Grid
 } from "@mui/material";
 
 import { formatName } from "@/app/services/formatname";
+
+import BattingTable from "./BattingTable";
+import BowlingTable from "./BowlingTable";
+import FallOfWickets from "./FallofWickets";
 
 interface MatchDetailPanelProps {
   match: any;
@@ -34,8 +32,6 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
   return (
     <Box>
 
-      {/* MATCH HEADER */}
-
       <Typography variant="h4" gutterBottom>
         {match.team_a} vs {match.team_b}
       </Typography>
@@ -52,8 +48,6 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
       </Typography>
 
       <Divider sx={{ my: 3 }} />
-
-      {/* INNINGS LOOP */}
 
       {innings.map((inn: any) => {
 
@@ -74,171 +68,43 @@ export default function MatchDetailPanel({ match }: MatchDetailPanelProps) {
           .map((p: any) => p.player_name)
           .filter((name: string) => !playersWhoBatted.has(name));
 
-        // Run Rate Calculation
         const runRate =
           inn.overs && inn.runs
             ? (inn.runs / inn.overs).toFixed(2)
             : null;
 
         return (
-
           <Box key={inn.id} sx={{ mb: 6 }}>
 
-            {/* INNINGS HEADER */}
+            <Typography variant="h5" sx={{ mb: 1 }}>
+              {formatName(inn.team_name)} Innings
+            </Typography>
 
-            <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {inn.runs}/{inn.wickets} ({inn.overs} Ov) • CRR: {runRate} • Extras: {inn.extras ?? 0}
+            </Typography>
 
-              <Typography variant="h5">
-                {formatName(inn.team_name)} — {inn.runs}/{inn.wickets} ({inn.overs} Ov)
-              </Typography>
+            <Grid container spacing={3} alignItems="stretch" sx={{ mb: 3 }}>
 
-              <Typography variant="body2" color="text.secondary">
-                CRR: {runRate} • Extras: {inn.extras ?? 0}
-              </Typography>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: "flex" }}>
+                <BattingTable battingStats={battingStats} />
+              </Grid>
 
-            </Box>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: "flex" }}>
+                <BowlingTable bowlingStats={bowlingStats} />
+              </Grid>
 
-            {/* ========================= */}
-            {/* BATTING TABLE */}
-            {/* ========================= */}
-
-            <TableContainer component={Paper} sx={{ mb: 3 }}>
-
-              <Typography variant="h6" sx={{ p: 2 }}>
-                Batting
-              </Typography>
-
-              <Table size="small">
-
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Batsman</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>R</TableCell>
-                    <TableCell>B</TableCell>
-                    <TableCell>4s</TableCell>
-                    <TableCell>6s</TableCell>
-                    <TableCell>SR</TableCell>
-                  </TableRow>
-                </TableHead>
-
-                <TableBody>
-
-                  {battingStats.map((batsman: any, index: number) => (
-
-                    <TableRow key={index}>
-
-                      <TableCell>
-                        {formatName(batsman.player_name)}
-                      </TableCell>
-
-                      <TableCell>
-                        {batsman.dismissal ?? "not out"}
-                      </TableCell>
-
-                      <TableCell>{batsman.runs}</TableCell>
-                      <TableCell>{batsman.balls}</TableCell>
-                      <TableCell>{batsman.fours}</TableCell>
-                      <TableCell>{batsman.sixes}</TableCell>
-                      <TableCell>{batsman.strike_rate}</TableCell>
-
-                    </TableRow>
-
-                  ))}
-
-                </TableBody>
-
-              </Table>
-
-            </TableContainer>
-
-            {/* ========================= */}
-            {/* YET TO BAT */}
-            {/* ========================= */}
+            </Grid>
 
             {yetToBat.length > 0 && (
-
               <Typography sx={{ mb: 3 }}>
-                Yet to Bat: {yetToBat.map(formatName).join(", ")}
+                <strong>Yet to Bat:</strong> {yetToBat.map(formatName).join(", ")}
               </Typography>
-
             )}
 
-            {/* ========================= */}
-            {/* BOWLING TABLE */}
-            {/* ========================= */}
-
-            <TableContainer component={Paper} sx={{ mb: 3 }}>
-
-              <Typography variant="h6" sx={{ p: 2 }}>
-                Bowling
-              </Typography>
-
-              <Table size="small">
-
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Bowler</TableCell>
-                    <TableCell>Overs</TableCell>
-                    <TableCell>M</TableCell>
-                    <TableCell>Runs</TableCell>
-                    <TableCell>Wkts</TableCell>
-                    <TableCell>Eco</TableCell>
-                  </TableRow>
-                </TableHead>
-
-                <TableBody>
-
-                  {bowlingStats.map((bowler: any, index: number) => (
-
-                    <TableRow key={index}>
-
-                      <TableCell>
-                        {formatName(bowler.player_name)}
-                      </TableCell>
-
-                      <TableCell>{bowler.overs}</TableCell>
-                      <TableCell>{bowler.maidens}</TableCell>
-                      <TableCell>{bowler.runs}</TableCell>
-                      <TableCell>{bowler.wickets}</TableCell>
-                      <TableCell>{bowler.economy}</TableCell>
-
-                    </TableRow>
-
-                  ))}
-
-                </TableBody>
-
-              </Table>
-
-            </TableContainer>
-
-            {/* ========================= */}
-            {/* FALL OF WICKETS */}
-            {/* ========================= */}
-
-            {fallOfWickets.length > 0 && (
-
-              <Box>
-
-                <Typography variant="h6" sx={{ mb: 1 }}>
-                  Fall of Wickets
-                </Typography>
-
-                {fallOfWickets.map((f: any, i: number) => (
-
-                  <Typography key={i} variant="body2">
-                    {f.score}/{f.wicket_number} — {formatName(f.batsman)} ({f.over})
-                  </Typography>
-
-                ))}
-
-              </Box>
-
-            )}
+            <FallOfWickets fallOfWickets={fallOfWickets} />
 
           </Box>
-
         );
 
       })}

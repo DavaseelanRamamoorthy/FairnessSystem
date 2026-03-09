@@ -1,6 +1,5 @@
 import "./globals.css";
-
-import ThemeRegistry from "./theme/ThemeRegistry";
+import {ThemeProvider} from "@/app/themes/minimal/theme-provider";
 import DashboardLayout from "./layout/DashboardLayout";
 
 export default function RootLayout({
@@ -11,15 +10,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-
-        <ThemeRegistry>
-
+        <ThemeProvider>
           <DashboardLayout>
             {children}
           </DashboardLayout>
-
-        </ThemeRegistry>
-
+        </ThemeProvider>
       </body>
     </html>
   );

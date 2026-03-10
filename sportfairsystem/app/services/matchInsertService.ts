@@ -1,7 +1,11 @@
-import { supabase } from "./supabaseClient";
+import {
+  currentTeamName,
+  currentTeamPrefix
+} from "../config/teamConfig";
 import { ParsedMatch } from "../types/match.types";
-
-const CURRENT_TEAM = "Moonwalkers";
+import { buildMatchId } from "./matchIdService";
+import { supabase } from "./supabaseClient";
+import { isMatchForCurrentTeam } from "./teamValidationService";
 
 const normalizeName = (name: string) =>
   name
@@ -13,22 +17,22 @@ const normalizeName = (name: string) =>
 export async function saveMatchToDatabase(
   parsed: ParsedMatch
 ) {
-  // =========================
-  // 1️⃣ Fetch Team ID
-  // =========================
+  if (!isMatchForCurrentTeam(parsed, currentTeamName)) {
+    throw new Error(`This scorecard does not include ${currentTeamName}.`);
+  }
+
+  // 1. Fetch team ID
   const { data: teamData, error: teamError } = await supabase
     .from("teams")
     .select("id")
-    .eq("name", CURRENT_TEAM)
+    .eq("name", currentTeamName)
     .single();
 
   if (teamError || !teamData) {
     throw new Error("Team not found.");
   }
 
-  // =========================
-  // 2️⃣ Duplicate Check
-  // =========================
+  // 2. Duplicate check
   const { data: existingMatch } = await supabase
     .from("matches")
     .select("id")
@@ -41,31 +45,47 @@ export async function saveMatchToDatabase(
     throw new Error("Match already exists.");
   }
 
-  // =========================
-  // 3️⃣ Insert Match
-  // =========================
+  // 3. Generate match ID
+  const { count: sameDayMatchCount, error: countError } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("match_date", parsed.matchDate)
+    .eq("team_id", teamData.id);
+
+  if (countError) throw countError;
+
+  const generatedMatchId = buildMatchId(
+    currentTeamPrefix,
+    parsed.matchDate,
+    sameDayMatchCount ?? 0
+  );
+
+  // 4. Insert match
+  const baseMatchPayload = {
+    team_id: teamData.id,
+    match_date: parsed.matchDate,
+    opponent_name:
+      parsed.teamA === currentTeamName
+        ? parsed.teamB
+        : parsed.teamA,
+    team_a: parsed.teamA,
+    team_b: parsed.teamB,
+    winner: parsed.winner,
+    result: parsed.matchResult
+  };
+
   const { data: match, error: matchError } = await supabase
     .from("matches")
     .insert({
-      team_id: teamData.id,
-      match_date: parsed.matchDate,
-      opponent_name:
-        parsed.teamA === CURRENT_TEAM
-          ? parsed.teamB
-          : parsed.teamA,
-      team_a: parsed.teamA,
-      team_b: parsed.teamB,
-      winner: parsed.winner,
-      result: parsed.matchResult
+      ...baseMatchPayload,
+      match_code: generatedMatchId
     })
     .select()
     .single();
 
   if (matchError || !match) throw matchError;
 
-  // =========================
-  // 4️⃣ Insert Innings
-  // =========================
+  // 5. Insert innings
   for (const inn of parsed.innings) {
     const { data: inningsRow, error: inningsError } =
       await supabase
@@ -83,16 +103,14 @@ export async function saveMatchToDatabase(
 
     if (inningsError || !inningsRow) throw inningsError;
 
-    // =========================
-    // 5️⃣ Batting Stats
-    // =========================
-
+    // 6. Insert batting stats
     const battingNames: string[] = [];
 
     if (inn.battingStats) {
       for (const bat of inn.battingStats) {
         const normalized = normalizeName(bat.player_name);
         battingNames.push(normalized);
+
         await supabase.from("batting_stats").insert({
           innings_id: inningsRow.id,
           player_name: normalized,
@@ -106,9 +124,7 @@ export async function saveMatchToDatabase(
       }
     }
 
-    // =========================
-    // 6️⃣ Bowling Stats
-    // =========================
+    // 7. Insert bowling stats
     const opponentInnings = parsed.innings.find(
       (other) => other.teamName !== inn.teamName
     );
@@ -117,8 +133,7 @@ export async function saveMatchToDatabase(
 
     if (opponentInnings?.bowlingStats) {
       for (const bowl of opponentInnings.bowlingStats) {
-        const normalized = normalizeName(bowl.player_name);
-        bowlingNames.push(normalized);
+        bowlingNames.push(normalizeName(bowl.player_name));
       }
     }
 
@@ -136,9 +151,7 @@ export async function saveMatchToDatabase(
       }
     }
 
-    // =========================
-    // 7️⃣ Fall of Wickets
-    // =========================
+    // 8. Insert fall of wickets
     if (inn.fallOfWickets) {
       for (const f of inn.fallOfWickets) {
         await supabase.from("fall_of_wickets").insert({
@@ -151,9 +164,7 @@ export async function saveMatchToDatabase(
       }
     }
 
-    // =========================
-    // 8️⃣ Insert match_players
-    // =========================
+    // 9. Insert match players
     if (inn.playing11) {
       const playerRows = inn.playing11.map((player: string) => {
         const normalized = normalizeName(player);
@@ -171,5 +182,8 @@ export async function saveMatchToDatabase(
     }
   }
 
-  return match;
+  return {
+    ...match,
+    match_code: match.match_code ?? generatedMatchId
+  };
 }

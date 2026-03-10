@@ -82,7 +82,12 @@ export async function parseMatchFromBase64(
   // ============================
 
   const normalize = (str: string) =>
-    str.toLowerCase().replace(/\s+/g, "").trim();
+  str
+    .toLowerCase()
+    .replace(/\(.*?\)/g, "") // remove (wk), (c)
+    .replace(/[^a-z\s]/g, "") // remove symbols like *
+    .trim()
+    .replace(/\s+/g, " ");
 
   let matchResult: "Won" | "Lost" | "Unknown" = "Unknown";
 

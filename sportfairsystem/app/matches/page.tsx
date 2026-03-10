@@ -1,42 +1,57 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
-  Stack,
   Paper,
   Button,
-  Modal,
   Snackbar,
   CircularProgress
 } from "@mui/material";
 
+import MatchesTable from "@/app/components/matches/MatchesTable";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
+import MatchPreviewModal from "@/app/components/matches/MatchPreviewModal";
 
 import { parseMatchFromBase64 } from "@/app/services/pdfParser";
 import { supabase } from "@/app/services/supabaseClient";
 import { saveMatchToDatabase } from "@/app/services/matchInsertService";
+import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
+import { cleanName } from "@/app/services/cleanName";
+import { buildMatchId } from "@/app/services/matchIdService";
+import { isMatchForCurrentTeam } from "@/app/services/teamValidationService";
 
-import { currentTeamName } from "@/app/config/teamConfig";
+type Match = {
+  id: string;
+  match_date: string | null;
+  opponent_name: string | null;
+  result: string | null;
+  match_code?: string | null;
+  [key: string]: any;
+};
 
-type Match = Record<string, any>;
+type PreviewPlayer = {
+  name: string;
+  exists: boolean;
+};
 
 export default function MatchesPage() {
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [previewMatch, setPreviewMatch] = useState<any | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // ============================
-  // Load Matches
-  // ============================
+  const [previewMatch, setPreviewMatch] = useState<any | null>(null);
+  const [previewPlayers, setPreviewPlayers] = useState<PreviewPlayer[]>([]);
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  /* --------------------------------
+     LOAD MATCHES
+  -------------------------------- */
 
   const loadMatchesFromDB = async () => {
 
@@ -67,9 +82,64 @@ export default function MatchesPage() {
     loadMatchesFromDB();
   }, []);
 
-  // ============================
-  // File Upload
-  // ============================
+  /* --------------------------------
+     PLAYER DETECTION
+  -------------------------------- */
+
+  const detectPlayers = useCallback(async (parsedMatch: any) => {
+
+    const playerSet = new Set<string>();
+
+    const ourInnings = parsedMatch.innings?.find(
+      (inn: any) => inn.teamName === currentTeamName
+    );
+
+    const opponentInnings = parsedMatch.innings?.find(
+      (inn: any) => inn.teamName !== currentTeamName
+    );
+
+    if (ourInnings) {
+
+      ourInnings.battingStats?.forEach((b: any) => {
+        if (b.player_name) {
+          playerSet.add(cleanName(b.player_name));
+        }
+      });
+
+    }
+
+    if (opponentInnings) {
+
+      opponentInnings.bowlingStats?.forEach((b: any) => {
+        if (b.player_name) {
+          playerSet.add(cleanName(b.player_name));
+        }
+      });
+
+    }
+
+    const players = Array.from(playerSet);
+
+    const { data: dbPlayers } = await supabase
+      .from("players")
+      .select("name");
+
+    const dbSet = new Set(
+      (dbPlayers || []).map((p: any) => cleanName(p.name))
+    );
+
+    const result: PreviewPlayer[] = players.map((name) => ({
+      name,
+      exists: dbSet.has(name)
+    }));
+
+    setPreviewPlayers(result);
+
+  }, []);
+
+  /* --------------------------------
+     FILE UPLOAD
+  -------------------------------- */
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -85,7 +155,6 @@ export default function MatchesPage() {
       if (typeof reader.result !== "string") return;
 
       const base64 = reader.result.split(",")[1];
-      if (!base64) return;
 
       setIsProcessing(true);
 
@@ -95,19 +164,29 @@ export default function MatchesPage() {
       );
 
       if (parsed) {
+        if (!isMatchForCurrentTeam(parsed, currentTeamName)) {
+          setToastMessage(`This scorecard does not include ${currentTeamName}.`);
+          setIsProcessing(false);
+          return;
+        }
+
         setPreviewMatch(parsed);
+
+        await detectPlayers(parsed);
+
       }
 
       setIsProcessing(false);
+
     };
 
     reader.readAsDataURL(file);
 
   };
 
-  // ============================
-  // Save Match
-  // ============================
+  /* --------------------------------
+     SAVE MATCH
+  -------------------------------- */
 
   const handleSaveMatch = async () => {
 
@@ -119,7 +198,7 @@ export default function MatchesPage() {
 
       await saveMatchToDatabase(previewMatch);
 
-      setToastMessage("Match saved successfully.");
+      setToastMessage("Match saved successfully");
 
       setPreviewMatch(null);
 
@@ -137,85 +216,116 @@ export default function MatchesPage() {
 
   };
 
+  /* --------------------------------
+     YET TO BAT
+  -------------------------------- */
+
+  const getYetToBat = (innings: any) => {
+
+    if (!innings) return [];
+    if (innings.teamName !== currentTeamName) return [];
+
+    const battingNames =
+      innings?.battingStats?.map((p: any) =>
+        cleanName(p.player_name)
+      ) || [];
+
+    return previewPlayers
+      .map((p) => p.name)
+      .filter((name) => !battingNames.includes(name));
+
+  };
+
+  const getPreviewMatchId = () => {
+
+    if (!previewMatch) {
+      return buildMatchId(currentTeamPrefix, null);
+    }
+
+    const sameDayMatches = matches.filter(
+      (match) => match.match_date === previewMatch.matchDate
+    ).length;
+
+    return buildMatchId(
+      currentTeamPrefix,
+      previewMatch?.matchDate ?? null,
+      sameDayMatches
+    );
+
+  };
+
+  /* --------------------------------
+     PAGE UI
+  -------------------------------- */
+
   return (
 
-    <Box>
+    <Box
+      sx={{
+        height: { md: "calc(100vh - 128px)" },
+        display: "flex",
+        flexDirection: "column",
+        overflow: { md: "hidden" }
+      }}
+    >
 
-      {/* PAGE TITLE */}
-
-      <Typography variant="h4" sx={{ mb: 4 }}>
+      <Typography variant="h4" sx={{ mb: 3 }}>
         Matches
       </Typography>
 
-      <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "minmax(320px, 30%) minmax(0, 1fr)" },
+          gap: 3,
+          alignItems: "start",
+          flex: 1,
+          minHeight: 0
+        }}
+      >
 
-        {/* ============================ */}
-        {/* LEFT COLUMN — MATCH LIST */}
-        {/* ============================ */}
+        {/* MATCH LIST */}
 
-        <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 30%" } }}>
+        <Box
+          sx={{
+            minWidth: 0,
+            position: { md: "sticky" },
+            top: { md: 24 },
+            height: { md: "100%" },
+            minHeight: 0
+          }}
+        >
 
-          <Stack spacing={2}>
-
-            {matches.map((match) => (
-
-              <Card
-                key={match.id}
-                onClick={() => setSelectedMatch(match)}
-                sx={{
-                  cursor: "pointer",
-                  border:
-                    selectedMatch?.id === match.id
-                      ? "2px solid"
-                      : "1px solid transparent",
-                  borderColor:
-                    selectedMatch?.id === match.id
-                      ? "primary.main"
-                      : "transparent"
-                }}
-              >
-
-                <CardContent>
-
-                  <Typography variant="body2" color="text.secondary">
-                    {match.match_date}
-                  </Typography>
-
-                  <Typography variant="h6">
-                    vs {match.opponent_name}
-                  </Typography>
-
-                  <Typography
-                    color={
-                      match.result === "Won"
-                        ? "success.main"
-                        : "error.main"
-                    }
-                  >
-                    {match.result}
-                  </Typography>
-
-                </CardContent>
-
-              </Card>
-
-            ))}
-
-          </Stack>
+          <MatchesTable
+            rows={matches}
+            selectedMatchId={selectedMatch?.id}
+            onSelectMatch={(match) => setSelectedMatch(match)}
+          />
 
         </Box>
 
-        {/* ============================ */}
-        {/* RIGHT COLUMN — SCORECARD */}
-        {/* ============================ */}
+        {/* SCORECARD VIEW */}
 
-        <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 65%" } }}>
+        <Box
+          sx={{
+            minWidth: 0,
+            minHeight: 0,
+            height: { md: "100%" }
+          }}
+        >
 
-          <Paper sx={{ p: 4, minHeight: 500 }}>
+          <Paper
+            sx={{
+              p: 4,
+              minHeight: { xs: 500, md: 0 },
+              height: { md: "100%" },
+              overflowY: { md: "auto" }
+            }}
+          >
 
             {!selectedMatch ? (
 
-              <Typography variant="h5" color="text.secondary">
+              <Typography color="text.secondary">
                 Click a match to view full scorecard
               </Typography>
 
@@ -231,15 +341,12 @@ export default function MatchesPage() {
 
       </Box>
 
-      {/* ============================ */}
-      {/* FILE UPLOAD BUTTON */}
-      {/* ============================ */}
+      {/* UPLOAD BUTTON */}
 
       <Box sx={{ position: "fixed", bottom: 30, right: 30 }}>
 
         <Button
           variant="contained"
-          size="large"
           component="label"
         >
 
@@ -256,60 +363,19 @@ export default function MatchesPage() {
 
       </Box>
 
-      {/* ============================ */}
-      {/* PREVIEW MODAL */}
-      {/* ============================ */}
+      {/* MATCH PREVIEW MODAL */}
 
-      <Modal
+      <MatchPreviewModal
         open={!!previewMatch}
+        previewMatch={previewMatch}
+        previewMatchId={previewMatch ? getPreviewMatchId() : currentTeamPrefix}
+        previewPlayers={previewPlayers}
         onClose={() => setPreviewMatch(null)}
-      >
+        onSave={handleSaveMatch}
+        getYetToBat={getYetToBat}
+      />
 
-        <Box
-          sx={{
-            bgcolor: "background.paper",
-            p: 4,
-            borderRadius: 3,
-            width: "90%",
-            maxWidth: 700,
-            mx: "auto",
-            mt: "10vh"
-          }}
-        >
-
-          <Typography variant="h4" gutterBottom>
-            Match Preview
-          </Typography>
-
-          <Stack
-            direction="row"
-            spacing={2}
-            justifyContent="flex-end"
-          >
-
-            <Button
-              variant="outlined"
-              onClick={() => setPreviewMatch(null)}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              variant="contained"
-              onClick={handleSaveMatch}
-            >
-              Save Match
-            </Button>
-
-          </Stack>
-
-        </Box>
-
-      </Modal>
-
-      {/* ============================ */}
       {/* LOADER */}
-      {/* ============================ */}
 
       {isProcessing && (
 
@@ -330,9 +396,7 @@ export default function MatchesPage() {
 
       )}
 
-      {/* ============================ */}
       {/* TOAST */}
-      {/* ============================ */}
 
       <Snackbar
         open={!!toastMessage}

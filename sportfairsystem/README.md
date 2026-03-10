@@ -1,58 +1,87 @@
+# SportFairSystem
 
-Architecture principle:
-> Parsing logic must remain independent of React state and UI concerns.
+SportFairSystem is a cricket data platform that converts unstructured scorecard PDFs into structured match intelligence. It is being built to help teams move from static match documents to searchable data, team dashboards, player tracking, and eventually fairness-driven analytics.
 
----
+## Core Principle
 
-## 🛠 Tech Stack
+Parsing logic must remain independent of React state and UI concerns.
 
-- Next.js (App Router)
+## What The Project Does
+
+The current product focuses on a practical workflow:
+
+1. Upload a cricket scorecard PDF.
+2. Extract structured match data from the document.
+3. Store the parsed match in Supabase.
+4. Surface team and player insights through the dashboard.
+
+This creates the foundation for deeper analytics such as player evaluation, trend analysis, and fairness scoring.
+
+## Current Capabilities
+
+- Parse cricket scorecard PDFs into structured match data
+- Extract match metadata, innings summaries, batting stats, bowling stats, extras, and fall of wickets
+- Preview parsed scorecards before saving
+- Detect known vs new players during match import
+- Store match records and innings data in Supabase
+- Show dashboard KPIs such as matches played, win rate, top run scorer, and top wicket taker
+- Display recent matches, leaderboards, and performance trend charts
+
+## Architecture Overview
+
+The project is built with a separation between UI, services, and data access so the parsing and business logic can evolve without being tightly coupled to the frontend.
+
+### Main Layers
+
+- UI layer: Next.js pages, layout, tables, charts, and scorecard views
+- Service layer: PDF parsing, match insertion, querying, formatting, and stats aggregation
+- Data layer: Supabase tables for matches, innings, batting stats, bowling stats, fall of wickets, and match players
+
+## Tech Stack
+
+- Next.js App Router
 - React
 - TypeScript
+- Material UI
+- Supabase
 - PDF.js
-- Tailwind CSS
-- Lucide Icons
+- Recharts
 
----
+## Current Product State
 
-## 🔮 Roadmap
+The project is already functional in its core ingestion and dashboard flow:
 
-### Phase 1 (Completed)
-- PDF parsing engine
-- Structured innings extraction
-- Typed match model
-- Clean service architecture
+- Dashboard is implemented
+- Match import and preview flow is implemented
+- Match detail rendering is implemented
 
-### Phase 2 (Next)
-- Database integration (multi-team architecture)
-- Persistent match storage
-- Player analytics engine
-- Fairness scoring algorithm
+The broader platform is still in progress:
 
-### Phase 3
-- Multi-team SaaS system
-- Admin dashboard
-- Role-based access
-- Season analytics
-- API layer
+- Player management is still basic
+- Season analytics is still limited
+- Fairness scoring is not implemented yet
+- Multi-team SaaS support is planned but not built
 
----
+## Vision
 
-## 🧩 Vision
+SportFairSystem is intended to grow beyond a single-team tracker into a scalable sports intelligence platform. The long-term goal is to support multiple teams, seasons, competitions, player analytics, and a fairness scoring model that helps evaluate opportunity, contribution, and performance more objectively.
 
-SportFairSystem is being built not as a single-team prototype,
-but as a scalable sports intelligence platform capable of supporting multiple teams, seasons, and competitions.
+## Roadmap
 
-The long-term goal is to transform unstructured scorecard PDFs into structured performance intelligence.
+### Near Term
 
----
+- Strengthen player management and identity resolution
+- Expand analytics beyond basic leaderboards and trends
+- Improve validation around PDF ingestion and duplicate detection
+- Reduce hardcoded single-team assumptions
 
-## ⚠️ Development Status
+### Next Phase
 
-Active development.
-Architecture-first approach.
-Designed for scalability and future SaaS expansion.
+- Introduce fairness scoring logic
+- Add deeper player and season analytics
+- Support multiple teams and competitions
+- Add an API layer and stronger admin workflows
 
----
+## Summary
 
-Built with precision and long-term scalability in mind.
+SportFairSystem turns cricket scorecard PDFs into structured performance intelligence. Today it is a strong foundation for match ingestion, storage, and team analytics. The long-term goal is to evolve that foundation into a fairness-focused sports intelligence platform.

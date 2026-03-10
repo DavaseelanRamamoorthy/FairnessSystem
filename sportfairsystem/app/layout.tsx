@@ -1,5 +1,6 @@
 import "./globals.css";
-import {ThemeProvider} from "@/app/themes/minimal/theme-provider";
+import { ThemeProvider } from "@/app/themes/minimal/theme-provider";
+import { EmotionCacheProvider } from "@/app/themes/minimal/emotion-cache";
 import DashboardLayout from "./layout/DashboardLayout";
 
 export default function RootLayout({
@@ -10,11 +11,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ThemeProvider>
-          <DashboardLayout>
-            {children}
-          </DashboardLayout>
-        </ThemeProvider>
+        <EmotionCacheProvider>
+          <ThemeProvider>
+            <DashboardLayout>
+              {children}
+            </DashboardLayout>
+          </ThemeProvider>
+        </EmotionCacheProvider>
       </body>
     </html>
   );

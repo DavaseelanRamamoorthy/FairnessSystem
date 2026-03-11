@@ -10,27 +10,25 @@ import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Table from "@mui/material/Table";
+import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 import TableBody from "@mui/material/TableBody";
 import Chip from "@mui/material/Chip";
+import Box from "@mui/material/Box";
 
 import SportsCricketIcon from "@mui/icons-material/SportsCricket";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 
-
 import { currentTeamName } from "@/app/config/teamConfig";
-
 import DashboardCard from "@/app/components/dashboard/dashboardCard";
 import SectionHeader from "@/app/components/dashboard/SectionHeader";
 import RunsTrendChart from "@/app/components/dashboard/RunsTrendChart";
 import WicketsTrendChart from "@/app/components/dashboard/WicketsTrendChart";
-
 import { formatName } from "@/app/services/formatname";
 import { formatDate } from "@/app/utils/formatDate";
-
 import {
   getMatchesPlayed,
   getWinRate,
@@ -41,13 +39,12 @@ import {
   getRunsPerMatch,
   getWicketsPerMatch
 } from "@/app/services/statsService";
-
 import { supabase } from "@/app/services/supabaseClient";
+import { getOpponentName } from "@/app/utils/matchOpponent";
 
 type Match = Record<string, any>;
 
 export default function DashboardPage() {
-
   const [matchesPlayed, setMatchesPlayed] = useState(0);
   const [winRate, setWinRate] = useState(0);
   const [topRunScorer, setTopRunScorer] = useState<any>(null);
@@ -60,7 +57,6 @@ export default function DashboardPage() {
   const [wicketsTrend, setWicketsTrend] = useState<any[]>([]);
 
   const loadDashboardStats = async () => {
-
     const matchesPlayedValue = await getMatchesPlayed();
     const winRateValue = await getWinRate();
     const runScorer = await getTopRunScorer();
@@ -80,11 +76,9 @@ export default function DashboardPage() {
     setWicketLeaders(wickets);
     setRunsTrend(runs);
     setWicketsTrend(wicketsTrendData);
-
   };
 
   const loadMatches = async () => {
-
     const { data, error } = await supabase
       .from("matches")
       .select("*")
@@ -95,104 +89,84 @@ export default function DashboardPage() {
       return;
     }
 
-    setMatches(data || []);
+    setMatches(
+      (data || []).map((match) => ({
+        ...match,
+        opponent_name: getOpponentName(match.team_a, match.team_b, currentTeamName)
+      }))
+    );
   };
 
   useEffect(() => {
-    loadDashboardStats();
-    loadMatches();
+    const initializeDashboard = async () => {
+      await Promise.all([
+        loadDashboardStats(),
+        loadMatches()
+      ]);
+    };
+
+    void initializeDashboard();
   }, []);
 
   const recentMatches = matches.slice(0, 5);
 
   return (
-
-
-      <Container maxWidth="xl">
-
-        <Stack spacing={4}>
-
-          {/* HEADER */}
-
-          <Stack spacing={1}>
-
-            <Typography variant="h4">
-              Team Dashboard
-            </Typography>
-
-            <Typography variant="body2" color="text.secondary">
-              Overview of team performance, match statistics and player contributions.
-            </Typography>
-
-          </Stack>
-
-
-          {/* KPI CARDS */}
-
-          <Grid container spacing={3}>
-
-            <Grid size={{ xs: 12, md: 3 }}>
-              <DashboardCard
-                title="Matches Played"
-                value={matchesPlayed}
-                icon={<SportsCricketIcon color="primary" />}
-                color="primary"
-                trend={[2,3,4,3,5,6,4]}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 3 }}>
-              <DashboardCard
-                title="Win Ratio"
-                value={`${winRate}%`}
-                icon={<TrendingUpIcon color="success" />}
-                color="success"
-                trend={[40,45,50,55,60,65,70]}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 3 }}>
-              <DashboardCard
-                title="Top Run Scorer"
-                value={
-                  topRunScorer
-                    ? `${formatName(topRunScorer.player)} — ${topRunScorer.runs}`
-                    : "-"
-                }
-                icon={<EmojiEventsIcon color="warning" />}
-                color="warning"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 3 }}>
-              <DashboardCard
-                title="Top Wicket Taker"
-                value={
-                  topWicketTaker
-                    ? `${formatName(topWicketTaker.player)} — ${topWicketTaker.wickets}`
-                    : "-"
-                }
-                icon={<EmojiEventsIcon color="secondary" />}
-                color="secondary"
-              />
-            </Grid>
-
+    <Container maxWidth="xl">
+      <Stack spacing={4}>
+        <Grid container spacing={3} alignItems="stretch">
+          <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
+            <DashboardCard
+              title="Matches Played"
+              value={matchesPlayed}
+              icon={<SportsCricketIcon color="primary" />}
+              color="primary"
+              trend={[2, 3, 4, 3, 5, 6, 4]}
+              layout="metric"
+            />
           </Grid>
 
+          <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
+            <DashboardCard
+              title="Win Ratio"
+              value={`${winRate}%`}
+              icon={<TrendingUpIcon color="success" />}
+              color="success"
+              trend={[40, 45, 50, 55, 60, 65, 70]}
+              layout="metric"
+            />
+          </Grid>
 
-          {/* LEADERBOARDS */}
+          <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
+            <DashboardCard
+              title="Top Run Scorer"
+              value={topRunScorer ? formatName(topRunScorer.player) : "-"}
+              icon={<EmojiEventsIcon color="warning" />}
+              color="warning"
+              layout="leader"
+            />
+          </Grid>
 
-          <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
+            <DashboardCard
+              title="Top Wicket Taker"
+              value={topWicketTaker ? formatName(topWicketTaker.player) : "-"}
+              icon={<EmojiEventsIcon color="secondary" />}
+              color="secondary"
+              layout="leader"
+            />
+          </Grid>
+        </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card>
-
-                <CardContent>
-
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
+              <CardContent sx={{ p: 0 }}>
+                <Box sx={{ px: 3, pt: 3, pb: 2 }}>
                   <SectionHeader title="Top Run Leaders" />
+                </Box>
 
+                <TableContainer>
                   <Table>
-
                     <TableHead>
                       <TableRow>
                         <TableCell>Rank</TableCell>
@@ -202,18 +176,13 @@ export default function DashboardPage() {
                     </TableHead>
 
                     <TableBody>
-
                       {runLeaders.map((player, index) => (
-
                         <TableRow key={player.player}>
-
                           <TableCell>
-
                             {index === 0 && <EmojiEventsIcon sx={{ color: "#FFD700" }} />}
                             {index === 1 && <EmojiEventsIcon sx={{ color: "#C0C0C0" }} />}
                             {index === 2 && <EmojiEventsIcon sx={{ color: "#CD7F32" }} />}
                             {index > 2 && index + 1}
-
                           </TableCell>
 
                           <TableCell>
@@ -227,32 +196,24 @@ export default function DashboardPage() {
                               {player.runs}
                             </Typography>
                           </TableCell>
-
                         </TableRow>
-
                       ))}
-
                     </TableBody>
-
                   </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          </Grid>
 
-                </CardContent>
-
-              </Card>
-
-            </Grid>
-
-
-            <Grid size={{ xs: 12, md: 6 }}>
-
-              <Card>
-
-                <CardContent>
-
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
+              <CardContent sx={{ p: 0 }}>
+                <Box sx={{ px: 3, pt: 3, pb: 2 }}>
                   <SectionHeader title="Top Wicket Leaders" />
+                </Box>
 
+                <TableContainer>
                   <Table>
-
                     <TableHead>
                       <TableRow>
                         <TableCell>Rank</TableCell>
@@ -262,18 +223,13 @@ export default function DashboardPage() {
                     </TableHead>
 
                     <TableBody>
-
                       {wicketLeaders.map((player, index) => (
-
                         <TableRow key={player.player}>
-
                           <TableCell>
-
                             {index === 0 && <EmojiEventsIcon sx={{ color: "#FFD700" }} />}
                             {index === 1 && <EmojiEventsIcon sx={{ color: "#C0C0C0" }} />}
                             {index === 2 && <EmojiEventsIcon sx={{ color: "#CD7F32" }} />}
                             {index > 2 && index + 1}
-
                           </TableCell>
 
                           <TableCell>
@@ -287,75 +243,55 @@ export default function DashboardPage() {
                               {player.wickets}
                             </Typography>
                           </TableCell>
-
                         </TableRow>
-
                       ))}
-
                     </TableBody>
-
                   </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
 
-                </CardContent>
-
-              </Card>
-
-            </Grid>
-
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
+              <CardContent>
+                <SectionHeader title="Runs Trend" />
+                <RunsTrendChart data={runsTrend} />
+              </CardContent>
+            </Card>
           </Grid>
 
-
-          {/* CHARTS */}
-
-          <Grid container spacing={3}>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card>
-                <CardContent>
-                  <SectionHeader title="Runs Trend" />
-                  <RunsTrendChart data={runsTrend} />
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card>
-                <CardContent>
-                  <SectionHeader title="Wickets Trend" />
-                  <WicketsTrendChart data={wicketsTrend} />
-                </CardContent>
-              </Card>
-            </Grid>
-
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
+              <CardContent>
+                <SectionHeader title="Wickets Trend" />
+                <WicketsTrendChart data={wicketsTrend} />
+              </CardContent>
+            </Card>
           </Grid>
+        </Grid>
 
-
-          {/* RECENT MATCHES */}
-
-          <Card>
-
-            <CardContent>
-
+        <Card>
+          <CardContent sx={{ p: 0 }}>
+            <Box sx={{ px: 3, pt: 3, pb: 2 }}>
               <SectionHeader title="Recent Matches" />
+            </Box>
 
+            <TableContainer>
               <Table>
-
                 <TableHead>
-
                   <TableRow>
                     <TableCell>Date</TableCell>
                     <TableCell>Opponent</TableCell>
                     <TableCell>Result</TableCell>
                   </TableRow>
-
                 </TableHead>
 
                 <TableBody>
-
                   {recentMatches.map((match) => (
-
                     <TableRow key={match.id}>
-
                       <TableCell>
                         {formatDate(match.match_date)}
                       </TableCell>
@@ -365,7 +301,6 @@ export default function DashboardPage() {
                       </TableCell>
 
                       <TableCell>
-
                         {match.result === "Won" && (
                           <Chip label="Won" color="success" size="small" />
                         )}
@@ -377,25 +312,15 @@ export default function DashboardPage() {
                         {match.result === "Draw" && (
                           <Chip label="Draw" color="warning" size="small" />
                         )}
-
                       </TableCell>
-
                     </TableRow>
-
                   ))}
-
                 </TableBody>
-
               </Table>
-
-            </CardContent>
-
-          </Card>
-
-        </Stack>
-
-      </Container>
-
-
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Stack>
+    </Container>
   );
 }

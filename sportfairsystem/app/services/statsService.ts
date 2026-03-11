@@ -1,267 +1,314 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
+import { currentTeamName } from "@/app/config/teamConfig";
 import { supabase } from "./supabaseClient";
+import { getOpponentName } from "@/app/utils/matchOpponent";
 
-// ============================
-// Matches Played
-// ============================
+type MatchRow = {
+  id: string;
+  result: string | null;
+};
+
+type InningsRow = {
+  id: string;
+  match_id: string;
+  team_name: string | null;
+  runs: number | null;
+  wickets: number | null;
+  matches?: Array<{
+    team_a: string | null;
+    team_b: string | null;
+    match_date: string | null;
+  }> | null;
+};
+
+type BattingStatRow = {
+  player_name: string | null;
+  runs: number | null;
+};
+
+type BowlingStatRow = {
+  player_name: string | null;
+  wickets: number | null;
+};
+
+type TeamMatchContext = {
+  matchIds: string[];
+  battingInnings: InningsRow[];
+  bowlingInnings: InningsRow[];
+};
+
+function getMatchMeta(innings: InningsRow) {
+  return Array.isArray(innings.matches) ? innings.matches[0] : null;
+}
+
+async function getCurrentTeamId() {
+  const { data: teamData, error: teamError } = await supabase
+    .from("teams")
+    .select("id")
+    .eq("name", currentTeamName)
+    .single();
+
+  if (teamError || !teamData) {
+    throw new Error("Could not load the current team.");
+  }
+
+  return teamData.id as string;
+}
+
+async function getCurrentTeamMatches() {
+  const teamId = await getCurrentTeamId();
+
+  const { data, error } = await supabase
+    .from("matches")
+    .select("id, result")
+    .eq("team_id", teamId);
+
+  if (error) {
+    throw new Error("Could not load team matches.");
+  }
+
+  return (data ?? []) as MatchRow[];
+}
+
+async function getTeamMatchContext(): Promise<TeamMatchContext> {
+  const teamId = await getCurrentTeamId();
+
+  const { data: matchData, error: matchError } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("team_id", teamId);
+
+  if (matchError) {
+    throw new Error("Could not load team matches.");
+  }
+
+  const matchIds = (matchData ?? []).map((match) => match.id as string);
+
+  if (matchIds.length === 0) {
+    return {
+      matchIds: [],
+      battingInnings: [],
+      bowlingInnings: []
+    };
+  }
+
+  const { data: inningsData, error: inningsError } = await supabase
+    .from("innings")
+    .select(`
+      id,
+      match_id,
+      team_name,
+      runs,
+      wickets,
+      matches (
+        team_a,
+        team_b,
+        match_date
+      )
+    `)
+    .in("match_id", matchIds);
+
+  if (inningsError) {
+    throw new Error("Could not load innings context.");
+  }
+
+  const innings = (inningsData ?? []) as InningsRow[];
+
+  return {
+    matchIds,
+    battingInnings: innings.filter((row) => row.team_name === currentTeamName),
+    bowlingInnings: innings.filter((row) => row.team_name !== currentTeamName)
+  };
+}
+
+async function getAggregatedBattingTotals() {
+  const { battingInnings } = await getTeamMatchContext();
+  const inningsIds = battingInnings.map((innings) => innings.id);
+
+  if (inningsIds.length === 0) {
+    return [] as Array<{ player: string; runs: number }>;
+  }
+
+  const { data, error } = await supabase
+    .from("batting_stats")
+    .select("player_name, runs")
+    .in("innings_id", inningsIds);
+
+  if (error) {
+    throw new Error("Could not load batting statistics.");
+  }
+
+  const totals: Record<string, number> = {};
+
+  ((data ?? []) as BattingStatRow[]).forEach((row) => {
+    const player = row.player_name?.trim();
+
+    if (!player) {
+      return;
+    }
+
+    totals[player] = (totals[player] ?? 0) + (row.runs ?? 0);
+  });
+
+  return Object.entries(totals)
+    .map(([player, runs]) => ({ player, runs }))
+    .sort((left, right) => right.runs - left.runs);
+}
+
+async function getAggregatedBowlingTotals() {
+  const { bowlingInnings } = await getTeamMatchContext();
+  const inningsIds = bowlingInnings.map((innings) => innings.id);
+
+  if (inningsIds.length === 0) {
+    return [] as Array<{ player: string; wickets: number }>;
+  }
+
+  const { data, error } = await supabase
+    .from("bowling_stats")
+    .select("player_name, wickets")
+    .in("innings_id", inningsIds);
+
+  if (error) {
+    throw new Error("Could not load bowling statistics.");
+  }
+
+  const totals: Record<string, number> = {};
+
+  ((data ?? []) as BowlingStatRow[]).forEach((row) => {
+    const player = row.player_name?.trim();
+
+    if (!player) {
+      return;
+    }
+
+    totals[player] = (totals[player] ?? 0) + (row.wickets ?? 0);
+  });
+
+  return Object.entries(totals)
+    .map(([player, wickets]) => ({ player, wickets }))
+    .sort((left, right) => right.wickets - left.wickets);
+}
 
 export async function getMatchesPlayed() {
-
-  const { count, error } = await supabase
-    .from("matches")
-    .select("*", { count: "exact", head: true });
-
-  if (error) {
+  try {
+    const matches = await getCurrentTeamMatches();
+    return matches.length;
+  } catch (error) {
     console.error(error);
     return 0;
   }
-
-  return count ?? 0;
 }
-
-// ============================
-// Win Rate
-// ============================
 
 export async function getWinRate() {
+  try {
+    const matches = await getCurrentTeamMatches();
+    const total = matches.length;
 
-  const { data, error } = await supabase
-    .from("matches")
-    .select("result");
+    if (total === 0) {
+      return 0;
+    }
 
-  if (error) {
+    const wins = matches.filter((match) => match.result === "Won").length;
+    return Math.round((wins / total) * 100);
+  } catch (error) {
     console.error(error);
     return 0;
   }
-
-  const total = data.length;
-
-  if (total === 0) return 0;
-
-  const wins = data.filter((m) => m.result === "Won").length;
-
-  return Math.round((wins / total) * 100);
 }
-
-// ============================
-// Top Run Scorer
-// ============================
 
 export async function getTopRunScorer() {
+  try {
+    const totals = await getAggregatedBattingTotals();
 
-  const { data, error } = await supabase
-    .from("batting_stats")
-    .select("player_name,runs");
+    if (totals.length === 0) {
+      return null;
+    }
 
-  if (error) {
+    return totals[0];
+  } catch (error) {
     console.error(error);
     return null;
   }
-
-  const totals: Record<string, number> = {};
-
-  data.forEach((row) => {
-
-    if (!totals[row.player_name]) {
-      totals[row.player_name] = 0;
-    }
-
-    totals[row.player_name] += row.runs;
-  });
-
-  const sorted = Object.entries(totals)
-    .sort((a, b) => b[1] - a[1]);
-
-  if (sorted.length === 0) return null;
-
-  return {
-    player: sorted[0][0],
-    runs: sorted[0][1],
-  };
 }
-
-// ============================
-// Top Wicket Taker
-// ============================
 
 export async function getTopWicketTaker() {
+  try {
+    const totals = await getAggregatedBowlingTotals();
 
-  const { data, error } = await supabase
-    .from("bowling_stats")
-    .select("player_name,wickets");
+    if (totals.length === 0) {
+      return null;
+    }
 
-  if (error) {
+    return totals[0];
+  } catch (error) {
     console.error(error);
     return null;
   }
-
-  const totals: Record<string, number> = {};
-
-  data.forEach((row) => {
-
-    if (!totals[row.player_name]) {
-      totals[row.player_name] = 0;
-    }
-
-    totals[row.player_name] += row.wickets;
-  });
-
-  const sorted = Object.entries(totals)
-    .sort((a, b) => b[1] - a[1]);
-
-  if (sorted.length === 0) return null;
-
-  return {
-    player: sorted[0][0],
-    wickets: sorted[0][1],
-  };
 }
-
-// ============================
-// Top Run Leaders
-// ============================
 
 export async function getTopRunLeaders(limit = 5) {
-
-  const { data, error } = await supabase
-    .from("batting_stats")
-    .select("player_name,runs");
-
-  if (error) {
+  try {
+    const totals = await getAggregatedBattingTotals();
+    return totals.slice(0, limit);
+  } catch (error) {
     console.error(error);
     return [];
   }
-
-  if (!data) return [];
-
-  const totals: Record<string, number> = {};
-
-  data.forEach((row) => {
-
-    if (!totals[row.player_name]) {
-      totals[row.player_name] = 0;
-    }
-
-    totals[row.player_name] += row.runs;
-  });
-
-  const sorted = Object.entries(totals)
-    .map(([player, runs]) => ({ player, runs }))
-    .sort((a, b) => b.runs - a.runs)
-    .slice(0, limit);
-
-  return sorted;
 }
-
-// ============================
-// Top Wicket Leaders
-// ============================
 
 export async function getTopWicketLeaders(limit = 5) {
-
-  const { data, error } = await supabase
-    .from("bowling_stats")
-    .select("player_name,wickets");
-
-  if (error) {
+  try {
+    const totals = await getAggregatedBowlingTotals();
+    return totals.slice(0, limit);
+  } catch (error) {
     console.error(error);
     return [];
   }
-
-  if (!data) return [];
-
-  const totals: Record<string, number> = {};
-
-  data.forEach((row) => {
-
-    if (!totals[row.player_name]) {
-      totals[row.player_name] = 0;
-    }
-
-    totals[row.player_name] += row.wickets;
-
-  });
-
-  const sorted = Object.entries(totals)
-    .map(([player, wickets]) => ({
-      player,
-      wickets,
-    }))
-    .sort((a, b) => b.wickets - a.wickets)
-    .slice(0, limit);
-
-  return sorted;
 }
-
-// ============================
-// Runs Per Match
-// ============================
 
 export async function getRunsPerMatch(teamName: string) {
+  try {
+    void teamName;
+    const { battingInnings } = await getTeamMatchContext();
 
-  const { data, error } = await supabase
-    .from("innings")
-    .select(`
-      runs,
-      team_name,
-      match_id,
-      matches (
-        opponent_name,
-        match_date
+    return [...battingInnings]
+      .sort((left, right) =>
+        (getMatchMeta(left)?.match_date ?? "").localeCompare(getMatchMeta(right)?.match_date ?? "")
       )
-    `)
-    .eq("team_name", teamName)
-    .order("match_id", { ascending: false })
-    .limit(5);
-
-  if (error) {
+      .slice(-5)
+      .map((item) => ({
+        match: getOpponentName(
+          getMatchMeta(item)?.team_a,
+          getMatchMeta(item)?.team_b,
+          currentTeamName
+        ) || "Unknown",
+        runs: item.runs ?? 0
+      }));
+  } catch (error) {
     console.error(error);
     return [];
   }
-
-  if (!data) return [];
-
-  return data
-    .reverse() // oldest → newest
-    .map((item: any) => ({
-      match: item.matches?.opponent_name || "Unknown",
-      runs: item.runs,
-    }));
 }
 
-// ============================
-// Wickets Per Match (Last 5)
-// ============================
-
 export async function getWicketsPerMatch(teamName: string) {
+  try {
+    void teamName;
+    const { bowlingInnings } = await getTeamMatchContext();
 
-  const { data, error } = await supabase
-    .from("innings")
-    .select(`
-      wickets,
-      team_name,
-      match_id,
-      matches (
-        opponent_name,
-        match_date
+    return [...bowlingInnings]
+      .sort((left, right) =>
+        (getMatchMeta(left)?.match_date ?? "").localeCompare(getMatchMeta(right)?.match_date ?? "")
       )
-    `)
-    .eq("team_name", teamName)
-    .order("match_id", { ascending: false })
-    .limit(5);
-
-  if (error) {
+      .slice(-5)
+      .map((item) => ({
+        match: getOpponentName(
+          getMatchMeta(item)?.team_a,
+          getMatchMeta(item)?.team_b,
+          currentTeamName
+        ) || "Unknown",
+        wickets: item.wickets ?? 0
+      }));
+  } catch (error) {
     console.error(error);
     return [];
   }
-
-  if (!data) return [];
-
-  return data
-    .reverse()
-    .map((item: any) => ({
-      match: item.matches?.opponent_name || "Unknown",
-      wickets: item.wickets,
-    }));
 }

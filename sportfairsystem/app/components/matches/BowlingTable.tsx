@@ -1,10 +1,9 @@
 "use client";
 
 import {
+  Box,
   Card,
-  CardHeader,
   CardContent,
-  Divider,
   Table,
   TableBody,
   TableCell,
@@ -34,11 +33,19 @@ export default function BowlingTable({ bowlingStats }: Props) {
 
     <Card sx={{ flex: 1 }}>
 
-      <CardHeader title="Bowling" />
-
-      <Divider />
-
       <CardContent sx={{ p: 0 }}>
+
+        <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+          <Box
+            component="h6"
+            sx={{
+              m: 0,
+              typography: "h6"
+            }}
+          >
+            Bowling
+          </Box>
+        </Box>
 
         <TableContainer>
 

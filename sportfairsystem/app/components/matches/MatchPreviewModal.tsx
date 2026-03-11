@@ -9,16 +9,27 @@ import {
   Modal,
   Button,
   Chip,
-  Divider
+  Divider,
+  Grid,
+  IconButton,
+  Tooltip
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
+import PersonRemoveRoundedIcon from "@mui/icons-material/PersonRemoveRounded";
+import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
 import { ParsedMatch, Innings } from "@/app/types/match.types";
 import { formatName } from "@/app/services/formatname";
 
+const CARD_LILAC = "#F4F1FF";
+const CARD_INDIGO = "#5B5FEF";
+
 type PreviewPlayer = {
   name: string;
   exists: boolean;
+  addToSquad: boolean;
 };
 
 type PreviewMatchDetailShape = {
@@ -49,6 +60,9 @@ type Props = {
   previewMatch: ParsedMatch | null;
   previewMatchId: string;
   previewPlayers: PreviewPlayer[];
+  previewTitle?: string;
+  previewQueueLabel?: string;
+  onToggleAddToSquad: (playerName: string) => void;
   onClose: () => void;
   onSave: () => void;
   getYetToBat: (innings: Innings | undefined) => string[];
@@ -126,6 +140,9 @@ export default function MatchPreviewModal({
   previewMatch,
   previewMatchId,
   previewPlayers,
+  previewTitle,
+  previewQueueLabel,
+  onToggleAddToSquad,
   onClose,
   onSave,
   getYetToBat
@@ -172,15 +189,33 @@ export default function MatchPreviewModal({
             sx={{ px: { xs: 2, md: 4 }, py: 3 }}
           >
 
-            <Typography variant="h5">
-              Match Preview
-            </Typography>
+            <Stack spacing={0.5}>
+              <Typography variant="h5">
+                Match Preview
+              </Typography>
 
-            <Chip
-              label={previewMatchId}
-              color="primary"
-              size="small"
-            />
+              {previewTitle && (
+                <Typography variant="body2" color="text.secondary">
+                  {previewTitle}
+                </Typography>
+              )}
+            </Stack>
+
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              {previewQueueLabel && (
+                <Chip
+                  label={previewQueueLabel}
+                  variant="outlined"
+                  size="small"
+                />
+              )}
+
+              <Chip
+                label={previewMatchId}
+                color="primary"
+                size="small"
+              />
+            </Stack>
 
           </Stack>
 
@@ -207,32 +242,107 @@ export default function MatchPreviewModal({
                     New Players Detected
                   </Typography>
 
-                  <Stack spacing={1}>
+                  <Typography variant="body2" color="text.secondary">
+                    Select the players you want to add to the squad before saving this match.
+                  </Typography>
+
+                  <Grid container spacing={2}>
 
                     {newPlayers.map((player) => (
 
-                      <Stack
+                      <Grid
                         key={player.name}
-                        direction="row"
-                        justifyContent="space-between"
-                        alignItems="center"
+                        size={{ xs: 12, md: 6 }}
                       >
 
-                        <Typography>
-                          {formatName(player.name)}
-                        </Typography>
+                        <Paper
+                          variant="outlined"
+                          sx={{
+                            px: 2.5,
+                            py: 2,
+                            borderRadius: 3,
+                            borderColor: player.addToSquad
+                              ? alpha(CARD_INDIGO, 0.28)
+                              : undefined,
+                            backgroundColor: player.addToSquad
+                              ? alpha(CARD_INDIGO, 0.03)
+                              : "background.paper"
+                          }}
+                        >
 
-                        <Chip
-                          label="New Player"
-                          color="warning"
-                          size="small"
-                        />
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            spacing={1.5}
+                          >
 
-                      </Stack>
+                            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+                              <Box
+                                sx={{
+                                  width: 44,
+                                  height: 44,
+                                  borderRadius: 2,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  color: CARD_INDIGO,
+                                  backgroundColor: CARD_LILAC,
+                                  flexShrink: 0
+                                }}
+                              >
+                                <PersonOutlineRoundedIcon />
+                              </Box>
+
+                              <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                                  {formatName(player.name)}
+                                </Typography>
+
+                                <Typography variant="caption" color="text.secondary">
+                                  {player.addToSquad ? "Selected for squad" : "Available to add"}
+                                </Typography>
+                              </Stack>
+                            </Stack>
+
+                            <Tooltip title={player.addToSquad ? "Remove from Squad" : "Add to Squad"}>
+                              <IconButton
+                                onClick={() => onToggleAddToSquad(player.name)}
+                                sx={{
+                                  width: 42,
+                                  height: 42,
+                                  borderRadius: "50%",
+                                  color: "#FFFFFF",
+                                  background: player.addToSquad
+                                    ? "linear-gradient(135deg, #B32622 0%, #E53935 100%)"
+                                    : "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)",
+                                  boxShadow: player.addToSquad
+                                    ? `0 10px 24px ${alpha("#B32622", 0.18)}`
+                                    : `0 10px 24px ${alpha("#061230", 0.18)}`,
+                                  "&:hover": {
+                                    background: player.addToSquad
+                                      ? "linear-gradient(135deg, #B32622 0%, #E53935 100%)"
+                                      : "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)"
+                                  }
+                                }}
+                              >
+                                {player.addToSquad ? (
+                                  <PersonRemoveRoundedIcon />
+                                ) : (
+                                  <PersonAddAlt1RoundedIcon />
+                                )}
+                              </IconButton>
+                            </Tooltip>
+
+                          </Stack>
+
+                        </Paper>
+
+                      </Grid>
 
                     ))}
 
-                  </Stack>
+                  </Grid>
 
                 </Stack>
 
@@ -251,8 +361,20 @@ export default function MatchPreviewModal({
           >
 
             <Button
-              variant="outlined"
+              variant="text"
               onClick={onClose}
+              sx={{
+                minWidth: 112,
+                borderRadius: 999,
+                px: 2.5,
+                py: 1,
+                fontWeight: 700,
+                color: "text.primary",
+                backgroundColor: alpha("#DCE7FF", 0.28),
+                "&:hover": {
+                  backgroundColor: alpha("#DCE7FF", 0.42)
+                }
+              }}
             >
               Cancel
             </Button>
@@ -260,6 +382,18 @@ export default function MatchPreviewModal({
             <Button
               variant="contained"
               onClick={onSave}
+              sx={{
+                minWidth: 136,
+                borderRadius: 999,
+                px: 2.75,
+                py: 1,
+                fontWeight: 700,
+                background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)",
+                boxShadow: `0 12px 28px ${alpha("#061230", 0.2)}`,
+                "&:hover": {
+                  background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)"
+                }
+              }}
             >
               Save Match
             </Button>

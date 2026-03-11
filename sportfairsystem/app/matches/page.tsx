@@ -7,10 +7,19 @@ import {
   Box,
   Typography,
   Paper,
-  Button,
+  Fab,
   Snackbar,
-  CircularProgress
+  CircularProgress,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import AddIcon from "@mui/icons-material/Add";
 
 import MatchesTable from "@/app/components/matches/MatchesTable";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
@@ -23,12 +32,18 @@ import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
 import { buildMatchId } from "@/app/services/matchIdService";
 import { isMatchForCurrentTeam } from "@/app/services/teamValidationService";
+import { ParsedMatch, Innings } from "@/app/types/match.types";
+import { getOpponentName } from "@/app/utils/matchOpponent";
+import { deleteMatchFromDatabase } from "@/app/services/deleteMatchService";
 
 type Match = {
   id: string;
+  team_a: string | null;
+  team_b: string | null;
   match_date: string | null;
   opponent_name: string | null;
   result: string | null;
+  winner?: string | null;
   match_code?: string | null;
   [key: string]: any;
 };
@@ -36,6 +51,13 @@ type Match = {
 type PreviewPlayer = {
   name: string;
   exists: boolean;
+  addToSquad: boolean;
+};
+
+type PreviewItem = {
+  fileName: string;
+  match: ParsedMatch;
+  players: PreviewPlayer[];
 };
 
 export default function MatchesPage() {
@@ -43,8 +65,8 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  const [previewMatch, setPreviewMatch] = useState<any | null>(null);
-  const [previewPlayers, setPreviewPlayers] = useState<PreviewPlayer[]>([]);
+  const [previewQueue, setPreviewQueue] = useState<PreviewItem[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -74,7 +96,12 @@ export default function MatchesPage() {
       return;
     }
 
-    setMatches(data || []);
+    setMatches(
+      (data || []).map((match) => ({
+        ...match,
+        opponent_name: getOpponentName(match.team_a, match.team_b, currentTeamName)
+      }))
+    );
 
   };
 
@@ -86,9 +113,19 @@ export default function MatchesPage() {
      PLAYER DETECTION
   -------------------------------- */
 
-  const detectPlayers = useCallback(async (parsedMatch: any) => {
+  const detectPlayers = useCallback(async (parsedMatch: ParsedMatch) => {
 
     const playerSet = new Set<string>();
+
+    const currentTeamSquad = parsedMatch.squads?.find(
+      (squad) => squad.teamName === currentTeamName
+    );
+
+    currentTeamSquad?.players.forEach((player) => {
+      if (player.name) {
+        playerSet.add(cleanName(player.name));
+      }
+    });
 
     const ourInnings = parsedMatch.innings?.find(
       (inn: any) => inn.teamName === currentTeamName
@@ -98,12 +135,16 @@ export default function MatchesPage() {
       (inn: any) => inn.teamName !== currentTeamName
     );
 
-    if (ourInnings) {
+      if (ourInnings) {
 
       ourInnings.battingStats?.forEach((b: any) => {
         if (b.player_name) {
           playerSet.add(cleanName(b.player_name));
         }
+      });
+
+      ourInnings.playing11?.forEach((playerName) => {
+        playerSet.add(cleanName(playerName));
       });
 
     }
@@ -130,12 +171,80 @@ export default function MatchesPage() {
 
     const result: PreviewPlayer[] = players.map((name) => ({
       name,
-      exists: dbSet.has(name)
+      exists: dbSet.has(name),
+      addToSquad: false
     }));
 
-    setPreviewPlayers(result);
+    return result;
 
   }, []);
+
+  const currentPreview = previewQueue[0] ?? null;
+
+  const closeCurrentPreview = () => {
+    setPreviewQueue((currentQueue) => currentQueue.slice(1));
+  };
+
+  const clearPreviewQueue = () => {
+    setPreviewQueue([]);
+  };
+
+  const updateCurrentPreviewPlayers = (
+    updater: (players: PreviewPlayer[]) => PreviewPlayer[]
+  ) => {
+    setPreviewQueue((currentQueue) => {
+      if (currentQueue.length === 0) {
+        return currentQueue;
+      }
+
+      const [currentPreviewItem, ...rest] = currentQueue;
+
+      return [
+        {
+          ...currentPreviewItem,
+          players: updater(currentPreviewItem.players)
+        },
+        ...rest
+      ];
+    });
+  };
+
+  const toggleAddToSquad = (playerName: string) => {
+    updateCurrentPreviewPlayers((players) =>
+      players.map((player) =>
+        player.name === playerName
+          ? { ...player, addToSquad: !player.addToSquad }
+          : player
+      )
+    );
+  };
+
+  const readFileAsBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (typeof reader.result !== "string") {
+          reject(new Error("Could not read the selected file."));
+          return;
+        }
+
+        const [, base64] = reader.result.split(",");
+
+        if (!base64) {
+          reject(new Error("Could not extract scorecard data."));
+          return;
+        }
+
+        resolve(base64);
+      };
+
+      reader.onerror = () => {
+        reject(new Error(`Could not read ${file.name}.`));
+      };
+
+      reader.readAsDataURL(file);
+    });
 
   /* --------------------------------
      FILE UPLOAD
@@ -145,42 +254,59 @@ export default function MatchesPage() {
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
 
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
 
-    const reader = new FileReader();
+    if (files.length === 0) return;
 
-    reader.onload = async () => {
+    e.target.value = "";
 
-      if (typeof reader.result !== "string") return;
+    setIsProcessing(true);
 
-      const base64 = reader.result.split(",")[1];
+    try {
+      const validPreviewItems: PreviewItem[] = [];
+      const rejectedFiles: string[] = [];
 
-      setIsProcessing(true);
+      for (const file of files) {
+        const base64 = await readFileAsBase64(file);
+        const parsed = await parseMatchFromBase64(
+          base64,
+          currentTeamName
+        );
 
-      const parsed = await parseMatchFromBase64(
-        base64,
-        currentTeamName
-      );
-
-      if (parsed) {
-        if (!isMatchForCurrentTeam(parsed, currentTeamName)) {
-          setToastMessage(`This scorecard does not include ${currentTeamName}.`);
-          setIsProcessing(false);
-          return;
+        if (!parsed || !isMatchForCurrentTeam(parsed, currentTeamName)) {
+          rejectedFiles.push(file.name);
+          continue;
         }
 
-        setPreviewMatch(parsed);
+        const players = await detectPlayers(parsed);
 
-        await detectPlayers(parsed);
-
+        validPreviewItems.push({
+          fileName: file.name,
+          match: parsed,
+          players
+        });
       }
 
+      if (validPreviewItems.length > 0) {
+        setPreviewQueue((currentQueue) => [
+          ...currentQueue,
+          ...validPreviewItems
+        ]);
+      }
+
+      if (rejectedFiles.length > 0) {
+        const rejectionMessage =
+          rejectedFiles.length === 1
+            ? `${rejectedFiles[0]} does not include ${currentTeamName}.`
+            : `${rejectedFiles.length} files were skipped because they do not include ${currentTeamName}.`;
+
+        setToastMessage(rejectionMessage);
+      }
+    } catch (error: any) {
+      setToastMessage(error.message || "Could not process the selected scorecards.");
+    } finally {
       setIsProcessing(false);
-
-    };
-
-    reader.readAsDataURL(file);
+    }
 
   };
 
@@ -190,19 +316,27 @@ export default function MatchesPage() {
 
   const handleSaveMatch = async () => {
 
-    if (!previewMatch) return;
+    if (!currentPreview) return;
 
     try {
 
       setIsProcessing(true);
 
-      await saveMatchToDatabase(previewMatch);
+      await saveMatchToDatabase(currentPreview.match, {
+        sourceFileName: currentPreview.fileName,
+        playersToAddToSquad: currentPreview.players
+          .filter((player) => player.addToSquad && !player.exists)
+          .map((player) => player.name)
+      });
 
-      setToastMessage("Match saved successfully");
-
-      setPreviewMatch(null);
+      setToastMessage(
+        previewQueue.length > 1
+          ? `${currentPreview.fileName} saved. Opening next preview.`
+          : "Match saved successfully"
+      );
 
       await loadMatchesFromDB();
+      closeCurrentPreview();
 
     } catch (error: any) {
 
@@ -220,7 +354,7 @@ export default function MatchesPage() {
      YET TO BAT
   -------------------------------- */
 
-  const getYetToBat = (innings: any) => {
+  const getYetToBat = (innings: Innings | undefined) => {
 
     if (!innings) return [];
     if (innings.teamName !== currentTeamName) return [];
@@ -230,25 +364,56 @@ export default function MatchesPage() {
         cleanName(p.player_name)
       ) || [];
 
-    return previewPlayers
+    return (currentPreview?.players ?? [])
       .map((p) => p.name)
       .filter((name) => !battingNames.includes(name));
 
   };
 
+  const openDeleteDialog = () => {
+    if (!selectedMatch?.id) {
+      return;
+    }
+
+    setIsDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    setIsDeleteDialogOpen(false);
+  };
+
+  const handleDeleteMatch = async () => {
+    if (!selectedMatch?.id) {
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      await deleteMatchFromDatabase(selectedMatch.id);
+      setToastMessage("Match deleted successfully");
+      setSelectedMatch(null);
+      closeDeleteDialog();
+      await loadMatchesFromDB();
+    } catch (error: any) {
+      setToastMessage(error.message || "Could not delete the selected match.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const getPreviewMatchId = () => {
 
-    if (!previewMatch) {
+    if (!currentPreview) {
       return buildMatchId(currentTeamPrefix, null);
     }
 
     const sameDayMatches = matches.filter(
-      (match) => match.match_date === previewMatch.matchDate
+      (match) => match.match_date === currentPreview.match.matchDate
     ).length;
 
     return buildMatchId(
       currentTeamPrefix,
-      previewMatch?.matchDate ?? null,
+      currentPreview.match.matchDate,
       sameDayMatches
     );
 
@@ -262,16 +427,13 @@ export default function MatchesPage() {
 
     <Box
       sx={{
-        height: { md: "calc(100vh - 128px)" },
+        height: "100%",
         display: "flex",
         flexDirection: "column",
-        overflow: { md: "hidden" }
+        overflow: "hidden",
+        minHeight: 0
       }}
     >
-
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        Matches
-      </Typography>
 
       <Box
         sx={{
@@ -331,7 +493,7 @@ export default function MatchesPage() {
 
             ) : (
 
-              <MatchDetailPanel match={selectedMatch} />
+              <MatchDetailPanel match={selectedMatch} onDelete={openDeleteDialog} />
 
             )}
 
@@ -345,32 +507,72 @@ export default function MatchesPage() {
 
       <Box sx={{ position: "fixed", bottom: 30, right: 30 }}>
 
-        <Button
-          variant="contained"
-          component="label"
+        <Box
+          sx={{
+            position: "relative",
+            display: "inline-flex",
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              left: "50%",
+              bottom: -8,
+              transform: "translateX(-50%)",
+              width: 28,
+              height: 4,
+              borderRadius: 999,
+              background: "linear-gradient(180deg, #E53935 0%, #FF7B57 100%)"
+            }
+          }}
         >
 
-          Upload Scorecard
+          <Tooltip title="Upload Scorecard" placement="left">
+            <Fab
+              size="medium"
+              component="label"
+              aria-label="Upload scorecards"
+              sx={{
+                width: 48,
+                height: 48,
+                color: "#FFFFFF",
+                background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)",
+                boxShadow: `0 12px 28px ${alpha("#061230", 0.22)}`,
+                "&:hover": {
+                  background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)"
+                }
+              }}
+            >
+              <AddIcon />
 
-          <input
-            hidden
-            type="file"
-            accept="application/pdf"
-            onChange={handleFileUpload}
-          />
+              <input
+                hidden
+                type="file"
+                accept="application/pdf"
+                multiple
+                onChange={handleFileUpload}
+              />
 
-        </Button>
+            </Fab>
+          </Tooltip>
+
+        </Box>
 
       </Box>
 
       {/* MATCH PREVIEW MODAL */}
 
       <MatchPreviewModal
-        open={!!previewMatch}
-        previewMatch={previewMatch}
-        previewMatchId={previewMatch ? getPreviewMatchId() : currentTeamPrefix}
-        previewPlayers={previewPlayers}
-        onClose={() => setPreviewMatch(null)}
+        open={!!currentPreview}
+        previewMatch={currentPreview?.match ?? null}
+        previewMatchId={currentPreview ? getPreviewMatchId() : currentTeamPrefix}
+        previewPlayers={currentPreview?.players ?? []}
+        previewTitle={currentPreview?.fileName}
+        previewQueueLabel={
+          previewQueue.length > 1
+            ? `1 of ${previewQueue.length}`
+            : undefined
+        }
+        onToggleAddToSquad={toggleAddToSquad}
+        onClose={clearPreviewQueue}
         onSave={handleSaveMatch}
         getYetToBat={getYetToBat}
       />
@@ -404,6 +606,28 @@ export default function MatchesPage() {
         onClose={() => setToastMessage(null)}
         message={toastMessage}
       />
+
+      <Dialog
+        open={isDeleteDialogOpen}
+        onClose={closeDeleteDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Match</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will permanently remove the selected match and all related scorecard data.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={closeDeleteDialog} variant="outlined">
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteMatch} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
 

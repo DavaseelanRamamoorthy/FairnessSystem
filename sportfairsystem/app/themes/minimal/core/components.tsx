@@ -41,8 +41,13 @@ const MuiCard: Components<Theme>['MuiCard'] = {
     root: ({ theme }) => ({
       zIndex: 0,
       position: 'relative',
-      boxShadow: theme.vars.customShadows.card,
-      borderRadius: theme.shape.borderRadius * 2,
+      backgroundColor: theme.vars.palette.common.white,
+      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.12)}`,
+      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+      borderRadius:
+        typeof theme.shape.borderRadius === 'number'
+          ? theme.shape.borderRadius * 1.5
+          : `calc(${theme.shape.borderRadius} * 1.5)`,
     }),
   },
 };
@@ -72,18 +77,40 @@ const MuiPaper: Components<Theme>['MuiPaper'] = {
   styleOverrides: {
     root: { backgroundImage: 'none' },
     outlined: ({ theme }) => ({
+      backgroundColor: theme.vars.palette.common.white,
       borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
+      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+      borderRadius:
+        typeof theme.shape.borderRadius === 'number'
+          ? theme.shape.borderRadius * 1.5
+          : `calc(${theme.shape.borderRadius} * 1.5)`,
     }),
+  },
+};
+
+const MuiTable: Components<Theme>['MuiTable'] = {
+  defaultProps: {
+    size: 'small',
   },
 };
 
 const MuiTableCell: Components<Theme>['MuiTableCell'] = {
   styleOverrides: {
+    root: ({ theme }) => ({
+      padding: theme.spacing(1.75, 2),
+      borderBottomColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
+      verticalAlign: 'top',
+    }),
     head: ({ theme }) => ({
-      fontSize: theme.typography.pxToRem(14),
+      fontSize: theme.typography.pxToRem(13),
       color: theme.vars.palette.text.secondary,
       fontWeight: theme.typography.fontWeightSemiBold,
       backgroundColor: theme.vars.palette.background.neutral,
+      borderBottomColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
+      letterSpacing: 0.2,
+    }),
+    body: ({ theme }) => ({
+      ...theme.typography.body2,
     }),
   },
 };
@@ -160,6 +187,7 @@ export const components = {
   MuiLink,
   MuiPaper,
   MuiRadio,
+  MuiTable,
   MuiButton,
   MuiBackdrop,
   MuiMenuItem,

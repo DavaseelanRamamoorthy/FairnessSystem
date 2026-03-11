@@ -1,6 +1,8 @@
 "use client";
 
-import { Card, Box, Typography, Stack } from "@mui/material";
+import { Box, Card, Stack, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
+
 import KpiSparkline from "./kpiSparkline";
 
 interface Props {
@@ -9,126 +11,205 @@ interface Props {
   icon: React.ReactNode;
   color?: "primary" | "success" | "warning" | "secondary";
   trend?: number[];
+  layout?: "metric" | "leader";
 }
 
 const cardStyles = {
   primary: {
-    gradient: "linear-gradient(135deg,#b7d5f6 0%,#1d7bf1 100%)",
-    text: "#1d7bf1",
-    iconBg: "#90bff5"
+    topGradient: "linear-gradient(135deg, #2F6FED 0%, #5B5FEF 100%)",
+    topTint: "rgba(255,255,255,0.1)",
+    iconBg: "rgba(255,255,255,0.18)",
+    valueColor: "#FFFFFF",
+    footerBg: "#F6F8FF",
+    footerText: "#3E4CC9",
+    footerLabel: "Official team fixtures"
   },
   success: {
-    gradient: "linear-gradient(135deg,#bfe8cd 0%,#2ecc71 100%)",
-    text: "#277344",
-    iconBg: "#8dd7a9"
+    topGradient: "linear-gradient(135deg, #16A34A 0%, #22C55E 100%)",
+    topTint: "rgba(255,255,255,0.1)",
+    iconBg: "rgba(255,255,255,0.18)",
+    valueColor: "#FFFFFF",
+    footerBg: "#EFFBF3",
+    footerText: "#15803D",
+    footerLabel: "Current team success rate"
   },
   warning: {
-    gradient: "linear-gradient(135deg,#f8ddb4 0%,#f59e0b 100%)",
-    text: "#875028",
-    iconBg: "#f5c26c"
+    topGradient: "linear-gradient(135deg, #F59E0B 0%, #FF7A00 100%)",
+    topTint: "rgba(255,255,255,0.12)",
+    iconBg: "rgba(255,255,255,0.2)",
+    valueColor: "#FFFFFF",
+    footerBg: "#FFF6E8",
+    footerText: "#C56A00",
+    footerLabel: "Current leading batter"
   },
   secondary: {
-    gradient: "linear-gradient(135deg,#d6c8f3 0%,#8b5cf6 100%)",
-    text: "#3e2f52",
-    iconBg: "#b9a5ec"
+    topGradient: "linear-gradient(135deg, #7C3AED 0%, #A855F7 100%)",
+    topTint: "rgba(255,255,255,0.1)",
+    iconBg: "rgba(255,255,255,0.18)",
+    valueColor: "#FFFFFF",
+    footerBg: "#F5EEFF",
+    footerText: "#7C3AED",
+    footerLabel: "Current leading bowler"
   }
 };
+
+function getDisplayValue(value: string | number) {
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return value;
+}
 
 export default function DashboardCard({
   title,
   value,
   icon,
   color = "primary",
-  trend = []
+  trend = [],
+  layout = "metric"
 }: Props) {
-
   const style = cardStyles[color];
+  const displayValue = getDisplayValue(value);
+  const isMetric = layout === "metric";
 
   return (
-
     <Card
+      variant="outlined"
       sx={{
-        p: 3,
-        borderRadius: 4,
-        position: "relative",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
         overflow: "hidden",
-        background: style.gradient
+        borderColor: "transparent"
       }}
     >
-
-      {/* dotted pattern */}
-
       <Box
         sx={{
-          position: "absolute",
-          left: 0,
-          bottom: 0,
-          width: "60%",
-          height: "100%",
-          backgroundImage:
-            "radial-gradient(rgba(255,255,255,0.3) 1px, transparent 1px)",
-          backgroundSize: "8px 8px",
-          opacity: 0.4
-        }}
-      />
-
-      <Stack spacing={1} sx={{ position: "relative" }}>
-
-        <Typography
-          variant="subtitle2"
-          sx={{ color: style.text }}
-        >
-          {title}
-        </Typography>
-
-        <Typography
-          variant="h4"
-          sx={{ color: style.text, fontWeight: 700 }}
-        >
-          {value}
-        </Typography>
-
-      </Stack>
-
-      {/* icon badge */}
-
-      <Box
-        sx={{
-          position: "absolute",
-          right: 16,
-          top: 16,
-          width: 48,
-          height: 48,
-          borderRadius: 2,
+          minHeight: 120,
+          flex: 1,
+          px: 2.5,
+          py: 2.25,
+          color: "#FFFFFF",
+          background: style.topGradient,
+          position: "relative",
+          overflow: "hidden",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: style.iconBg
+          flexDirection: "column",
+          justifyContent: isMetric ? "space-between" : "flex-start",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            inset: 0,
+            background: [
+              `radial-gradient(circle at top right, ${style.topTint}, transparent 28%)`,
+              `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 100%)`
+            ].join(", ")
+          }
         }}
       >
-        {icon}
-      </Box>
-
-      {/* sparkline */}
-
-      {trend.length > 0 && (
-
-        <Box
+        <Stack
           sx={{
-            position: "absolute",
-            right: 10,
-            bottom: 10
+            position: "relative",
+            zIndex: 1,
+            height: "100%",
+            justifyContent: "space-between"
           }}
         >
-          <KpiSparkline
-            data={trend}
-            color={style.text}
-          />
-        </Box>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-start"
+            spacing={1.5}
+          >
+            <Stack direction="row" spacing={1.25} alignItems="center">
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: style.iconBg,
+                  flexShrink: 0
+                }}
+              >
+                {icon}
+              </Box>
 
-      )}
+              <Typography
+                variant="overline"
+                sx={{
+                  color: alpha("#FFFFFF", 0.82),
+                  letterSpacing: 1.2,
+                  lineHeight: 1.2
+                }}
+              >
+                {title}
+              </Typography>
+            </Stack>
 
+            {trend.length > 0 && (
+              <Box sx={{ pt: 0.5, opacity: 0.95, flexShrink: 0 }}>
+                <KpiSparkline data={trend} color="rgba(255,255,255,0.92)" />
+              </Box>
+            )}
+          </Stack>
+
+          <Box
+            sx={{
+              minHeight: 52,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              px: 0.5
+            }}
+          >
+            <Typography
+              sx={{
+                fontWeight: 800,
+                lineHeight: 1,
+                color: style.valueColor,
+                textAlign: "center",
+                width: "100%",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                textTransform: isMetric ? "none" : "uppercase",
+                fontSize: isMetric
+                  ? "clamp(2.2rem, 3vw, 3rem)"
+                  : "clamp(1.5rem, 1.8vw, 2rem)"
+              }}
+            >
+              {displayValue}
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
+
+      <Box
+        sx={{
+          px: 2.5,
+          py: 1.25,
+          bgcolor: style.footerBg,
+          borderTop: "1px solid",
+          borderColor: alpha(style.footerText, 0.12)
+        }}
+      >
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 700,
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
+            color: style.footerText
+          }}
+        >
+          {style.footerLabel}
+        </Typography>
+      </Box>
     </Card>
-
   );
 }

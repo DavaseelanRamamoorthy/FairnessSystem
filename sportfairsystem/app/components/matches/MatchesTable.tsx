@@ -30,17 +30,17 @@ type MatchRow = {
 
 type GroupOption = "none" | "season" | "result";
 
-interface Props {
-  rows: MatchRow[];
+interface Props<T extends MatchRow> {
+  rows: T[];
   selectedMatchId?: string;
-  onSelectMatch: (match: MatchRow) => void;
+  onSelectMatch: (match: T) => void;
 }
 
 const resultOptions = ["All", "Won", "Lost", "Unknown"];
 const groupOptions: { label: string; value: GroupOption }[] = [
-  { label: "Season", value: "season" },
+  { label: "None", value: "none" },
   { label: "Result", value: "result" },
-  { label: "None", value: "none" }
+  { label: "Season", value: "season" }
 ];
 
 function getSeasonLabel(matchDate: string | null) {
@@ -63,15 +63,15 @@ function getResultChipColor(result: string | null) {
   return "default";
 }
 
-export default function MatchesTable({
+export default function MatchesTable<T extends MatchRow>({
   rows,
   selectedMatchId,
   onSelectMatch
-}: Props) {
+}: Props<T>) {
 
   const [resultFilter, setResultFilter] = useState("All");
   const [seasonFilter, setSeasonFilter] = useState("All Seasons");
-  const [groupBy, setGroupBy] = useState<GroupOption>("season");
+  const [groupBy, setGroupBy] = useState<GroupOption>("none");
   const [page, setPage] = useState(0);
   const rowsPerPage = 10;
 

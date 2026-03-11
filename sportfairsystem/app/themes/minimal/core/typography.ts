@@ -73,6 +73,7 @@ export const typography: TypographyVariantsOptions = {
     ...responsiveFontSizes({ sm: 26, md: 30, lg: 32 }),
   },
   h4: {
+    fontFamily: secondaryFont,
     fontWeight: 700,
     lineHeight: 1.5,
     fontSize: pxToRem(20),

@@ -1,12 +1,15 @@
 import { currentTeamName } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
+import {
+  getCurrentTeamId,
+  mapSquadPlayerRecord,
+  SquadPlayerRecord
+} from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
 import { getOpponentName } from "@/app/utils/matchOpponent";
+import { Innings } from "@/app/types/match.types";
 
-export type SquadPlayer = {
-  id: string;
-  name: string;
-};
+export type SquadPlayer = SquadPlayerRecord;
 
 export type SeasonOption = {
   value: string;
@@ -15,6 +18,7 @@ export type SeasonOption = {
 
 type MatchPlayerRow = {
   match_id: string;
+  player_id: string | null;
   player_name: string;
   did_bat: boolean | null;
   did_bowl: boolean | null;
@@ -23,6 +27,7 @@ type MatchPlayerRow = {
 type InningsRow = {
   id: string;
   match_id: string;
+  team_name: string | null;
 };
 
 type MatchRow = {
@@ -34,8 +39,35 @@ type MatchRow = {
   match_code: string | null;
 };
 
+type MatchPlayerDetailRow = {
+  team_name: string | null;
+  player_name: string;
+};
+
+type MatchDetailRow = MatchRow & {
+  winner?: string | null;
+  innings?: Array<{
+    id?: string;
+    team_name: string | null;
+    runs: number | null;
+    wickets: number | null;
+    overs: number | null;
+    extras?: number | null;
+    batting_stats?: NonNullable<Innings["battingStats"]>;
+    bowling_stats?: NonNullable<Innings["bowlingStats"]>;
+    fall_of_wickets?: Array<{
+      score: number;
+      wicket_number: number;
+      batsman: string;
+      over: number;
+    }>;
+  }>;
+  match_players?: MatchPlayerDetailRow[];
+};
+
 type BattingStatRow = {
   innings_id: string;
+  player_id: string | null;
   player_name: string | null;
   runs: number | null;
   balls: number | null;
@@ -43,6 +75,7 @@ type BattingStatRow = {
 
 type BowlingStatRow = {
   innings_id: string;
+  player_id: string | null;
   player_name: string | null;
   runs: number | null;
   overs: number | null;
@@ -67,12 +100,19 @@ export type PlayerSummary = {
   role: "Batter" | "Bowler" | "Player";
   performanceLabel: string;
   performanceColor: "primary" | "warning" | "default";
+  battingStyle: string | null;
+  isCaptain: boolean;
+  isWicketKeeper: boolean;
+  roleTags: string[];
 };
 
 export type PlayerProfile = {
   id: string;
   name: string;
   matchesPlayed: number;
+  totalTeamMatches: number;
+  activeMatches: number;
+  benchMatches: number;
   battingMatches: number;
   bowlingMatches: number;
   totalRuns: number;
@@ -80,12 +120,17 @@ export type PlayerProfile = {
   totalWickets: number;
   economy: number | null;
   role: "Batter" | "Bowler" | "Player";
+  battingStyle: string | null;
+  isCaptain: boolean;
+  isWicketKeeper: boolean;
+  roleTags: string[];
   recentMatches: Array<{
     id: string;
     matchDate: string | null;
     opponentName: string | null;
     result: string | null;
     matchCode: string | null;
+    scorecard: MatchDetailRow;
     runs: number;
     wickets: number;
   }>;
@@ -129,6 +174,20 @@ function createEmptyStats(): AggregatedPlayerStats {
   };
 }
 
+function resolveSquadPlayerId(
+  playerId: string | null | undefined,
+  playerName: string | null | undefined,
+  squadPlayerIds: Set<string>,
+  fallbackNameToId: Map<string, string>
+) {
+  if (playerId && squadPlayerIds.has(playerId)) {
+    return playerId;
+  }
+
+  const normalizedName = cleanName(playerName ?? "");
+  return fallbackNameToId.get(normalizedName) ?? null;
+}
+
 function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): PlayerSummary {
   const matchesPlayed = stats.matchIds.size;
   const battingMatches = stats.battingMatchIds.size;
@@ -151,7 +210,11 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       matchesPlayed,
       role: "Bowler",
       performanceLabel: `Economy ${economy.toFixed(2)}`,
-      performanceColor: "warning"
+      performanceColor: "warning",
+      battingStyle: player.battingStyle,
+      isCaptain: player.isCaptain,
+      isWicketKeeper: player.isWicketKeeper,
+      roleTags: player.roleTags
     };
   }
 
@@ -162,7 +225,11 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       matchesPlayed,
       role: "Batter",
       performanceLabel: `Strike Rate ${strikeRate.toFixed(2)}`,
-      performanceColor: "primary"
+      performanceColor: "primary",
+      battingStyle: player.battingStyle,
+      isCaptain: player.isCaptain,
+      isWicketKeeper: player.isWicketKeeper,
+      roleTags: player.roleTags
     };
   }
 
@@ -173,7 +240,11 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       matchesPlayed,
       role: "Bowler",
       performanceLabel: `Economy ${economy.toFixed(2)}`,
-      performanceColor: "warning"
+      performanceColor: "warning",
+      battingStyle: player.battingStyle,
+      isCaptain: player.isCaptain,
+      isWicketKeeper: player.isWicketKeeper,
+      roleTags: player.roleTags
     };
   }
 
@@ -183,28 +254,18 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
     matchesPlayed,
     role: "Player",
     performanceLabel: "No performance data yet",
-    performanceColor: "default"
+    performanceColor: "default",
+    battingStyle: player.battingStyle,
+    isCaptain: player.isCaptain,
+    isWicketKeeper: player.isWicketKeeper,
+    roleTags: player.roleTags
   };
-}
-
-async function getCurrentTeamId() {
-  const { data: teamData, error: teamError } = await supabase
-    .from("teams")
-    .select("id")
-    .eq("name", currentTeamName)
-    .single();
-
-  if (teamError || !teamData) {
-    throw new Error("Could not load the current team.");
-  }
-
-  return teamData.id as string;
 }
 
 async function loadSharedPlayerData(teamId: string, season?: string) {
   const { data: squadData, error: squadError } = await supabase
     .from("players")
-    .select("id, name")
+    .select("*")
     .eq("team_id", teamId)
     .eq("is_guest", false)
     .order("name", { ascending: true });
@@ -213,7 +274,9 @@ async function loadSharedPlayerData(teamId: string, season?: string) {
     throw new Error("Could not load squad players.");
   }
 
-  const squadPlayers = (squadData ?? []) as SquadPlayer[];
+  const squadPlayers = (squadData ?? []).map((row) => {
+    return mapSquadPlayerRecord(row as Record<string, unknown>);
+  });
 
   const { data: matchData, error: matchError } = await supabase
     .from("matches")
@@ -244,7 +307,7 @@ async function loadSharedPlayerData(teamId: string, season?: string) {
 
   const { data: matchPlayersData, error: matchPlayersError } = await supabase
     .from("match_players")
-    .select("match_id, player_name, did_bat, did_bowl")
+    .select("match_id, player_id, player_name, did_bat, did_bowl")
     .in("match_id", matchIds)
     .eq("team_name", currentTeamName);
 
@@ -254,7 +317,7 @@ async function loadSharedPlayerData(teamId: string, season?: string) {
 
   const { data: inningsData, error: inningsError } = await supabase
     .from("innings")
-    .select("id, match_id")
+    .select("id, match_id, team_name")
     .in("match_id", matchIds);
 
   if (inningsError) {
@@ -274,11 +337,11 @@ async function loadSharedPlayerData(teamId: string, season?: string) {
     ] = await Promise.all([
       supabase
         .from("batting_stats")
-        .select("innings_id, player_name, runs, balls")
+        .select("innings_id, player_id, player_name, runs, balls")
         .in("innings_id", inningsIds),
       supabase
         .from("bowling_stats")
-        .select("innings_id, player_name, runs, overs, wickets")
+        .select("innings_id, player_id, player_name, runs, overs, wickets")
         .in("innings_id", inningsIds)
     ]);
 
@@ -312,18 +375,30 @@ function aggregatePlayerStats(
   bowlingStats: BowlingStatRow[]
 ) {
   const statsByPlayer = new Map<string, AggregatedPlayerStats>();
+  const fallbackNameToId = new Map<string, string>();
+  const squadPlayerIds = new Set<string>();
 
   squadPlayers.forEach((player) => {
-    statsByPlayer.set(cleanName(player.name), createEmptyStats());
+    statsByPlayer.set(player.id, createEmptyStats());
+    squadPlayerIds.add(player.id);
+    fallbackNameToId.set(cleanName(player.name), player.id);
   });
 
   const inningsToMatchId = new Map(
     inningsRows.map((innings) => [innings.id, innings.match_id])
   );
+  const inningsById = new Map(
+    inningsRows.map((innings) => [innings.id, innings])
+  );
 
   matchPlayers.forEach((row) => {
-    const normalizedName = cleanName(row.player_name);
-    const playerStats = statsByPlayer.get(normalizedName);
+    const playerId = resolveSquadPlayerId(
+      row.player_id,
+      row.player_name,
+      squadPlayerIds,
+      fallbackNameToId
+    );
+    const playerStats = playerId ? statsByPlayer.get(playerId) : null;
 
     if (!playerStats) {
       return;
@@ -341,8 +416,15 @@ function aggregatePlayerStats(
   });
 
   battingStats.forEach((row) => {
-    const normalizedName = cleanName(row.player_name ?? "");
-    const playerStats = statsByPlayer.get(normalizedName);
+    const innings = inningsById.get(row.innings_id);
+    const fallbackPlayerId =
+      innings?.team_name === currentTeamName
+        ? fallbackNameToId.get(cleanName(row.player_name ?? ""))
+        : null;
+    const playerId = row.player_id && squadPlayerIds.has(row.player_id)
+      ? row.player_id
+      : fallbackPlayerId;
+    const playerStats = playerId ? statsByPlayer.get(playerId) : null;
 
     if (!playerStats) {
       return;
@@ -360,8 +442,15 @@ function aggregatePlayerStats(
   });
 
   bowlingStats.forEach((row) => {
-    const normalizedName = cleanName(row.player_name ?? "");
-    const playerStats = statsByPlayer.get(normalizedName);
+    const innings = inningsById.get(row.innings_id);
+    const fallbackPlayerId =
+      innings?.team_name && innings.team_name !== currentTeamName
+        ? fallbackNameToId.get(cleanName(row.player_name ?? ""))
+        : null;
+    const playerId = row.player_id && squadPlayerIds.has(row.player_id)
+      ? row.player_id
+      : fallbackPlayerId;
+    const playerStats = playerId ? statsByPlayer.get(playerId) : null;
 
     if (!playerStats) {
       return;
@@ -416,11 +505,20 @@ export async function getSquadPlayerSummaries(season?: string) {
     bowlingStats
   );
 
-  return squadPlayers
+  const summaries = squadPlayers
     .map((player) => buildPlayerSummary(
       player,
-      statsByPlayer.get(cleanName(player.name)) ?? createEmptyStats()
-    ))
+      statsByPlayer.get(player.id) ?? createEmptyStats()
+    ));
+
+  return summaries
+    .filter((player) => {
+      if (!season) {
+        return true;
+      }
+
+      return player.matchesPlayed > 0;
+    })
     .sort((left, right) => {
       if (right.matchesPlayed !== left.matchesPlayed) {
         return right.matchesPlayed - left.matchesPlayed;
@@ -455,17 +553,30 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     bowlingStats
   );
 
-  const normalizedName = cleanName(player.name);
-  const stats = statsByPlayer.get(normalizedName) ?? createEmptyStats();
+  const stats = statsByPlayer.get(player.id) ?? createEmptyStats();
   const summary = buildPlayerSummary(player, stats);
   const matchIdSet = stats.matchIds;
+  const activeMatchIds = new Set([
+    ...stats.battingMatchIds,
+    ...stats.bowlingMatchIds
+  ]);
   const inningsToMatchId = new Map(
     inningsRows.map((innings) => [innings.id, innings.match_id])
   );
+  const inningsById = new Map(
+    inningsRows.map((innings) => [innings.id, innings])
+  );
+  const normalizedPlayerName = cleanName(player.name);
 
   const runsByMatch = new Map<string, number>();
   battingStats.forEach((row) => {
-    if (cleanName(row.player_name ?? "") !== normalizedName) {
+    const innings = inningsById.get(row.innings_id);
+    const isCurrentTeamFallbackMatch =
+      !row.player_id
+      && innings?.team_name === currentTeamName
+      && cleanName(row.player_name ?? "") === normalizedPlayerName;
+
+    if (row.player_id !== player.id && !isCurrentTeamFallbackMatch) {
       return;
     }
 
@@ -479,7 +590,14 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
 
   const wicketsByMatch = new Map<string, number>();
   bowlingStats.forEach((row) => {
-    if (cleanName(row.player_name ?? "") !== normalizedName) {
+    const innings = inningsById.get(row.innings_id);
+    const isCurrentTeamFallbackMatch =
+      !row.player_id
+      && typeof innings?.team_name === "string"
+      && innings.team_name !== currentTeamName
+      && cleanName(row.player_name ?? "") === normalizedPlayerName;
+
+    if (row.player_id !== player.id && !isCurrentTeamFallbackMatch) {
       return;
     }
 
@@ -503,24 +621,71 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
 
   const recentMatches = matches
     .filter((match) => matchIdSet.has(match.id))
-    .map((match) => ({
-      id: match.id,
-      matchDate: match.match_date,
-      opponentName: getOpponentName(match.team_a, match.team_b, currentTeamName),
-      result: match.result,
-      matchCode: match.match_code,
-      runs: runsByMatch.get(match.id) ?? 0,
-      wickets: wicketsByMatch.get(match.id) ?? 0
-    }))
-    .sort((left, right) => {
-      return (right.matchDate ?? "").localeCompare(left.matchDate ?? "");
-    })
-    .slice(0, 8);
+    .sort((left, right) => (right.match_date ?? "").localeCompare(left.match_date ?? ""));
+
+  let detailedMatchesById = new Map<string, MatchDetailRow>();
+
+  if (recentMatches.length > 0) {
+    const { data: detailedMatchData, error: detailedMatchError } = await supabase
+      .from("matches")
+      .select(`
+        id,
+        match_date,
+        team_a,
+        team_b,
+        result,
+        winner,
+        match_code,
+        innings (
+          id,
+          team_name,
+          runs,
+          wickets,
+          overs,
+          extras,
+          batting_stats (*),
+          bowling_stats (*),
+          fall_of_wickets (*)
+        ),
+        match_players (
+          team_name,
+          player_name
+        )
+      `)
+      .in("id", recentMatches.map((match) => match.id));
+
+    if (detailedMatchError) {
+      throw new Error("Could not load player match scorecards.");
+    }
+
+    detailedMatchesById = new Map(
+      ((detailedMatchData ?? []) as MatchDetailRow[]).map((match) => [match.id, match])
+    );
+  }
+
+  const recentMatchItems = recentMatches.map((match) => ({
+    id: match.id,
+    matchDate: match.match_date,
+    opponentName: getOpponentName(match.team_a, match.team_b, currentTeamName),
+    result: match.result,
+    matchCode: match.match_code,
+    scorecard: detailedMatchesById.get(match.id) ?? {
+      ...match,
+      winner: null,
+      innings: [],
+      match_players: []
+    },
+    runs: runsByMatch.get(match.id) ?? 0,
+    wickets: wicketsByMatch.get(match.id) ?? 0
+  }));
 
   return {
     id: player.id,
     name: player.name,
     matchesPlayed: stats.matchIds.size,
+    totalTeamMatches: matches.length,
+    activeMatches: activeMatchIds.size,
+    benchMatches: Math.max(0, stats.matchIds.size - activeMatchIds.size),
     battingMatches: stats.battingMatchIds.size,
     bowlingMatches: stats.bowlingMatchIds.size,
     totalRuns: stats.battingRuns,
@@ -528,6 +693,10 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     totalWickets: stats.bowlingWickets,
     economy,
     role: summary.role,
-    recentMatches
+    battingStyle: player.battingStyle,
+    isCaptain: player.isCaptain,
+    isWicketKeeper: player.isWicketKeeper,
+    roleTags: player.roleTags,
+    recentMatches: recentMatchItems
   };
 }

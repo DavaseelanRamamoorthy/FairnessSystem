@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Box,
@@ -103,6 +103,18 @@ export default function MatchesTable<T extends MatchRow>({
   );
   const pageStart = filteredRows.length === 0 ? 0 : currentPage * rowsPerPage + 1;
   const pageEnd = Math.min((currentPage + 1) * rowsPerPage, filteredRows.length);
+
+  useEffect(() => {
+    if (paginatedRows.length === 0) {
+      return;
+    }
+
+    const selectedIsVisible = paginatedRows.some((row) => row.id === selectedMatchId);
+
+    if (!selectedIsVisible) {
+      onSelectMatch(paginatedRows[0]);
+    }
+  }, [onSelectMatch, paginatedRows, selectedMatchId]);
 
   return (
     <Paper

@@ -2,11 +2,21 @@
 
 import { usePathname } from "next/navigation";
 
-import { Box, IconButton, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  IconButton,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography
+} from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
 import MenuIcon from "@mui/icons-material/Menu";
+import VerifiedUserRoundedIcon from "@mui/icons-material/VerifiedUserRounded";
 
 import { currentTeamName } from "@/app/config/teamConfig";
+import { useViewMode, ViewMode } from "@/app/context/ViewModeContext";
 
 interface Props {
   toggleSidebar?: () => void;
@@ -45,6 +55,13 @@ function getPageHeader(pathname: string) {
     };
   }
 
+  if (pathname === "/validation") {
+    return {
+      title: `${currentTeamName} Validation`,
+      subtitle: "Admin checks for player linking, XI reconstruction, and historical data quality."
+    };
+  }
+
   if (pathname.startsWith("/players/")) {
     return {
       title: "Player Profile",
@@ -61,6 +78,7 @@ function getPageHeader(pathname: string) {
 export default function Topbar({ toggleSidebar }: Props) {
   const pathname = usePathname();
   const header = getPageHeader(pathname);
+  const { canUseAdminMode, viewMode, setViewMode } = useViewMode();
 
   return (
     <Box
@@ -106,30 +124,83 @@ export default function Topbar({ toggleSidebar }: Props) {
           backgroundPosition: ["84% 18%", "84% 18%", "14% 78%", "14% 78%"].join(", ")
         }
       }}
-    >
-      <IconButton
-        onClick={toggleSidebar}
-        sx={{
-          color: "#FFFFFF",
-          border: "1px solid",
-          borderColor: alpha("#FFFFFF", 0.18),
-          backgroundColor: alpha("#FFFFFF", 0.08),
-          position: "relative",
-          zIndex: 1,
-          width: 42,
-          height: 42
-        }}
       >
-        <MenuIcon />
-      </IconButton>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ width: "100%", position: "relative", zIndex: 1 }}
+      >
+        <Stack direction="row" spacing={2} alignItems="center">
+          <IconButton
+            onClick={toggleSidebar}
+            sx={{
+              color: "#FFFFFF",
+              border: "1px solid",
+              borderColor: alpha("#FFFFFF", 0.18),
+              backgroundColor: alpha("#FFFFFF", 0.08),
+              width: 42,
+              height: 42
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
 
-      <Stack spacing={0.5} sx={{ position: "relative", zIndex: 1 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
-          {header.title}
-        </Typography>
-        <Typography variant="body2" sx={{ color: alpha("#FFFFFF", 0.76), lineHeight: 1.35 }}>
-          {header.subtitle}
-        </Typography>
+          <Stack spacing={0.5}>
+            <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+              {header.title}
+            </Typography>
+            <Typography variant="body2" sx={{ color: alpha("#FFFFFF", 0.76), lineHeight: 1.35 }}>
+              {header.subtitle}
+            </Typography>
+          </Stack>
+        </Stack>
+
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={viewMode}
+          onChange={(_event, nextMode: ViewMode | null) => {
+            if (nextMode) {
+              setViewMode(nextMode);
+            }
+          }}
+          sx={{
+            "& .MuiToggleButton-root": {
+              borderRadius: "999px !important",
+              px: 1.5,
+              py: 0.65,
+              borderColor: alpha("#FFFFFF", 0.16),
+              color: "#FFFFFF",
+              textTransform: "none",
+              fontWeight: 700,
+              backgroundColor: alpha("#FFFFFF", 0.06)
+            },
+            "& .Mui-selected": {
+              backgroundColor: alpha("#FFFFFF", 0.14),
+              color: "#FFFFFF"
+            },
+            "& .MuiToggleButton-root.Mui-disabled": {
+              color: alpha("#FFFFFF", 0.42),
+              borderColor: alpha("#FFFFFF", 0.1)
+            }
+          }}
+        >
+          <ToggleButton value="admin" disabled={!canUseAdminMode}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <VerifiedUserRoundedIcon sx={{ fontSize: 18 }} />
+              <span>Admin Mode</span>
+            </Stack>
+          </ToggleButton>
+
+          <ToggleButton value="member">
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <GroupRoundedIcon sx={{ fontSize: 18 }} />
+              <span>Member Mode</span>
+            </Stack>
+          </ToggleButton>
+        </ToggleButtonGroup>
       </Stack>
     </Box>
   );

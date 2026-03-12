@@ -1,4 +1,5 @@
 import { currentTeamName } from "@/app/config/teamConfig";
+import { cleanName } from "@/app/services/cleanName";
 import { supabase } from "./supabaseClient";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 
@@ -21,13 +22,20 @@ type InningsRow = {
 };
 
 type BattingStatRow = {
+  player_id: string | null;
   player_name: string | null;
   runs: number | null;
 };
 
 type BowlingStatRow = {
+  player_id: string | null;
   player_name: string | null;
   wickets: number | null;
+};
+
+type TeamPlayerRow = {
+  id: string;
+  name: string;
 };
 
 type TeamMatchContext = {
@@ -52,6 +60,11 @@ async function getCurrentTeamId() {
   }
 
   return teamData.id as string;
+}
+
+function getFallbackKey(name: string | null | undefined) {
+  const normalizedName = cleanName(name ?? "");
+  return normalizedName ? `name:${normalizedName}` : null;
 }
 
 async function getCurrentTeamMatches() {
@@ -121,8 +134,23 @@ async function getTeamMatchContext(): Promise<TeamMatchContext> {
 }
 
 async function getAggregatedBattingTotals() {
-  const { battingInnings } = await getTeamMatchContext();
+  const teamId = await getCurrentTeamId();
+  const [{ battingInnings }, { data: teamPlayersData, error: teamPlayersError }] = await Promise.all([
+    getTeamMatchContext(),
+    supabase
+      .from("players")
+      .select("id, name")
+      .eq("team_id", teamId)
+  ]);
   const inningsIds = battingInnings.map((innings) => innings.id);
+
+  if (teamPlayersError) {
+    throw new Error("Could not load team players.");
+  }
+
+  const playerNameById = new Map(
+    ((teamPlayersData ?? []) as TeamPlayerRow[]).map((player) => [player.id, player.name])
+  );
 
   if (inningsIds.length === 0) {
     return [] as Array<{ player: string; runs: number }>;
@@ -130,33 +158,52 @@ async function getAggregatedBattingTotals() {
 
   const { data, error } = await supabase
     .from("batting_stats")
-    .select("player_name, runs")
+    .select("player_id, player_name, runs")
     .in("innings_id", inningsIds);
 
   if (error) {
     throw new Error("Could not load batting statistics.");
   }
 
-  const totals: Record<string, number> = {};
+  const totals = new Map<string, { player: string; runs: number }>();
 
   ((data ?? []) as BattingStatRow[]).forEach((row) => {
-    const player = row.player_name?.trim();
+    const key = row.player_id ?? getFallbackKey(row.player_name);
+    const player = row.player_id
+      ? (playerNameById.get(row.player_id) ?? row.player_name?.trim() ?? "Unknown")
+      : row.player_name?.trim();
 
-    if (!player) {
+    if (!key || !player) {
       return;
     }
 
-    totals[player] = (totals[player] ?? 0) + (row.runs ?? 0);
+    const existing = totals.get(key) ?? { player, runs: 0 };
+    existing.runs += row.runs ?? 0;
+    totals.set(key, existing);
   });
 
-  return Object.entries(totals)
-    .map(([player, runs]) => ({ player, runs }))
+  return Array.from(totals.values())
     .sort((left, right) => right.runs - left.runs);
 }
 
 async function getAggregatedBowlingTotals() {
-  const { bowlingInnings } = await getTeamMatchContext();
+  const teamId = await getCurrentTeamId();
+  const [{ bowlingInnings }, { data: teamPlayersData, error: teamPlayersError }] = await Promise.all([
+    getTeamMatchContext(),
+    supabase
+      .from("players")
+      .select("id, name")
+      .eq("team_id", teamId)
+  ]);
   const inningsIds = bowlingInnings.map((innings) => innings.id);
+
+  if (teamPlayersError) {
+    throw new Error("Could not load team players.");
+  }
+
+  const playerNameById = new Map(
+    ((teamPlayersData ?? []) as TeamPlayerRow[]).map((player) => [player.id, player.name])
+  );
 
   if (inningsIds.length === 0) {
     return [] as Array<{ player: string; wickets: number }>;
@@ -164,27 +211,31 @@ async function getAggregatedBowlingTotals() {
 
   const { data, error } = await supabase
     .from("bowling_stats")
-    .select("player_name, wickets")
+    .select("player_id, player_name, wickets")
     .in("innings_id", inningsIds);
 
   if (error) {
     throw new Error("Could not load bowling statistics.");
   }
 
-  const totals: Record<string, number> = {};
+  const totals = new Map<string, { player: string; wickets: number }>();
 
   ((data ?? []) as BowlingStatRow[]).forEach((row) => {
-    const player = row.player_name?.trim();
+    const key = row.player_id ?? getFallbackKey(row.player_name);
+    const player = row.player_id
+      ? (playerNameById.get(row.player_id) ?? row.player_name?.trim() ?? "Unknown")
+      : row.player_name?.trim();
 
-    if (!player) {
+    if (!key || !player) {
       return;
     }
 
-    totals[player] = (totals[player] ?? 0) + (row.wickets ?? 0);
+    const existing = totals.get(key) ?? { player, wickets: 0 };
+    existing.wickets += row.wickets ?? 0;
+    totals.set(key, existing);
   });
 
-  return Object.entries(totals)
-    .map(([player, wickets]) => ({ player, wickets }))
+  return Array.from(totals.values())
     .sort((left, right) => right.wickets - left.wickets);
 }
 

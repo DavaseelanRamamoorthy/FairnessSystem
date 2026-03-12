@@ -46,6 +46,7 @@ import {
 } from "recharts";
 
 import { formatName } from "@/app/services/formatname";
+import { useViewMode } from "@/app/context/ViewModeContext";
 import {
   AnalyticsSnapshot,
   getAnalyticsSnapshot
@@ -123,12 +124,19 @@ function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
 }
 
 export default function AnalyticsPage() {
+  const { isAdminMode } = useViewMode();
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null);
   const [selectedSeason, setSelectedSeason] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isAdminMode) {
+      setSnapshot(null);
+      setIsLoading(false);
+      return;
+    }
+
     const loadAnalytics = async () => {
       setIsLoading(true);
       setErrorMessage(null);
@@ -151,11 +159,19 @@ export default function AnalyticsPage() {
     };
 
     void loadAnalytics();
-  }, [selectedSeason]);
+  }, [isAdminMode, selectedSeason]);
 
   return (
     <Container maxWidth="xl">
       <Stack spacing={4}>
+        {!isAdminMode && (
+          <Alert severity="info" variant="outlined">
+            Analytics is available in Admin Mode only. Switch the topbar toggle back to Admin Mode
+            to review team analytics.
+          </Alert>
+        )}
+
+        {isAdminMode && (
         <Stack direction="row" justifyContent="flex-end">
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="analytics-season-filter-label">Season</InputLabel>
@@ -174,10 +190,11 @@ export default function AnalyticsPage() {
             </Select>
           </FormControl>
         </Stack>
+        )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-        {isLoading ? (
+        {isAdminMode && isLoading ? (
           <Box
             sx={{
               minHeight: 320,
@@ -188,7 +205,7 @@ export default function AnalyticsPage() {
           >
             <CircularProgress />
           </Box>
-        ) : snapshot ? (
+        ) : isAdminMode && snapshot ? (
           <>
             <Grid container spacing={3} alignItems="stretch">
               <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: "flex" }}>
@@ -312,8 +329,8 @@ export default function AnalyticsPage() {
             ) : (
               <>
                 <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 7 }}>
-                    <Card variant="outlined" sx={{ height: "100%" }}>
+                  <Grid size={{ xs: 12, md: 7 }} sx={{ minWidth: 0 }}>
+                    <Card variant="outlined" sx={{ height: "100%", minWidth: 0 }}>
                       <CardContent sx={{ p: 0 }}>
                         <Box sx={{ px: 3, pt: 3, pb: 2 }}>
                           <Stack direction="row" spacing={1.25} alignItems="center">
@@ -322,7 +339,7 @@ export default function AnalyticsPage() {
                           </Stack>
                         </Box>
 
-                        <Box sx={{ px: 2, pb: 2, height: 320 }}>
+                        <Box sx={{ px: 2, pb: 2, height: 320, minWidth: 0 }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={snapshot.matchTrend}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -353,8 +370,8 @@ export default function AnalyticsPage() {
                     </Card>
                   </Grid>
 
-                  <Grid size={{ xs: 12, md: 5 }}>
-                    <Card variant="outlined" sx={{ height: "100%" }}>
+                  <Grid size={{ xs: 12, md: 5 }} sx={{ minWidth: 0 }}>
+                    <Card variant="outlined" sx={{ height: "100%", minWidth: 0 }}>
                       <CardContent sx={{ p: 0 }}>
                         <Box sx={{ px: 3, pt: 3, pb: 2 }}>
                           <Stack direction="row" spacing={1.25} alignItems="center">
@@ -363,7 +380,7 @@ export default function AnalyticsPage() {
                           </Stack>
                         </Box>
 
-                        <Box sx={{ px: 2, pb: 2, height: 320 }}>
+                        <Box sx={{ px: 2, pb: 2, height: 320, minWidth: 0 }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={snapshot.resultBreakdown}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} />

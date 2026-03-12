@@ -17,17 +17,23 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import SportsCricketIcon from "@mui/icons-material/SportsCricket";
 import GroupIcon from "@mui/icons-material/Group";
 import QueryStatsIcon from "@mui/icons-material/QueryStats";
+import RuleRoundedIcon from "@mui/icons-material/RuleRounded";
+import { useViewMode } from "@/app/context/ViewModeContext";
 import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 
 interface Props {
   collapsed?: boolean;
 }
 
-const navItems = [
+const baseNavItems = [
   { title: "Dashboard", path: "/dashboard", icon: <DashboardIcon /> },
   { title: "Matches", path: "/matches", icon: <SportsCricketIcon /> },
-  { title: "Players", path: "/players", icon: <GroupIcon /> },
-  { title: "Analytics", path: "/analytics", icon: <QueryStatsIcon /> }
+  { title: "Players", path: "/players", icon: <GroupIcon /> }
+];
+
+const adminNavItems = [
+  { title: "Analytics", path: "/analytics", icon: <QueryStatsIcon /> },
+  { title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> }
 ];
 
 const SIDEBAR_NAVY = "#0A1A49";
@@ -37,6 +43,10 @@ const SIDEBAR_RED = "#E53935";
 export default function Sidebar({ collapsed }: Props) {
 
   const pathname = usePathname();
+  const { isAdminMode } = useViewMode();
+  const navItems = isAdminMode
+    ? [...baseNavItems, ...adminNavItems]
+    : baseNavItems;
 
   return (
 

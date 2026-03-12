@@ -7,7 +7,8 @@ import {
   Stack,
   Paper,
   Chip,
-  Button
+  IconButton,
+  Tooltip
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
@@ -97,14 +98,14 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
         variant="outlined"
         sx={() => ({
           p: 3,
-          mb: 3,
+          mb: 2,
           borderRadius: 3,
           color: "#F7F9FC",
           background: `linear-gradient(135deg, ${JERSEY_NAVY_DEEP} 0%, ${JERSEY_NAVY} 52%, #102969 100%)`,
           borderColor: alpha(JERSEY_RED, 0.22),
           overflow: "hidden",
           position: "relative",
-          boxShadow: `0 18px 42px ${alpha(JERSEY_NAVY_DEEP, 0.28)}`,
+          boxShadow: `0 10px 24px ${alpha(JERSEY_NAVY_DEEP, 0.14)}`,
           "&::after": {
             content: '""',
             position: "absolute",
@@ -177,23 +178,24 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
               </Stack>
 
               {onDelete && (
-                <Button
-                  onClick={onDelete}
-                  startIcon={<DeleteOutlineRoundedIcon />}
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    color: "#FFFFFF",
-                    borderColor: alpha("#FFFFFF", 0.24),
-                    backgroundColor: alpha("#FFFFFF", 0.04),
-                    "&:hover": {
-                      borderColor: alpha("#FFFFFF", 0.32),
-                      backgroundColor: alpha(JERSEY_RED, 0.16)
-                    }
-                  }}
-                >
-                  Delete Match
-                </Button>
+                <Tooltip title="Delete Match">
+                  <IconButton
+                    onClick={onDelete}
+                    size="small"
+                    sx={{
+                      color: "#FFFFFF",
+                      border: "1px solid",
+                      borderColor: alpha("#FFFFFF", 0.24),
+                      backgroundColor: alpha("#FFFFFF", 0.04),
+                      "&:hover": {
+                        borderColor: alpha("#FFFFFF", 0.32),
+                        backgroundColor: alpha(JERSEY_RED, 0.16)
+                      }
+                    }}
+                  >
+                    <DeleteOutlineRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
             </Stack>
 
@@ -254,7 +256,8 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
               p: 3,
               borderRadius: 3,
               borderColor: alpha(JERSEY_LINE, 0.18),
-              background: `linear-gradient(180deg, ${alpha(JERSEY_NAVY, 0.05)} 0%, rgba(255,255,255,1) 18%)`
+              background: `linear-gradient(180deg, ${alpha(JERSEY_NAVY, 0.04)} 0%, rgba(255,255,255,0.98) 18%)`,
+              boxShadow: "none"
             })}
           >
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Box } from "@mui/material";
 
+import { ViewModeProvider } from "@/app/context/ViewModeContext";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
@@ -14,46 +15,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isMatchesPage = pathname === "/matches";
 
   return (
-
-    <Box
-      sx={{
-        display: "flex",
-        minHeight: "100vh",
-        height: isMatchesPage ? "100vh" : "auto",
-        overflow: isMatchesPage ? "hidden" : "visible"
-      }}
-    >
-
-      <Sidebar collapsed={collapsed} />
-
+    <ViewModeProvider>
       <Box
         sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          minHeight: 0,
           display: "flex",
-          flexDirection: "column",
-          ml: collapsed ? "80px" : "260px",
-          transition: "margin-left .2s"
+          minHeight: "100vh",
+          height: isMatchesPage ? "100vh" : "auto",
+          overflow: isMatchesPage ? "hidden" : "visible"
         }}
       >
-
-        <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
-
+        <Sidebar collapsed={collapsed} />
         <Box
           sx={{
-            flex: 1,
+            flexGrow: 1,
+            minWidth: 0,
             minHeight: 0,
-            p: 4,
-            overflow: isMatchesPage ? "hidden" : "auto"
+            display: "flex",
+            flexDirection: "column",
+            ml: collapsed ? "80px" : "260px",
+            transition: "margin-left .2s"
           }}
         >
-          {children}
+          <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
+
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              p: 4,
+              overflow: isMatchesPage ? "hidden" : "auto"
+            }}
+          >
+            {children}
+          </Box>
         </Box>
-
       </Box>
-
-    </Box>
+    </ViewModeProvider>
 
   );
 }

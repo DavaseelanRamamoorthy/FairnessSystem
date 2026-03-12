@@ -1,5 +1,7 @@
 "use client";
 
+import Box from "@mui/material/Box";
+
 import {
   LineChart,
   Line,
@@ -22,27 +24,29 @@ interface Props {
 export default function WicketsTrendChart({ data }: Props) {
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <Box sx={{ width: "100%", minWidth: 0, height: 300 }}>
+      <ResponsiveContainer width="100%" height="100%">
 
-      <LineChart data={data}>
+        <LineChart data={data}>
 
-        <CartesianGrid strokeDasharray="3 3" />
+          <CartesianGrid strokeDasharray="3 3" />
 
-        <XAxis dataKey="match" />
+          <XAxis dataKey="match" />
 
-        <YAxis />
+          <YAxis />
 
-        <Tooltip />
+          <Tooltip />
 
-        <Line
-          type="monotone"
-          dataKey="wickets"
-          stroke="#ef4444"
-          strokeWidth={3}
-        />
+          <Line
+            type="monotone"
+            dataKey="wickets"
+            stroke="#ef4444"
+            strokeWidth={3}
+          />
 
-      </LineChart>
+        </LineChart>
 
-    </ResponsiveContainer>
+      </ResponsiveContainer>
+    </Box>
   );
 }

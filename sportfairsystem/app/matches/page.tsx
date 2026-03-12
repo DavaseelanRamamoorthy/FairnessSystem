@@ -24,8 +24,10 @@ import AddIcon from "@mui/icons-material/Add";
 import MatchesTable from "@/app/components/matches/MatchesTable";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
 import MatchPreviewModal from "@/app/components/matches/MatchPreviewModal";
+import { useViewMode } from "@/app/context/ViewModeContext";
 
 import { parseMatchFromBase64 } from "@/app/services/pdfParser";
+import { getCurrentTeamId } from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
 import { saveMatchToDatabase } from "@/app/services/matchInsertService";
 import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
@@ -51,6 +53,7 @@ type Match = {
 type PreviewPlayer = {
   name: string;
   exists: boolean;
+  isGuest: boolean;
   addToSquad: boolean;
 };
 
@@ -61,6 +64,7 @@ type PreviewItem = {
 };
 
 export default function MatchesPage() {
+  const { isAdminMode, isMemberMode } = useViewMode();
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -160,18 +164,21 @@ export default function MatchesPage() {
     }
 
     const players = Array.from(playerSet);
+    const teamId = await getCurrentTeamId();
 
     const { data: dbPlayers } = await supabase
       .from("players")
-      .select("name");
+      .select("name, is_guest")
+      .eq("team_id", teamId);
 
-    const dbSet = new Set(
-      (dbPlayers || []).map((p: any) => cleanName(p.name))
+    const dbPlayerMap = new Map(
+      (dbPlayers || []).map((player: any) => [cleanName(player.name), player.is_guest === true])
     );
 
     const result: PreviewPlayer[] = players.map((name) => ({
       name,
-      exists: dbSet.has(name),
+      exists: dbPlayerMap.has(name) && dbPlayerMap.get(name) === false,
+      isGuest: dbPlayerMap.get(name) === true,
       addToSquad: false
     }));
 
@@ -188,6 +195,13 @@ export default function MatchesPage() {
   const clearPreviewQueue = () => {
     setPreviewQueue([]);
   };
+
+  useEffect(() => {
+    if (isMemberMode) {
+      clearPreviewQueue();
+      setIsDeleteDialogOpen(false);
+    }
+  }, [isMemberMode]);
 
   const updateCurrentPreviewPlayers = (
     updater: (players: PreviewPlayer[]) => PreviewPlayer[]
@@ -325,7 +339,7 @@ export default function MatchesPage() {
       await saveMatchToDatabase(currentPreview.match, {
         sourceFileName: currentPreview.fileName,
         playersToAddToSquad: currentPreview.players
-          .filter((player) => player.addToSquad && !player.exists)
+          .filter((player) => player.addToSquad)
           .map((player) => player.name)
       });
 
@@ -478,22 +492,28 @@ export default function MatchesPage() {
 
           <Paper
             sx={{
-              p: 4,
+              p: 0,
               minHeight: { xs: 500, md: 0 },
               height: { md: "100%" },
-              overflowY: { md: "auto" }
+              overflowY: { md: "auto" },
+              backgroundColor: "transparent",
+              boxShadow: "none",
+              border: "none"
             }}
           >
 
             {!selectedMatch ? (
 
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" sx={{ p: 4 }}>
                 Click a match to view full scorecard
               </Typography>
 
             ) : (
 
-              <MatchDetailPanel match={selectedMatch} onDelete={openDeleteDialog} />
+              <MatchDetailPanel
+                match={selectedMatch}
+                onDelete={isAdminMode ? openDeleteDialog : undefined}
+              />
 
             )}
 
@@ -505,58 +525,60 @@ export default function MatchesPage() {
 
       {/* UPLOAD BUTTON */}
 
-      <Box sx={{ position: "fixed", bottom: 30, right: 30 }}>
+      {isAdminMode && (
+        <Box sx={{ position: "fixed", bottom: 30, right: 30 }}>
 
-        <Box
-          sx={{
-            position: "relative",
-            display: "inline-flex",
-            "&::after": {
-              content: '""',
-              position: "absolute",
-              left: "50%",
-              bottom: -8,
-              transform: "translateX(-50%)",
-              width: 28,
-              height: 4,
-              borderRadius: 999,
-              background: "linear-gradient(180deg, #E53935 0%, #FF7B57 100%)"
-            }
-          }}
-        >
+          <Box
+            sx={{
+              position: "relative",
+              display: "inline-flex",
+              "&::after": {
+                content: '""',
+                position: "absolute",
+                left: "50%",
+                bottom: -8,
+                transform: "translateX(-50%)",
+                width: 28,
+                height: 4,
+                borderRadius: 999,
+                background: "linear-gradient(180deg, #E53935 0%, #FF7B57 100%)"
+              }
+            }}
+          >
 
-          <Tooltip title="Upload Scorecard" placement="left">
-            <Fab
-              size="medium"
-              component="label"
-              aria-label="Upload scorecards"
-              sx={{
-                width: 48,
-                height: 48,
-                color: "#FFFFFF",
-                background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)",
-                boxShadow: `0 12px 28px ${alpha("#061230", 0.22)}`,
-                "&:hover": {
-                  background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)"
-                }
-              }}
-            >
-              <AddIcon />
+            <Tooltip title="Upload Scorecard" placement="left">
+              <Fab
+                size="medium"
+                component="label"
+                aria-label="Upload scorecards"
+                sx={{
+                  width: 48,
+                  height: 48,
+                  color: "#FFFFFF",
+                  background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)",
+                  boxShadow: `0 12px 28px ${alpha("#061230", 0.22)}`,
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)"
+                  }
+                }}
+              >
+                <AddIcon />
 
-              <input
-                hidden
-                type="file"
-                accept="application/pdf"
-                multiple
-                onChange={handleFileUpload}
-              />
+                <input
+                  hidden
+                  type="file"
+                  accept="application/pdf"
+                  multiple
+                  onChange={handleFileUpload}
+                />
 
-            </Fab>
-          </Tooltip>
+              </Fab>
+            </Tooltip>
+
+          </Box>
 
         </Box>
-
-      </Box>
+      )}
 
       {/* MATCH PREVIEW MODAL */}
 
@@ -607,27 +629,29 @@ export default function MatchesPage() {
         message={toastMessage}
       />
 
-      <Dialog
-        open={isDeleteDialogOpen}
-        onClose={closeDeleteDialog}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Delete Match</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            This will permanently remove the selected match and all related scorecard data.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={closeDeleteDialog} variant="outlined">
-            Cancel
-          </Button>
-          <Button onClick={handleDeleteMatch} color="error" variant="contained">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {isAdminMode && (
+        <Dialog
+          open={isDeleteDialogOpen}
+          onClose={closeDeleteDialog}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Delete Match</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              This will permanently remove the selected match and all related scorecard data.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            <Button onClick={closeDeleteDialog} variant="outlined">
+              Cancel
+            </Button>
+            <Button onClick={handleDeleteMatch} color="error" variant="contained">
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
     </Box>
 

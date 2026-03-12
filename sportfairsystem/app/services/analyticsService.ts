@@ -1,4 +1,5 @@
 import { currentTeamName } from "@/app/config/teamConfig";
+import { cleanName } from "@/app/services/cleanName";
 import { supabase } from "@/app/services/supabaseClient";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 
@@ -28,6 +29,7 @@ type InningsRow = {
 
 type BattingStatRow = {
   innings_id: string;
+  player_id: string | null;
   player_name: string | null;
   runs: number | null;
   balls: number | null;
@@ -35,6 +37,7 @@ type BattingStatRow = {
 
 type BowlingStatRow = {
   innings_id: string;
+  player_id: string | null;
   player_name: string | null;
   runs: number | null;
   overs: number | null;
@@ -43,9 +46,15 @@ type BowlingStatRow = {
 
 type MatchPlayerRow = {
   match_id: string;
+  player_id: string | null;
   player_name: string;
   did_bat: boolean | null;
   did_bowl: boolean | null;
+};
+
+type TeamPlayerRow = {
+  id: string;
+  name: string;
 };
 
 export type AnalyticsSnapshot = {
@@ -121,6 +130,11 @@ function oversToBalls(overs: number | null) {
   return completedOvers * 6 + partialBalls;
 }
 
+function getFallbackKey(name: string | null | undefined) {
+  const normalizedName = cleanName(name ?? "");
+  return normalizedName ? `name:${normalizedName}` : null;
+}
+
 async function getCurrentTeamId() {
   const { data: teamData, error: teamError } = await supabase
     .from("teams")
@@ -138,17 +152,32 @@ async function getCurrentTeamId() {
 export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSnapshot> {
   const teamId = await getCurrentTeamId();
 
-  const { data: matchData, error: matchError } = await supabase
-    .from("matches")
-    .select("id, match_date, team_a, team_b, result, match_code")
-    .eq("team_id", teamId)
-    .order("match_date", { ascending: false });
+  const [
+    { data: matchData, error: matchError },
+    { data: teamPlayersData, error: teamPlayersError }
+  ] = await Promise.all([
+    supabase
+      .from("matches")
+      .select("id, match_date, team_a, team_b, result, match_code")
+      .eq("team_id", teamId)
+      .order("match_date", { ascending: false }),
+    supabase
+      .from("players")
+      .select("id, name")
+      .eq("team_id", teamId)
+  ]);
 
   if (matchError) {
     throw new Error("Could not load team matches.");
   }
 
+  if (teamPlayersError) {
+    throw new Error("Could not load team players.");
+  }
+
   const allMatches = (matchData ?? []) as MatchRow[];
+  const teamPlayers = (teamPlayersData ?? []) as TeamPlayerRow[];
+  const playerNameById = new Map(teamPlayers.map((player) => [player.id, player.name]));
   const seasons = buildSeasonOptions(allMatches);
   const matches = season
     ? allMatches.filter((match) => getSeasonValue(match.match_date) === season)
@@ -212,19 +241,19 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
       battingInningsIds.length > 0
         ? supabase
             .from("batting_stats")
-            .select("innings_id, player_name, runs, balls")
+            .select("innings_id, player_id, player_name, runs, balls")
             .in("innings_id", battingInningsIds)
         : Promise.resolve({ data: [], error: null }),
       bowlingInningsIds.length > 0
         ? supabase
             .from("bowling_stats")
-            .select("innings_id, player_name, runs, overs, wickets")
+            .select("innings_id, player_id, player_name, runs, overs, wickets")
             .in("innings_id", bowlingInningsIds)
         : Promise.resolve({ data: [], error: null }),
       matchIds.length > 0
         ? supabase
             .from("match_players")
-            .select("match_id, player_name, did_bat, did_bowl")
+            .select("match_id, player_id, player_name, did_bat, did_bowl")
             .in("match_id", matchIds)
             .eq("team_name", currentTeamName)
         : Promise.resolve({ data: [], error: null })
@@ -283,15 +312,19 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
       wickets: wicketsByMatch.get(match.id) ?? 0
     }));
 
-  const battingTotals = new Map<string, { runs: number; balls: number; innings: Set<string> }>();
+  const battingTotals = new Map<string, { player: string; runs: number; balls: number; innings: Set<string> }>();
   battingStats.forEach((row) => {
-    const name = row.player_name?.trim();
+    const key = row.player_id ?? getFallbackKey(row.player_name);
+    const player = row.player_id
+      ? (playerNameById.get(row.player_id) ?? row.player_name?.trim() ?? "Unknown")
+      : row.player_name?.trim();
 
-    if (!name) {
+    if (!key || !player) {
       return;
     }
 
-    const existing = battingTotals.get(name) ?? {
+    const existing = battingTotals.get(key) ?? {
+      player,
       runs: 0,
       balls: 0,
       innings: new Set<string>()
@@ -300,18 +333,22 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
     existing.runs += row.runs ?? 0;
     existing.balls += row.balls ?? 0;
     existing.innings.add(row.innings_id);
-    battingTotals.set(name, existing);
+    battingTotals.set(key, existing);
   });
 
-  const bowlingTotals = new Map<string, { wickets: number; runs: number; balls: number; innings: Set<string> }>();
+  const bowlingTotals = new Map<string, { player: string; wickets: number; runs: number; balls: number; innings: Set<string> }>();
   bowlingStats.forEach((row) => {
-    const name = row.player_name?.trim();
+    const key = row.player_id ?? getFallbackKey(row.player_name);
+    const player = row.player_id
+      ? (playerNameById.get(row.player_id) ?? row.player_name?.trim() ?? "Unknown")
+      : row.player_name?.trim();
 
-    if (!name) {
+    if (!key || !player) {
       return;
     }
 
-    const existing = bowlingTotals.get(name) ?? {
+    const existing = bowlingTotals.get(key) ?? {
+      player,
       wickets: 0,
       runs: 0,
       balls: 0,
@@ -322,12 +359,12 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
     existing.runs += row.runs ?? 0;
     existing.balls += oversToBalls(row.overs);
     existing.innings.add(row.innings_id);
-    bowlingTotals.set(name, existing);
+    bowlingTotals.set(key, existing);
   });
 
-  const topBatters = Array.from(battingTotals.entries())
-    .map(([player, totals]) => ({
-      player,
+  const topBatters = Array.from(battingTotals.values())
+    .map((totals) => ({
+      player: totals.player,
       runs: totals.runs,
       matches: totals.innings.size,
       strikeRate: totals.balls > 0 ? (totals.runs / totals.balls) * 100 : null
@@ -335,9 +372,9 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
     .sort((left, right) => right.runs - left.runs)
     .slice(0, 5);
 
-  const topBowlers = Array.from(bowlingTotals.entries())
-    .map(([player, totals]) => ({
-      player,
+  const topBowlers = Array.from(bowlingTotals.values())
+    .map((totals) => ({
+      player: totals.player,
       wickets: totals.wickets,
       matches: totals.innings.size,
       economy: totals.balls > 0 ? totals.runs / (totals.balls / 6) : null
@@ -345,15 +382,19 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
     .sort((left, right) => right.wickets - left.wickets)
     .slice(0, 5);
 
-  const benchTotals = new Map<string, { benchMatches: number; totalSquadMatches: Set<string> }>();
+  const benchTotals = new Map<string, { player: string; benchMatches: number; totalSquadMatches: Set<string> }>();
   matchPlayers.forEach((row) => {
-    const player = row.player_name?.trim();
+    const key = row.player_id ?? getFallbackKey(row.player_name);
+    const player = row.player_id
+      ? (playerNameById.get(row.player_id) ?? row.player_name?.trim() ?? "Unknown")
+      : row.player_name?.trim();
 
-    if (!player) {
+    if (!key || !player) {
       return;
     }
 
-    const existing = benchTotals.get(player) ?? {
+    const existing = benchTotals.get(key) ?? {
+      player,
       benchMatches: 0,
       totalSquadMatches: new Set<string>()
     };
@@ -364,12 +405,12 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
       existing.benchMatches += 1;
     }
 
-    benchTotals.set(player, existing);
+    benchTotals.set(key, existing);
   });
 
-  const benchPlayers = Array.from(benchTotals.entries())
-    .map(([player, totals]) => ({
-      player,
+  const benchPlayers = Array.from(benchTotals.values())
+    .map((totals) => ({
+      player: totals.player,
       benchMatches: totals.benchMatches,
       totalSquadMatches: totals.totalSquadMatches.size,
       benchRate:

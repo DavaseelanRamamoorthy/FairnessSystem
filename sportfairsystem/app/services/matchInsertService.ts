@@ -4,6 +4,10 @@ import {
 } from "../config/teamConfig";
 import { ParsedMatch, SquadPlayer } from "../types/match.types";
 import { buildMatchId } from "./matchIdService";
+import {
+  hasSquadMetadataColumns,
+  mapSquadPlayerRecord
+} from "./squadService";
 import { supabase } from "./supabaseClient";
 import { isMatchForCurrentTeam } from "./teamValidationService";
 
@@ -26,7 +30,11 @@ const uniqueNames = (names: Array<string | null | undefined>) =>
 type TeamPlayerRecord = {
   id: string;
   name: string;
-  is_guest: boolean | null;
+  isGuest: boolean;
+  battingStyle: string | null;
+  isCaptain: boolean;
+  isWicketKeeper: boolean;
+  roleTags: string[];
 };
 
 function getDerivedPlaying11(
@@ -169,18 +177,19 @@ export async function saveMatchToDatabase(
   );
 
   const parsedCurrentTeamPlayers = getCurrentTeamParsedPlayers(parsed);
+  const metadataColumnsSupported = await hasSquadMetadataColumns();
 
   const { data: existingPlayers, error: existingPlayersError } = await supabase
     .from("players")
-    .select("id, name, is_guest")
+    .select("*")
     .eq("team_id", teamData.id);
 
   if (existingPlayersError) throw existingPlayersError;
 
   const existingPlayerMap = new Map(
-    ((existingPlayers ?? []) as TeamPlayerRecord[]).map((player) => [
-      normalizeName(player.name),
-      player
+    (existingPlayers ?? []).map((player) => [
+      normalizeName(mapSquadPlayerRecord(player as Record<string, unknown>).name),
+      mapSquadPlayerRecord(player as Record<string, unknown>)
     ])
   );
 
@@ -189,29 +198,40 @@ export async function saveMatchToDatabase(
   );
 
   if (missingParsedPlayers.length > 0) {
+    const insertRows = missingParsedPlayers.map((player) => {
+      const nextRow: Record<string, unknown> = {
+        team_id: teamData.id,
+        name: player.name,
+        is_guest: !playersToAddToSquad.includes(player.name),
+        batting_style: player.battingStyle
+      };
+
+      if (metadataColumnsSupported) {
+        nextRow.is_captain = player.isCaptain;
+        nextRow.is_wicket_keeper = player.isWicketKeeper;
+        nextRow.role_tags = [];
+      }
+
+      return nextRow;
+    });
+
     const { data: insertedPlayers, error: insertPlayersError } = await supabase
       .from("players")
-      .insert(
-        missingParsedPlayers.map((player) => ({
-          team_id: teamData.id,
-          name: player.name,
-          is_guest: !playersToAddToSquad.includes(player.name),
-          batting_style: player.battingStyle
-        }))
-      )
-      .select("id, name, is_guest");
+      .insert(insertRows)
+      .select("*");
 
     if (insertPlayersError) throw insertPlayersError;
 
-    ((insertedPlayers ?? []) as TeamPlayerRecord[]).forEach((player) => {
-      existingPlayerMap.set(normalizeName(player.name), player);
+    (insertedPlayers ?? []).forEach((player) => {
+      const mappedPlayer = mapSquadPlayerRecord(player as Record<string, unknown>);
+      existingPlayerMap.set(normalizeName(mappedPlayer.name), mappedPlayer);
     });
   }
 
   const playersToPromote = playersToAddToSquad
     .map((playerName) => existingPlayerMap.get(playerName))
     .filter((player): player is TeamPlayerRecord => Boolean(player?.id))
-    .filter((player) => player.is_guest !== false);
+    .filter((player) => player.isGuest);
 
   if (playersToPromote.length > 0) {
     const { error: promotePlayersError } = await supabase
@@ -224,9 +244,51 @@ export async function saveMatchToDatabase(
     playersToPromote.forEach((player) => {
       existingPlayerMap.set(normalizeName(player.name), {
         ...player,
-        is_guest: false
+        isGuest: false
       });
     });
+  }
+
+  if (metadataColumnsSupported) {
+    for (const parsedPlayer of parsedCurrentTeamPlayers) {
+      const existingPlayer = existingPlayerMap.get(parsedPlayer.name);
+
+      if (!existingPlayer) {
+        continue;
+      }
+
+      const metadataPatch: Record<string, unknown> = {};
+
+      if (parsedPlayer.battingStyle && !existingPlayer.battingStyle) {
+        metadataPatch.batting_style = parsedPlayer.battingStyle;
+      }
+
+      if (parsedPlayer.isCaptain && !existingPlayer.isCaptain) {
+        metadataPatch.is_captain = true;
+      }
+
+      if (parsedPlayer.isWicketKeeper && !existingPlayer.isWicketKeeper) {
+        metadataPatch.is_wicket_keeper = true;
+      }
+
+      if (Object.keys(metadataPatch).length === 0) {
+        continue;
+      }
+
+      const { data: updatedPlayer, error: updatePlayerError } = await supabase
+        .from("players")
+        .update(metadataPatch)
+        .eq("id", existingPlayer.id)
+        .select("*")
+        .single();
+
+      if (updatePlayerError || !updatedPlayer) {
+        throw updatePlayerError;
+      }
+
+      const mappedPlayer = mapSquadPlayerRecord(updatedPlayer as Record<string, unknown>);
+      existingPlayerMap.set(normalizeName(mappedPlayer.name), mappedPlayer);
+    }
   }
 
   const currentTeamPlayerIds = new Map(

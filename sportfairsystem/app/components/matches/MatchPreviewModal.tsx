@@ -29,6 +29,7 @@ const CARD_INDIGO = "#5B5FEF";
 type PreviewPlayer = {
   name: string;
   exists: boolean;
+  isGuest: boolean;
   addToSquad: boolean;
 };
 
@@ -156,7 +157,7 @@ export default function MatchPreviewModal({
     getYetToBat
   );
 
-  const newPlayers = previewPlayers.filter((player) => !player.exists);
+  const newPlayers = previewPlayers.filter((player) => !player.exists || player.isGuest);
 
   return (
 
@@ -243,7 +244,7 @@ export default function MatchPreviewModal({
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary">
-                    Select the players you want to add to the squad before saving this match.
+                    Select players to add or promote into the main squad before saving this match.
                   </Typography>
 
                   <Grid container spacing={2}>
@@ -300,12 +301,24 @@ export default function MatchPreviewModal({
                                 </Typography>
 
                                 <Typography variant="caption" color="text.secondary">
-                                  {player.addToSquad ? "Selected for squad" : "Available to add"}
+                                  {player.addToSquad
+                                    ? "Selected for squad"
+                                    : player.isGuest
+                                      ? "Currently tracked as guest"
+                                      : "Available to add"}
                                 </Typography>
                               </Stack>
                             </Stack>
 
-                            <Tooltip title={player.addToSquad ? "Remove from Squad" : "Add to Squad"}>
+                            <Tooltip
+                              title={
+                                player.addToSquad
+                                  ? "Remove from Squad"
+                                  : player.isGuest
+                                    ? "Promote to Squad"
+                                    : "Add to Squad"
+                              }
+                            >
                               <IconButton
                                 onClick={() => onToggleAddToSquad(player.name)}
                                 sx={{

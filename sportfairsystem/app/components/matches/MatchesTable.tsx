@@ -25,6 +25,7 @@ type MatchRow = {
   match_date: string | null;
   opponent_name: string | null;
   result: string | null;
+  result_summary?: string | null;
   match_code?: string | null;
 };
 
@@ -36,7 +37,7 @@ interface Props<T extends MatchRow> {
   onSelectMatch: (match: T) => void;
 }
 
-const resultOptions = ["All", "Won", "Lost", "Unknown"];
+const resultOptions = ["All", "Won", "Lost", "Tie", "Draw", "Unknown"];
 const groupOptions: { label: string; value: GroupOption }[] = [
   { label: "None", value: "none" },
   { label: "Result", value: "result" },
@@ -53,14 +54,46 @@ function getSeasonLabel(matchDate: string | null) {
 
 function getGroupLabel(match: MatchRow, groupBy: GroupOption) {
   if (groupBy === "season") return getSeasonLabel(match.match_date);
-  if (groupBy === "result") return match.result || "Unknown";
+  if (groupBy === "result") return getDisplayResult(match).label;
   return "";
 }
 
 function getResultChipColor(result: string | null) {
-  if (result === "Won") return "success";
-  if (result === "Lost") return "error";
-  return "default";
+  if (result === "Won") return "success" as const;
+  if (result === "Lost") return "error" as const;
+  if (result === "Tie") return "info" as const;
+  if (result === "Draw") return "warning" as const;
+  return "default" as const;
+}
+
+function getDisplayResult(match: MatchRow) {
+  const rawResult = typeof match.result === "string" ? match.result.trim() : "";
+  const normalizedResult = rawResult.toLowerCase();
+  const summary = typeof match.result_summary === "string"
+    ? match.result_summary.trim().toLowerCase()
+    : "";
+
+  if (normalizedResult === "won") {
+    return { label: "Won", color: "success" as const };
+  }
+
+  if (normalizedResult === "lost") {
+    return { label: "Lost", color: "error" as const };
+  }
+
+  if (normalizedResult === "tie" || summary.includes("tie")) {
+    return { label: "Tie", color: "info" as const };
+  }
+
+  if (normalizedResult === "draw" || summary.includes("draw")) {
+    return { label: "Draw", color: "warning" as const };
+  }
+
+  if (rawResult) {
+    return { label: rawResult, color: getResultChipColor(rawResult) };
+  }
+
+  return { label: "Unknown", color: "default" as const };
 }
 
 export default function MatchesTable<T extends MatchRow>({
@@ -83,7 +116,7 @@ export default function MatchesTable<T extends MatchRow>({
   ];
 
   const filteredRows = rows.filter((row) => {
-    const result = row.result || "Unknown";
+    const result = getDisplayResult(row).label;
     const season = getSeasonLabel(row.match_date);
 
     const matchesResult =
@@ -251,6 +284,7 @@ export default function MatchesTable<T extends MatchRow>({
             const showGroupHeader =
               groupBy !== "none" && currentGroupLabel !== previousGroupLabel;
             const isSelected = selectedMatchId === match.id;
+            const displayResult = getDisplayResult(match);
 
             return (
               <Box key={match.id}>
@@ -316,8 +350,8 @@ export default function MatchesTable<T extends MatchRow>({
 
                   <Box>
                     <Chip
-                      label={match.result || "Unknown"}
-                      color={getResultChipColor(match.result)}
+                      label={displayResult.label}
+                      color={displayResult.color}
                       size="small"
                     />
                   </Box>

@@ -30,7 +30,7 @@ import LinkOffRoundedIcon from "@mui/icons-material/LinkOffRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
-import { useViewMode } from "@/app/context/ViewModeContext";
+import { useAuth } from "@/app/context/AuthContext";
 import { formatName } from "@/app/services/formatname";
 import {
   getValidationSnapshot,
@@ -107,7 +107,7 @@ function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
 }
 
 export default function ValidationPage() {
-  const { isAdminMode } = useViewMode();
+  const { isAdmin } = useAuth();
   const [selectedSeason, setSelectedSeason] = useState("all");
   const [snapshot, setSnapshot] = useState<ValidationSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -119,7 +119,7 @@ export default function ValidationPage() {
     : 0;
 
   useEffect(() => {
-    if (!isAdminMode) {
+    if (!isAdmin) {
       setIsLoading(false);
       return;
     }
@@ -146,7 +146,7 @@ export default function ValidationPage() {
     };
 
     void loadValidation();
-  }, [isAdminMode, selectedSeason]);
+  }, [isAdmin, selectedSeason]);
 
   return (
     <Container maxWidth="xl">
@@ -175,16 +175,15 @@ export default function ValidationPage() {
           )}
         />
 
-        {!isAdminMode && (
+        {!isAdmin && (
           <Alert severity="info" variant="outlined">
-            Validation workspace is available in Admin Mode only. Switch the topbar toggle back to
-            Admin Mode to review data quality issues.
+            Validation workspace is available to admin users only.
           </Alert>
         )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-        {isAdminMode && isLoading ? (
+        {isAdmin && isLoading ? (
           <Box
             sx={{
               minHeight: 320,
@@ -195,7 +194,7 @@ export default function ValidationPage() {
           >
             <CircularProgress />
           </Box>
-        ) : isAdminMode && snapshot ? (
+        ) : isAdmin && snapshot ? (
           <>
             <Grid container spacing={3} alignItems="stretch">
               <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: "flex" }}>

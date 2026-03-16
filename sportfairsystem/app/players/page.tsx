@@ -29,7 +29,7 @@ import FlashOnRoundedIcon from "@mui/icons-material/FlashOnRounded";
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 
 import SquadMetadataDialog from "@/app/components/players/SquadMetadataDialog";
-import { useViewMode } from "@/app/context/ViewModeContext";
+import { useAuth } from "@/app/context/AuthContext";
 import { squadAdminEnabled } from "@/app/config/teamConfig";
 import { formatName } from "@/app/services/formatname";
 import {
@@ -136,7 +136,7 @@ export default function PlayersPage() {
   const [metadataColumnsReady, setMetadataColumnsReady] = useState<boolean | null>(
     squadAdminEnabled ? null : false
   );
-  const { isAdminMode, isMemberMode } = useViewMode();
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
     const loadSeasons = async () => {
@@ -193,7 +193,7 @@ export default function PlayersPage() {
   }, [selectedSeason]);
 
   const canEditSquadMetadata = squadAdminEnabled && metadataColumnsReady === true;
-  const showAdminControls = canEditSquadMetadata && isAdminMode;
+  const showAdminControls = canEditSquadMetadata && isAdmin;
   const visiblePlayers = [...players].sort((left, right) => {
       const direction = selectedSort === "a-z" ? 1 : -1;
       return left.name.localeCompare(right.name) * direction;
@@ -205,10 +205,10 @@ export default function PlayersPage() {
   };
 
   useEffect(() => {
-    if (isMemberMode) {
+    if (!isAdmin) {
       setEditingPlayer(null);
     }
-  }, [isMemberMode]);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!successMessage) {
@@ -333,15 +333,7 @@ export default function PlayersPage() {
 
         {showAdminControls && (
           <Alert severity="info" variant="outlined">
-            Squad metadata is editable here for the current team. This remains UI-gated until a
-            real admin permission layer is added.
-          </Alert>
-        )}
-
-        {canEditSquadMetadata && isMemberMode && (
-          <Alert severity="info" variant="outlined">
-            Member mode hides admin actions and shows the same metadata cards as a regular squad
-            member would see.
+            Squad metadata is editable here for the current team.
           </Alert>
         )}
 

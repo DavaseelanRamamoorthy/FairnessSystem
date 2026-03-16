@@ -1,30 +1,119 @@
 import { ParsedMatch, SquadPlayer, TeamSquad } from "../types/match.types";
-
-function cleanPlayerName(name: string) {
-  return name
-    .replace(/\(.*?\)/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalizeWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function parsePlayerList(listText: string) {
-  return Array.from(
-    new Set(
-      listText
-        .split(/\s*,\s*/)
-        .map((name) => cleanPlayerName(name))
-        .filter(Boolean)
-    )
-  );
-}
+import {
+  hasCaptainMarker,
+  hasWicketKeeperMarker,
+  normalizeLooseTextKey,
+  normalizeMatchWhitespace,
+  parseDelimitedPlayerList,
+  stripNameAnnotations
+} from "./matchTextNormalization";
 
 type BattingStat = NonNullable<ParsedMatch["innings"][number]["battingStats"]>[number];
 type BowlingStat = NonNullable<ParsedMatch["innings"][number]["bowlingStats"]>[number];
 type FallOfWicket = NonNullable<ParsedMatch["innings"][number]["fallOfWickets"]>[number];
+
+function parseBattingStats(block: string): BattingStat[] {
+  const battingSectionMatch = block.match(/No\s+Batsman\s+Status\s+R\s+B\s+M\s+4s\s+6s\s+SR\s+([\s\S]+?)\s+Extras:/i);
+
+  if (!battingSectionMatch) {
+    return [];
+  }
+
+  const battingSection = battingSectionMatch[1];
+  const rowRegex = /(\d+)\s+(.+?)(?=\s+\d+\s+[A-Za-z]|\s*$)/g;
+  const battingStats: BattingStat[] = [];
+
+  let rowMatch;
+  while ((rowMatch = rowRegex.exec(battingSection)) !== null) {
+    const row = `${rowMatch[1]} ${rowMatch[2]}`.trim();
+    const tokens = row.split(/\s+/);
+
+    const battingPosition = parseInt(tokens.shift() ?? "", 10);
+    const strikeRate = parseFloat(tokens.pop() ?? "");
+    const sixes = parseInt(tokens.pop() ?? "", 10);
+    const fours = parseInt(tokens.pop() ?? "", 10);
+    const minutes = parseInt(tokens.pop() ?? "", 10);
+    const balls = parseInt(tokens.pop() ?? "", 10);
+    const runsValue = parseInt(tokens.pop() ?? "", 10);
+
+    if (
+      Number.isNaN(battingPosition)
+      || Number.isNaN(strikeRate)
+      || Number.isNaN(sixes)
+      || Number.isNaN(fours)
+      || Number.isNaN(minutes)
+      || Number.isNaN(balls)
+      || Number.isNaN(runsValue)
+      || tokens.length === 0
+    ) {
+      continue;
+    }
+
+    const dismissalTokens: string[] = [];
+    while (tokens.length > 0 && !tokens[tokens.length - 1].includes("(")) {
+      dismissalTokens.unshift(tokens.pop() ?? "");
+    }
+
+    const dismissal = normalizeMatchWhitespace(dismissalTokens.join(" "));
+    const battingStyleToken = tokens.pop() ?? "";
+    const rawName = normalizeMatchWhitespace(tokens.join(" "));
+
+    if (!rawName) {
+      continue;
+    }
+
+    battingStats.push({
+      player_name: stripNameAnnotations(rawName),
+      batting_position: battingPosition,
+      batting_style: battingStyleToken ? battingStyleToken.replace(/[()]/g, "") : null,
+      isCaptain: hasCaptainMarker(rawName),
+      isWicketKeeper: hasWicketKeeperMarker(rawName),
+      dismissal: dismissal || "not out",
+      runs: runsValue,
+      balls,
+      minutes,
+      fours,
+      sixes,
+      strike_rate: strikeRate
+    });
+  }
+
+  return battingStats;
+}
+
+function parseBowlingStats(block: string): BowlingStat[] {
+  const bowlingSectionMatch = block.match(
+    /No\s+Bowler\s+O\s+M\s+R\s+W\s+0s\s+4s\s+6s\s+WD\s+NB\s+ECO\s+([\s\S]+?)(?=Fall of Wickets|Yet To Bat|To Bat|Did Not Bat|$)/i
+  );
+
+  if (!bowlingSectionMatch) {
+    return [];
+  }
+
+  const bowlingSection = bowlingSectionMatch[1];
+  const rowRegex =
+    /(\d+)\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)/g;
+  const bowlingStats: BowlingStat[] = [];
+
+  let rowMatch;
+  while ((rowMatch = rowRegex.exec(bowlingSection)) !== null) {
+    bowlingStats.push({
+      player_name: stripNameAnnotations(rowMatch[2]),
+      overs: parseFloat(rowMatch[3]),
+      maidens: parseInt(rowMatch[4], 10),
+      runs: parseInt(rowMatch[5], 10),
+      wickets: parseInt(rowMatch[6], 10),
+      dot_balls: parseInt(rowMatch[7], 10),
+      fours_conceded: parseInt(rowMatch[8], 10),
+      sixes_conceded: parseInt(rowMatch[9], 10),
+      wides: parseInt(rowMatch[10], 10),
+      no_balls: parseInt(rowMatch[11], 10),
+      economy: parseFloat(rowMatch[12])
+    });
+  }
+
+  return bowlingStats;
+}
 
 function extractCompetitionName(matchTitle: string | null) {
   if (!matchTitle) {
@@ -49,8 +138,8 @@ function parseMatchOfficials(pageText: string) {
   let match;
   while ((match = officialRegex.exec(officialsSection)) !== null) {
     officials.push({
-      name: cleanPlayerName(match[2]),
-      role: normalizeWhitespace(match[3])
+      name: stripNameAnnotations(match[2]),
+      role: normalizeMatchWhitespace(match[3])
     });
   }
 
@@ -64,7 +153,7 @@ function parsePlayingSquads(pageText: string, teamA: string | null, teamB: strin
 
   const sectionStart = pageText.indexOf("Playing Squad");
   const section = pageText.slice(sectionStart);
-  const startAfterHeader = normalizeWhitespace(
+  const startAfterHeader = normalizeMatchWhitespace(
     section.replace(/^Playing Squad\s+/i, "")
   );
 
@@ -84,10 +173,10 @@ function parsePlayingSquads(pageText: string, teamA: string | null, teamB: strin
   const secondTeamPlayers: SquadPlayer[] = [];
 
   const parseSquadPlayer = (rawName: string, playerOrder: number) => ({
-    name: cleanPlayerName(rawName),
+    name: stripNameAnnotations(rawName),
     playerOrder,
-    isCaptain: /\(\s*c\s*\)/i.test(rawName),
-    isWicketKeeper: /\(\s*wk\s*\)/i.test(rawName),
+    isCaptain: hasCaptainMarker(rawName),
+    isWicketKeeper: hasWicketKeeperMarker(rawName),
     battingStyle: null
   });
 
@@ -149,15 +238,50 @@ function parseInningsBlocks(fullText: string) {
   ) ?? [];
 }
 
+function buildFallbackSquads(innings: ParsedMatch["innings"]): TeamSquad[] {
+  return innings
+    .filter((inningsSummary): inningsSummary is ParsedMatch["innings"][number] & { teamName: string } => {
+      return Boolean(inningsSummary.teamName && inningsSummary.playing11?.length);
+    })
+    .map((inningsSummary) => {
+      const battingByName = new Map(
+        (inningsSummary.battingStats ?? []).map((player) => [
+          normalizeLooseTextKey(player.player_name),
+          player
+        ])
+      );
+
+      return {
+        teamName: inningsSummary.teamName,
+        players: (inningsSummary.playing11 ?? []).map((playerName, index) => {
+          const battingPlayer = battingByName.get(normalizeLooseTextKey(playerName));
+
+          return {
+            name: playerName,
+            playerOrder: index + 1,
+            isCaptain: battingPlayer?.isCaptain ?? false,
+            isWicketKeeper: battingPlayer?.isWicketKeeper ?? false,
+            battingStyle: battingPlayer?.batting_style ?? null
+          };
+        })
+      };
+    });
+}
+
 export async function parseMatchFromBase64(
   base64Data: string,
   currentTeamName: string
 ): Promise<ParsedMatch> {
-  // @ts-expect-error pdfjs-dist build entry does not expose stable types here.
-  const pdfjsLib = await import("pdfjs-dist/build/pdf");
+  const pdfjsModule = await import("pdfjs-dist/build/pdf.js");
+  const pdfjsLib = (pdfjsModule.default ?? pdfjsModule) as typeof pdfjsModule;
+  const workerOptions = "GlobalWorkerOptions" in pdfjsLib
+    ? pdfjsLib.GlobalWorkerOptions
+    : null;
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  if (typeof window !== "undefined" && workerOptions && typeof workerOptions === "object") {
+    workerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
 
   const binary = atob(base64Data);
   const length = binary.length;
@@ -167,7 +291,10 @@ export async function parseMatchFromBase64(
     bytes[i] = binary.charCodeAt(i);
   }
 
-  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const pdf = await pdfjsLib.getDocument({
+    data: bytes,
+    disableWorker: typeof window === "undefined"
+  }).promise;
   const pageTexts: string[] = [];
 
   for (let i = 1; i <= pdf.numPages; i += 1) {
@@ -177,15 +304,15 @@ export async function parseMatchFromBase64(
       .map((item: { str?: unknown }) => ("str" in item ? String(item.str) : ""))
       .join(" ");
 
-    pageTexts.push(normalizeWhitespace(pageText));
+    pageTexts.push(normalizeMatchWhitespace(pageText));
   }
 
-  const fullText = normalizeWhitespace(pageTexts.join(" "));
+  const fullText = normalizeMatchWhitespace(pageTexts.join(" "));
   const firstPageText = pageTexts[0] ?? "";
   const squadPageText = pageTexts.find((pageText) => pageText.includes("Playing Squad")) ?? "";
 
   const titleMatch = firstPageText.match(/^(.+?)\s+\d{1,2}\/\d{1,2}\/\d{2},/);
-  const matchTitle = titleMatch ? normalizeWhitespace(titleMatch[1]) : null;
+  const matchTitle = titleMatch ? normalizeMatchWhitespace(titleMatch[1]) : null;
   const competitionName = extractCompetitionName(matchTitle);
 
   const dateMatch = fullText.match(/Date\s+(\d{4}-\d{2}-\d{2})/);
@@ -199,15 +326,15 @@ export async function parseMatchFromBase64(
   let teamB: string | null = null;
 
   if (headerMatch) {
-    teamA = normalizeWhitespace(headerMatch[1]);
-    teamB = normalizeWhitespace(headerMatch[2]);
+    teamA = normalizeMatchWhitespace(headerMatch[1]);
+    teamB = normalizeMatchWhitespace(headerMatch[2]);
   }
 
   const groundMatch = fullText.match(/Ground\s+(.+?)\s+Date/i);
-  const ground = groundMatch ? normalizeWhitespace(groundMatch[1]) : null;
+  const ground = groundMatch ? normalizeMatchWhitespace(groundMatch[1]) : null;
 
   const tossMatch = fullText.match(/Toss\s+(.+?)\s+opt to\s+(bat|bowl)/i);
-  const tossWinner = tossMatch ? normalizeWhitespace(tossMatch[1]) : null;
+  const tossWinner = tossMatch ? normalizeMatchWhitespace(tossMatch[1]) : null;
   const tossDecision = tossMatch ? tossMatch[2].toLowerCase() : null;
 
   const resultMatch = fullText.match(/Result\s+([A-Za-z\s().&]+?)\s+won by/i);
@@ -215,34 +342,26 @@ export async function parseMatchFromBase64(
 
   let winner: string | null = null;
   if (resultMatch) {
-    winner = normalizeWhitespace(resultMatch[1]);
+    winner = normalizeMatchWhitespace(resultMatch[1]);
   }
 
   const resultSummary = resultSummaryMatch
-    ? normalizeWhitespace(resultSummaryMatch[1])
+    ? normalizeMatchWhitespace(resultSummaryMatch[1])
     : null;
-
-  const normalize = (str: string) =>
-    str
-      .toLowerCase()
-      .replace(/\(.*?\)/g, "")
-      .replace(/[^a-z\s]/g, "")
-      .trim()
-      .replace(/\s+/g, " ");
 
   let matchResult: "Won" | "Lost" | "Unknown" = "Unknown";
   if (winner) {
-    matchResult = normalize(winner) === normalize(currentTeamName) ? "Won" : "Lost";
+    matchResult = normalizeLooseTextKey(winner) === normalizeLooseTextKey(currentTeamName) ? "Won" : "Lost";
   }
 
   const officials = parseMatchOfficials(firstPageText);
-  const squads = parsePlayingSquads(squadPageText, teamA, teamB);
+  const parsedSquads = parsePlayingSquads(squadPageText, teamA, teamB);
 
   const inningsSummaries: ParsedMatch["innings"] = parseInningsBlocks(fullText).map((block, index) => {
     const teamMatch = block.match(
       /^([A-Za-z\s().&]+?)\s+\d+\/\d+\s+\(\d+(\.\d+)?\s+Ov\)/i
     );
-    const teamName = teamMatch ? normalizeWhitespace(teamMatch[1]) : null;
+    const teamName = teamMatch ? normalizeMatchWhitespace(teamMatch[1]) : null;
 
     const totalMatch = block.match(
       /Total:\s*Overs\s*(\d+(\.\d+)?)\s*,?\s*Wickets\s*(\d+)\s+(\d+)\s+\(CRR:\s*(\d+(\.\d+)?)\)/i
@@ -259,75 +378,8 @@ export async function parseMatchFromBase64(
 
     const { extras, extrasBreakdown } = parseExtrasBreakdown(block);
 
-    const battingStats: BattingStat[] = [];
-    const battingSectionMatch = block.match(/No\s+Batsman\s+Status[\s\S]+?Extras:/i);
-
-    if (battingSectionMatch) {
-      const battingSection = battingSectionMatch[0];
-      const rows = battingSection.match(/\d+\s+[A-Za-z].+?\d+\.\d+/g) ?? [];
-
-      rows.forEach((row) => {
-        const tokens = row.trim().split(/\s+/);
-
-        const battingPosition = parseInt(tokens.shift() ?? "0", 10);
-        const strikeRate = parseFloat(tokens.pop() ?? "0");
-        const sixes = parseInt(tokens.pop() ?? "0", 10);
-        const fours = parseInt(tokens.pop() ?? "0", 10);
-        const minutes = parseInt(tokens.pop() ?? "0", 10);
-        const balls = parseInt(tokens.pop() ?? "0", 10);
-        const runsValue = parseInt(tokens.pop() ?? "0", 10);
-
-        const dismissalTokens: string[] = [];
-        while (tokens.length > 0 && !tokens[tokens.length - 1].includes("(")) {
-          dismissalTokens.unshift(tokens.pop() ?? "");
-        }
-
-        const dismissal = normalizeWhitespace(dismissalTokens.join(" "));
-        const battingStyleToken = tokens.pop() ?? "";
-        const rawName = normalizeWhitespace(tokens.join(" "));
-
-        battingStats.push({
-          player_name: cleanPlayerName(rawName),
-          batting_position: Number.isNaN(battingPosition) ? undefined : battingPosition,
-          batting_style: battingStyleToken ? battingStyleToken.replace(/[()]/g, "") : null,
-          isCaptain: /\(\s*c(?:apt)?(?:ain)?(?:\s*&\s*wk)?\s*\)/i.test(rawName) || /\(\s*c\s*&/i.test(rawName),
-          isWicketKeeper: /\(\s*wk\s*\)/i.test(rawName) || /\(\s*c\s*&\s*wk\s*\)/i.test(rawName),
-          dismissal: dismissal || "not out",
-          runs: Number.isNaN(runsValue) ? 0 : runsValue,
-          balls: Number.isNaN(balls) ? 0 : balls,
-          minutes: Number.isNaN(minutes) ? null : minutes,
-          fours: Number.isNaN(fours) ? 0 : fours,
-          sixes: Number.isNaN(sixes) ? 0 : sixes,
-          strike_rate: Number.isNaN(strikeRate) ? 0 : strikeRate
-        });
-      });
-    }
-
-    const bowlingStats: BowlingStat[] = [];
-    const bowlingSectionMatch = block.match(/No\s+Bowler\s+O\s+M\s+R\s+W[\s\S]+$/i);
-
-    if (bowlingSectionMatch) {
-      const bowlingSection = bowlingSectionMatch[0];
-      const rowRegex =
-        /\d+\s+([A-Za-z\s().&]+?)\s+(\d+(\.\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+(\.\d+)?)/g;
-
-      let match;
-      while ((match = rowRegex.exec(bowlingSection)) !== null) {
-        bowlingStats.push({
-          player_name: cleanPlayerName(match[1]),
-          overs: parseFloat(match[2]),
-          maidens: parseInt(match[4], 10),
-          runs: parseInt(match[5], 10),
-          wickets: parseInt(match[6], 10),
-          dot_balls: parseInt(match[7], 10),
-          fours_conceded: parseInt(match[8], 10),
-          sixes_conceded: parseInt(match[9], 10),
-          wides: parseInt(match[10], 10),
-          no_balls: parseInt(match[11], 10),
-          economy: parseFloat(match[12])
-        });
-      }
-    }
+    const battingStats = parseBattingStats(block);
+    const bowlingStats = parseBowlingStats(block);
 
     const fallOfWickets: FallOfWicket[] = [];
     const fowSectionMatch = block.match(
@@ -341,25 +393,25 @@ export async function parseMatchFromBase64(
         fallOfWickets.push({
           score: parseInt(match[1], 10),
           wicket_number: parseInt(match[2], 10),
-          batsman: cleanPlayerName(match[3]),
+          batsman: stripNameAnnotations(match[3]),
           over: parseFloat(match[4])
         });
       }
     }
 
-    const pendingBatters = parsePlayerList(
+    const pendingBatters = parseDelimitedPlayerList(
       block.match(/Yet\s+To\s+Bat\s*:?\s*([\s\S]+?)(?=No\s+Bowler|Fall\s+of\s+Wickets|$)/i)?.[1]
         ?? block.match(/To\s+Bat\s*:?\s*([\s\S]+?)(?=No\s+Bowler|Fall\s+of\s+Wickets|$)/i)?.[1]
         ?? block.match(/Did\s+Not\s+Bat\s*:?\s*([\s\S]+?)(?=No\s+Bowler|Fall\s+of\s+Wickets|$)/i)?.[1]
         ?? ""
     );
 
-      const squadForTeam = squads.find((squad: TeamSquad) => squad.teamName === teamName);
-      const squadNames = squadForTeam?.players.map((player: SquadPlayer) => cleanPlayerName(player.name)) ?? [];
+    const squadForTeam = parsedSquads.find((squad: TeamSquad) => squad.teamName === teamName);
+    const squadNames = squadForTeam?.players.map((player: SquadPlayer) => stripNameAnnotations(player.name)) ?? [];
     const playing11 = Array.from(
       new Set([
         ...squadNames,
-        ...battingStats.map((player) => cleanPlayerName(player.player_name)),
+        ...battingStats.map((player) => stripNameAnnotations(player.player_name)),
         ...pendingBatters
       ])
     );
@@ -379,6 +431,8 @@ export async function parseMatchFromBase64(
       playing11
     };
   });
+
+  const squads = parsedSquads.length > 0 ? parsedSquads : buildFallbackSquads(inningsSummaries);
 
   return {
     matchTitle,

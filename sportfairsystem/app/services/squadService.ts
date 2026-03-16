@@ -1,4 +1,5 @@
-import { currentTeamName, squadAdminEnabled } from "@/app/config/teamConfig";
+import { squadAdminEnabled } from "@/app/config/teamConfig";
+import { getCurrentUserAccess, requireAdminAccess } from "@/app/services/accessControlService";
 import { supabase } from "@/app/services/supabaseClient";
 
 export const squadRoleTagOptions = [
@@ -85,17 +86,13 @@ export function mapSquadPlayerRecord(row: RawPlayerRecord): SquadPlayerRecord {
 }
 
 export async function getCurrentTeamId() {
-  const { data: teamData, error: teamError } = await supabase
-    .from("teams")
-    .select("id")
-    .eq("name", currentTeamName)
-    .single();
+  const access = await getCurrentUserAccess();
 
-  if (teamError || !teamData) {
+  if (!access.teamId) {
     throw new Error("Could not load the current team.");
   }
 
-  return teamData.id as string;
+  return access.teamId;
 }
 
 export async function hasSquadMetadataColumns() {
@@ -117,6 +114,8 @@ export async function updateSquadPlayerMetadata(
   playerId: string,
   values: SquadMetadataValues
 ) {
+  await requireAdminAccess();
+
   if (!squadAdminEnabled) {
     throw new Error("Squad admin controls are disabled.");
   }
@@ -134,6 +133,30 @@ export async function updateSquadPlayerMetadata(
     is_wicket_keeper: values.isWicketKeeper,
     role_tags: normalizeRoleTags(values.roleTags)
   };
+
+  if (values.isCaptain) {
+    const { error: clearCaptainError } = await supabase
+      .from("players")
+      .update({ is_captain: false })
+      .eq("team_id", teamId)
+      .neq("id", playerId);
+
+    if (clearCaptainError) {
+      throw new Error("Could not update squad metadata.");
+    }
+  }
+
+  if (values.isWicketKeeper) {
+    const { error: clearKeeperError } = await supabase
+      .from("players")
+      .update({ is_wicket_keeper: false })
+      .eq("team_id", teamId)
+      .neq("id", playerId);
+
+    if (clearKeeperError) {
+      throw new Error("Could not update squad metadata.");
+    }
+  }
 
   const { data, error } = await supabase
     .from("players")

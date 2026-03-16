@@ -18,7 +18,7 @@ import SportsCricketIcon from "@mui/icons-material/SportsCricket";
 import GroupIcon from "@mui/icons-material/Group";
 import QueryStatsIcon from "@mui/icons-material/QueryStats";
 import RuleRoundedIcon from "@mui/icons-material/RuleRounded";
-import { useViewMode } from "@/app/context/ViewModeContext";
+import { useAuth } from "@/app/context/AuthContext";
 import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 
 interface Props {
@@ -43,8 +43,8 @@ const SIDEBAR_RED = "#E53935";
 export default function Sidebar({ collapsed }: Props) {
 
   const pathname = usePathname();
-  const { isAdminMode } = useViewMode();
-  const navItems = isAdminMode
+  const { isAdmin } = useAuth();
+  const navItems = isAdmin
     ? [...baseNavItems, ...adminNavItems]
     : baseNavItems;
 

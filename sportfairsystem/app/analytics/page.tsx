@@ -45,8 +45,8 @@ import {
   YAxis
 } from "recharts";
 
+import { useAuth } from "@/app/context/AuthContext";
 import { formatName } from "@/app/services/formatname";
-import { useViewMode } from "@/app/context/ViewModeContext";
 import {
   AnalyticsSnapshot,
   getAnalyticsSnapshot
@@ -124,14 +124,14 @@ function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
 }
 
 export default function AnalyticsPage() {
-  const { isAdminMode } = useViewMode();
+  const { isAdmin } = useAuth();
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null);
   const [selectedSeason, setSelectedSeason] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAdminMode) {
+    if (!isAdmin) {
       setSnapshot(null);
       setIsLoading(false);
       return;
@@ -159,19 +159,18 @@ export default function AnalyticsPage() {
     };
 
     void loadAnalytics();
-  }, [isAdminMode, selectedSeason]);
+  }, [isAdmin, selectedSeason]);
 
   return (
     <Container maxWidth="xl">
       <Stack spacing={4}>
-        {!isAdminMode && (
+        {!isAdmin && (
           <Alert severity="info" variant="outlined">
-            Analytics is available in Admin Mode only. Switch the topbar toggle back to Admin Mode
-            to review team analytics.
+            Analytics is available to admin users only.
           </Alert>
         )}
 
-        {isAdminMode && (
+        {isAdmin && (
         <Stack direction="row" justifyContent="flex-end">
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="analytics-season-filter-label">Season</InputLabel>
@@ -194,7 +193,7 @@ export default function AnalyticsPage() {
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-        {isAdminMode && isLoading ? (
+        {isAdmin && isLoading ? (
           <Box
             sx={{
               minHeight: 320,
@@ -205,7 +204,7 @@ export default function AnalyticsPage() {
           >
             <CircularProgress />
           </Box>
-        ) : isAdminMode && snapshot ? (
+        ) : isAdmin && snapshot ? (
           <>
             <Grid container spacing={3} alignItems="stretch">
               <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: "flex" }}>

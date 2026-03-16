@@ -1,6 +1,9 @@
+import { requireAdminAccess } from "./accessControlService";
 import { supabase } from "./supabaseClient";
 
 export async function deleteMatchFromDatabase(matchId: string) {
+  await requireAdminAccess();
+
   const { data: inningsRows, error: inningsError } = await supabase
     .from("innings")
     .select("id")

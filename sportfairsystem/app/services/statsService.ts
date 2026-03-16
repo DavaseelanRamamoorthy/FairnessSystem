@@ -14,11 +14,24 @@ type InningsRow = {
   team_name: string | null;
   runs: number | null;
   wickets: number | null;
-  matches?: Array<{
+  matches?: {
     team_a: string | null;
     team_b: string | null;
     match_date: string | null;
+    match_code: string | null;
+  } | Array<{
+    team_a: string | null;
+    team_b: string | null;
+    match_date: string | null;
+    match_code: string | null;
   }> | null;
+};
+
+type TrendPoint = {
+  match: string;
+  matchLabel: string;
+  matchDate: string | null;
+  matchCode: string | null;
 };
 
 type BattingStatRow = {
@@ -45,7 +58,24 @@ type TeamMatchContext = {
 };
 
 function getMatchMeta(innings: InningsRow) {
-  return Array.isArray(innings.matches) ? innings.matches[0] : null;
+  if (Array.isArray(innings.matches)) {
+    return innings.matches[0] ?? null;
+  }
+
+  return innings.matches ?? null;
+}
+
+function buildTrendLabels<T extends TrendPoint>(points: T[]) {
+  return points.map((point, index) => {
+    const label = point.matchCode?.trim()
+      || point.matchDate?.trim()
+      || `Match ${index + 1}`;
+
+    return {
+      ...point,
+      matchLabel: label
+    };
+  });
 }
 
 async function getCurrentTeamId() {
@@ -115,7 +145,8 @@ async function getTeamMatchContext(): Promise<TeamMatchContext> {
       matches (
         team_a,
         team_b,
-        match_date
+        match_date,
+        match_code
       )
     `)
     .in("match_id", matchIds);
@@ -321,9 +352,11 @@ export async function getRunsPerMatch(teamName: string) {
     void teamName;
     const { battingInnings } = await getTeamMatchContext();
 
-    return [...battingInnings]
+    const trendPoints = [...battingInnings]
       .sort((left, right) =>
-        (getMatchMeta(left)?.match_date ?? "").localeCompare(getMatchMeta(right)?.match_date ?? "")
+        `${getMatchMeta(left)?.match_date ?? ""}|${getMatchMeta(left)?.match_code ?? ""}`.localeCompare(
+          `${getMatchMeta(right)?.match_date ?? ""}|${getMatchMeta(right)?.match_code ?? ""}`
+        )
       )
       .slice(-5)
       .map((item) => ({
@@ -332,8 +365,17 @@ export async function getRunsPerMatch(teamName: string) {
           getMatchMeta(item)?.team_b,
           currentTeamName
         ) || "Unknown",
+        matchLabel: getOpponentName(
+          getMatchMeta(item)?.team_a,
+          getMatchMeta(item)?.team_b,
+          currentTeamName
+        ) || "Unknown",
+        matchDate: getMatchMeta(item)?.match_date ?? null,
+        matchCode: getMatchMeta(item)?.match_code ?? null,
         runs: item.runs ?? 0
       }));
+
+    return buildTrendLabels(trendPoints);
   } catch (error) {
     console.error(error);
     return [];
@@ -345,9 +387,11 @@ export async function getWicketsPerMatch(teamName: string) {
     void teamName;
     const { bowlingInnings } = await getTeamMatchContext();
 
-    return [...bowlingInnings]
+    const trendPoints = [...bowlingInnings]
       .sort((left, right) =>
-        (getMatchMeta(left)?.match_date ?? "").localeCompare(getMatchMeta(right)?.match_date ?? "")
+        `${getMatchMeta(left)?.match_date ?? ""}|${getMatchMeta(left)?.match_code ?? ""}`.localeCompare(
+          `${getMatchMeta(right)?.match_date ?? ""}|${getMatchMeta(right)?.match_code ?? ""}`
+        )
       )
       .slice(-5)
       .map((item) => ({
@@ -356,8 +400,17 @@ export async function getWicketsPerMatch(teamName: string) {
           getMatchMeta(item)?.team_b,
           currentTeamName
         ) || "Unknown",
+        matchLabel: getOpponentName(
+          getMatchMeta(item)?.team_a,
+          getMatchMeta(item)?.team_b,
+          currentTeamName
+        ) || "Unknown",
+        matchDate: getMatchMeta(item)?.match_date ?? null,
+        matchCode: getMatchMeta(item)?.match_code ?? null,
         wickets: item.wickets ?? 0
       }));
+
+    return buildTrendLabels(trendPoints);
   } catch (error) {
     console.error(error);
     return [];

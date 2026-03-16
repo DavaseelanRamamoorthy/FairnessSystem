@@ -1,22 +1,29 @@
 "use client";
 
+import Link from "next/link";
+import { MouseEvent, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import {
+  Avatar,
   Box,
+  Divider,
   IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
+  Tooltip,
   Typography
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
+import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import MenuIcon from "@mui/icons-material/Menu";
-import VerifiedUserRoundedIcon from "@mui/icons-material/VerifiedUserRounded";
 
+import { useAuth } from "@/app/context/AuthContext";
 import { currentTeamName } from "@/app/config/teamConfig";
-import { useViewMode, ViewMode } from "@/app/context/ViewModeContext";
 
 interface Props {
   toggleSidebar?: () => void;
@@ -25,6 +32,7 @@ interface Props {
 const HEADER_NAVY = "#0A1A49";
 const HEADER_NAVY_DEEP = "#061230";
 const HEADER_RED = "#E53935";
+const HEADER_AVATAR_TEXT = "#061230";
 
 function getPageHeader(pathname: string) {
   if (pathname === "/dashboard") {
@@ -62,6 +70,13 @@ function getPageHeader(pathname: string) {
     };
   }
 
+  if (pathname === "/profile") {
+    return {
+      title: "Profile",
+      subtitle: "Your account details, role access, and team assignment."
+    };
+  }
+
   if (pathname.startsWith("/players/")) {
     return {
       title: "Player Profile",
@@ -78,7 +93,18 @@ function getPageHeader(pathname: string) {
 export default function Topbar({ toggleSidebar }: Props) {
   const pathname = usePathname();
   const header = getPageHeader(pathname);
-  const { canUseAdminMode, viewMode, setViewMode } = useViewMode();
+  const { profile, signOut } = useAuth();
+  const profileLetter = (profile?.firstName ?? profile?.email ?? "P").charAt(0).toUpperCase();
+  const [accountMenuAnchor, setAccountMenuAnchor] = useState<HTMLElement | null>(null);
+  const isAccountMenuOpen = Boolean(accountMenuAnchor);
+
+  const openAccountMenu = (event: MouseEvent<HTMLElement>) => {
+    setAccountMenuAnchor(event.currentTarget);
+  };
+
+  const closeAccountMenu = () => {
+    setAccountMenuAnchor(null);
+  };
 
   return (
     <Box
@@ -157,50 +183,97 @@ export default function Topbar({ toggleSidebar }: Props) {
           </Stack>
         </Stack>
 
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={viewMode}
-          onChange={(_event, nextMode: ViewMode | null) => {
-            if (nextMode) {
-              setViewMode(nextMode);
-            }
-          }}
-          sx={{
-            "& .MuiToggleButton-root": {
-              borderRadius: "999px !important",
-              px: 1.5,
-              py: 0.65,
-              borderColor: alpha("#FFFFFF", 0.16),
-              color: "#FFFFFF",
-              textTransform: "none",
-              fontWeight: 700,
-              backgroundColor: alpha("#FFFFFF", 0.06)
-            },
-            "& .Mui-selected": {
-              backgroundColor: alpha("#FFFFFF", 0.14),
-              color: "#FFFFFF"
-            },
-            "& .MuiToggleButton-root.Mui-disabled": {
-              color: alpha("#FFFFFF", 0.42),
-              borderColor: alpha("#FFFFFF", 0.1)
-            }
-          }}
+        <Stack
+          direction={{ xs: "column", lg: "row" }}
+          spacing={1.5}
+          alignItems={{ xs: "flex-start", lg: "center" }}
         >
-          <ToggleButton value="admin" disabled={!canUseAdminMode}>
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              <VerifiedUserRoundedIcon sx={{ fontSize: 18 }} />
-              <span>Admin Mode</span>
-            </Stack>
-          </ToggleButton>
+          <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
+            <Tooltip title="Account">
+              <IconButton
+                onClick={openAccountMenu}
+                size="small"
+                aria-label="Account"
+                sx={{
+                  color: "#FFFFFF",
+                  border: "1px solid",
+                  borderColor: alpha("#FFFFFF", 0.16),
+                  backgroundColor: alpha("#FFFFFF", 0.06),
+                  width: 38,
+                  height: 38,
+                  "&:hover": {
+                    backgroundColor: alpha("#FFFFFF", 0.12)
+                  }
+                }}
+              >
+                {profile ? (
+                  <Avatar
+                    sx={{
+                      width: 26,
+                      height: 26,
+                      fontSize: "0.85rem",
+                      fontWeight: 800,
+                      color: HEADER_AVATAR_TEXT,
+                      backgroundColor: alpha("#FFFFFF", 0.92)
+                    }}
+                  >
+                    {profileLetter}
+                  </Avatar>
+                ) : (
+                  <AccountCircleRoundedIcon />
+                )}
+              </IconButton>
+            </Tooltip>
 
-          <ToggleButton value="member">
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              <GroupRoundedIcon sx={{ fontSize: 18 }} />
-              <span>Member Mode</span>
-            </Stack>
-          </ToggleButton>
-        </ToggleButtonGroup>
+            <Menu
+              anchorEl={accountMenuAnchor}
+              open={isAccountMenuOpen}
+              onClose={closeAccountMenu}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              transformOrigin={{ vertical: "top", horizontal: "right" }}
+              PaperProps={{
+                sx: {
+                  mt: 1,
+                  minWidth: 220,
+                  borderRadius: 3,
+                  boxShadow: "0 18px 40px rgba(15, 23, 42, 0.18)"
+                }
+              }}
+            >
+              {profile && (
+                <Box sx={{ px: 2, py: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: HEADER_NAVY_DEEP }}>
+                    {[profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.email}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {profile.role === "admin" ? "Admin Access" : "Member Access"}
+                  </Typography>
+                </Box>
+              )}
+
+              <Divider />
+
+              <MenuItem component={Link} href="/profile" onClick={closeAccountMenu}>
+                <ListItemIcon>
+                  <AccountCircleRoundedIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary="Profile" />
+              </MenuItem>
+
+              <MenuItem
+                onClick={() => {
+                  closeAccountMenu();
+                  void signOut();
+                }}
+              >
+                <ListItemIcon>
+                  <LogoutRoundedIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary="Signout" />
+              </MenuItem>
+            </Menu>
+          </Stack>
+        </Stack>
       </Stack>
     </Box>
   );

@@ -24,7 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 import MatchesTable from "@/app/components/matches/MatchesTable";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
 import MatchPreviewModal from "@/app/components/matches/MatchPreviewModal";
-import { useViewMode } from "@/app/context/ViewModeContext";
+import { useAuth } from "@/app/context/AuthContext";
 
 import { parseMatchFromBase64 } from "@/app/services/pdfParser";
 import { getCurrentTeamId } from "@/app/services/squadService";
@@ -64,7 +64,7 @@ type PreviewItem = {
 };
 
 export default function MatchesPage() {
-  const { isAdminMode, isMemberMode } = useViewMode();
+  const { isAdmin } = useAuth();
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -197,11 +197,11 @@ export default function MatchesPage() {
   };
 
   useEffect(() => {
-    if (isMemberMode) {
+    if (!isAdmin) {
       clearPreviewQueue();
       setIsDeleteDialogOpen(false);
     }
-  }, [isMemberMode]);
+  }, [isAdmin]);
 
   const updateCurrentPreviewPlayers = (
     updater: (players: PreviewPlayer[]) => PreviewPlayer[]
@@ -512,7 +512,7 @@ export default function MatchesPage() {
 
               <MatchDetailPanel
                 match={selectedMatch}
-                onDelete={isAdminMode ? openDeleteDialog : undefined}
+                onDelete={isAdmin ? openDeleteDialog : undefined}
               />
 
             )}
@@ -525,7 +525,7 @@ export default function MatchesPage() {
 
       {/* UPLOAD BUTTON */}
 
-      {isAdminMode && (
+      {isAdmin && (
         <Box sx={{ position: "fixed", bottom: 30, right: 30 }}>
 
           <Box
@@ -629,7 +629,7 @@ export default function MatchesPage() {
         message={toastMessage}
       />
 
-      {isAdminMode && (
+      {isAdmin && (
         <Dialog
           open={isDeleteDialogOpen}
           onClose={closeDeleteDialog}

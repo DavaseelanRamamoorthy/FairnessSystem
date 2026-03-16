@@ -5,27 +5,16 @@ import {
 import { ParsedMatch, SquadPlayer } from "../types/match.types";
 import { buildMatchId } from "./matchIdService";
 import {
+  normalizeNameKey,
+  uniqueNameKeys
+} from "./matchTextNormalization";
+import { requireAdminAccess } from "./accessControlService";
+import {
   hasSquadMetadataColumns,
   mapSquadPlayerRecord
 } from "./squadService";
 import { supabase } from "./supabaseClient";
 import { isMatchForCurrentTeam } from "./teamValidationService";
-
-const normalizeName = (name: string) =>
-  name
-    .replace(/\(.*?\)/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-
-const uniqueNames = (names: Array<string | null | undefined>) =>
-  Array.from(
-    new Set(
-      names
-        .map((name) => normalizeName(name ?? ""))
-        .filter(Boolean)
-    )
-  );
 
 type TeamPlayerRecord = {
   id: string;
@@ -48,11 +37,11 @@ function getDerivedPlaying11(
   const teamInnings = parsed.innings.find((innings) => innings.teamName === teamName);
   const opponentInnings = parsed.innings.find((innings) => innings.teamName !== teamName);
 
-  const battingNames = uniqueNames(
+  const battingNames = uniqueNameKeys(
     teamInnings?.battingStats?.map((player) => player.player_name) ?? []
   );
 
-  const bowlingNames = uniqueNames(
+  const bowlingNames = uniqueNameKeys(
     opponentInnings?.bowlingStats?.map((player) => player.player_name) ?? []
   );
 
@@ -146,7 +135,7 @@ function getCurrentTeamParsedPlayers(parsed: ParsedMatch) {
 }
 
 function cleanNameForStorage(name: string) {
-  return normalizeName(name);
+  return normalizeNameKey(name);
 }
 
 export async function saveMatchToDatabase(
@@ -156,6 +145,8 @@ export async function saveMatchToDatabase(
     sourceFileName?: string;
   }
 ) {
+  await requireAdminAccess();
+
   if (!isMatchForCurrentTeam(parsed, currentTeamName)) {
     throw new Error(`This scorecard does not include ${currentTeamName}.`);
   }
@@ -173,7 +164,7 @@ export async function saveMatchToDatabase(
 
   // 2. Ensure current-team players exist in players
   const playersToAddToSquad = Array.from(
-    new Set((options?.playersToAddToSquad ?? []).map(normalizeName).filter(Boolean))
+    new Set((options?.playersToAddToSquad ?? []).map(normalizeNameKey).filter(Boolean))
   );
 
   const parsedCurrentTeamPlayers = getCurrentTeamParsedPlayers(parsed);
@@ -188,7 +179,7 @@ export async function saveMatchToDatabase(
 
   const existingPlayerMap = new Map(
     (existingPlayers ?? []).map((player) => [
-      normalizeName(mapSquadPlayerRecord(player as Record<string, unknown>).name),
+      normalizeNameKey(mapSquadPlayerRecord(player as Record<string, unknown>).name),
       mapSquadPlayerRecord(player as Record<string, unknown>)
     ])
   );
@@ -207,8 +198,10 @@ export async function saveMatchToDatabase(
       };
 
       if (metadataColumnsSupported) {
-        nextRow.is_captain = player.isCaptain;
-        nextRow.is_wicket_keeper = player.isWicketKeeper;
+        // Persistent squad metadata is admin-managed and should not be rewritten
+        // from historical scorecards. Match-level roles are still stored in match_players.
+        nextRow.is_captain = false;
+        nextRow.is_wicket_keeper = false;
         nextRow.role_tags = [];
       }
 
@@ -224,7 +217,7 @@ export async function saveMatchToDatabase(
 
     (insertedPlayers ?? []).forEach((player) => {
       const mappedPlayer = mapSquadPlayerRecord(player as Record<string, unknown>);
-      existingPlayerMap.set(normalizeName(mappedPlayer.name), mappedPlayer);
+      existingPlayerMap.set(normalizeNameKey(mappedPlayer.name), mappedPlayer);
     });
   }
 
@@ -242,7 +235,7 @@ export async function saveMatchToDatabase(
     if (promotePlayersError) throw promotePlayersError;
 
     playersToPromote.forEach((player) => {
-      existingPlayerMap.set(normalizeName(player.name), {
+      existingPlayerMap.set(normalizeNameKey(player.name), {
         ...player,
         isGuest: false
       });
@@ -263,14 +256,6 @@ export async function saveMatchToDatabase(
         metadataPatch.batting_style = parsedPlayer.battingStyle;
       }
 
-      if (parsedPlayer.isCaptain && !existingPlayer.isCaptain) {
-        metadataPatch.is_captain = true;
-      }
-
-      if (parsedPlayer.isWicketKeeper && !existingPlayer.isWicketKeeper) {
-        metadataPatch.is_wicket_keeper = true;
-      }
-
       if (Object.keys(metadataPatch).length === 0) {
         continue;
       }
@@ -287,7 +272,7 @@ export async function saveMatchToDatabase(
       }
 
       const mappedPlayer = mapSquadPlayerRecord(updatedPlayer as Record<string, unknown>);
-      existingPlayerMap.set(normalizeName(mappedPlayer.name), mappedPlayer);
+      existingPlayerMap.set(normalizeNameKey(mappedPlayer.name), mappedPlayer);
     }
   }
 
@@ -369,7 +354,7 @@ export async function saveMatchToDatabase(
 
     if (inn.battingStats) {
       for (const bat of inn.battingStats) {
-        const normalized = normalizeName(bat.player_name);
+        const normalized = normalizeNameKey(bat.player_name);
         battingNames.push(normalized);
 
         await supabase.from("batting_stats").insert({
@@ -400,7 +385,7 @@ export async function saveMatchToDatabase(
 
     if (opponentInnings?.bowlingStats) {
       for (const bowl of opponentInnings.bowlingStats) {
-        bowlingNames.push(normalizeName(bowl.player_name));
+        bowlingNames.push(normalizeNameKey(bowl.player_name));
       }
     }
 
@@ -408,9 +393,9 @@ export async function saveMatchToDatabase(
       for (const bowl of inn.bowlingStats) {
         await supabase.from("bowling_stats").insert({
           innings_id: inningsRow.id,
-          player_name: normalizeName(bowl.player_name),
+          player_name: normalizeNameKey(bowl.player_name),
           player_id: inn.teamName !== currentTeamName
-            ? (currentTeamPlayerIds.get(normalizeName(bowl.player_name)) ?? null)
+            ? (currentTeamPlayerIds.get(normalizeNameKey(bowl.player_name)) ?? null)
             : null,
           overs: bowl.overs,
           maidens: bowl.maidens,
@@ -433,7 +418,7 @@ export async function saveMatchToDatabase(
           innings_id: inningsRow.id,
           score: f.score,
           wicket_number: f.wicket_number,
-          batsman: normalizeName(f.batsman),
+          batsman: normalizeNameKey(f.batsman),
           over: f.over
         });
       }
@@ -445,7 +430,7 @@ export async function saveMatchToDatabase(
     const playing11 = squadPlayers.length > 0
       ? squadPlayers
       : (inn.playing11 && inn.playing11.length > 0
-          ? uniqueNames(inn.playing11).map((player, index) => ({
+          ? uniqueNameKeys(inn.playing11).map((player, index) => ({
               name: player,
               playerOrder: index + 1,
               isCaptain: false,
@@ -462,9 +447,9 @@ export async function saveMatchToDatabase(
 
     if (playing11.length > 0) {
       const playerRows = playing11.map((player: SquadPlayer) => {
-        const normalized = normalizeName(player.name);
+        const normalized = normalizeNameKey(player.name);
         const battingRolePlayer = inn.battingStats?.find(
-          (bat) => normalizeName(bat.player_name) === normalized
+          (bat) => normalizeNameKey(bat.player_name) === normalized
         );
 
         return {

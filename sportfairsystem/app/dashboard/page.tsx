@@ -44,6 +44,40 @@ import { getOpponentName } from "@/app/utils/matchOpponent";
 
 type Match = Record<string, any>;
 
+function getDashboardResult(match: Match) {
+  const rawResult = typeof match.result === "string" ? match.result.trim() : "";
+  const normalizedResult = rawResult.toLowerCase();
+  const summary = typeof match.result_summary === "string"
+    ? match.result_summary.trim().toLowerCase()
+    : "";
+
+  if (normalizedResult === "won") {
+    return { label: "Won", color: "success" as const };
+  }
+
+  if (normalizedResult === "lost") {
+    return { label: "Lost", color: "error" as const };
+  }
+
+  if (normalizedResult === "draw" || summary.includes("draw")) {
+    return { label: "Draw", color: "warning" as const };
+  }
+
+  if (normalizedResult === "tie" || summary.includes("tie")) {
+    return { label: "Tie", color: "info" as const };
+  }
+
+  if (rawResult) {
+    return { label: rawResult, color: "default" as const };
+  }
+
+  if (match.result_summary) {
+    return { label: match.result_summary, color: "default" as const };
+  }
+
+  return null;
+}
+
 export default function DashboardPage() {
   const [matchesPlayed, setMatchesPlayed] = useState(0);
   const [winRate, setWinRate] = useState(0);
@@ -290,31 +324,33 @@ export default function DashboardPage() {
                 </TableHead>
 
                 <TableBody>
-                  {recentMatches.map((match) => (
-                    <TableRow key={match.id}>
-                      <TableCell>
-                        {formatDate(match.match_date)}
-                      </TableCell>
+                  {recentMatches.map((match) => {
+                    const displayResult = getDashboardResult(match);
 
-                      <TableCell>
-                        {match.opponent_name}
-                      </TableCell>
+                    return (
+                      <TableRow key={match.id}>
+                        <TableCell>
+                          {formatDate(match.match_date)}
+                        </TableCell>
 
-                      <TableCell>
-                        {match.result === "Won" && (
-                          <Chip label="Won" color="success" size="small" />
-                        )}
+                        <TableCell>
+                          {match.opponent_name}
+                        </TableCell>
 
-                        {match.result === "Lost" && (
-                          <Chip label="Lost" color="error" size="small" />
-                        )}
-
-                        {match.result === "Draw" && (
-                          <Chip label="Draw" color="warning" size="small" />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        <TableCell>
+                          {displayResult ? (
+                            <Chip
+                              label={displayResult.label}
+                              color={displayResult.color}
+                              size="small"
+                            />
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

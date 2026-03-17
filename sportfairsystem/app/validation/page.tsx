@@ -28,6 +28,7 @@ import PersonSearchRoundedIcon from "@mui/icons-material/PersonSearchRounded";
 import GroupWorkRoundedIcon from "@mui/icons-material/GroupWorkRounded";
 import LinkOffRoundedIcon from "@mui/icons-material/LinkOffRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import GavelRoundedIcon from "@mui/icons-material/GavelRounded";
 
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
@@ -37,6 +38,10 @@ import {
   ValidationSnapshot
 } from "@/app/services/validationService";
 import { formatDate } from "@/app/utils/formatDate";
+import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
+import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
+
+const VALIDATION_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:validation";
 
 type MetricCardProps = {
   label: string;
@@ -108,7 +113,7 @@ function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
 
 export default function ValidationPage() {
   const { isAdmin } = useAuth();
-  const [selectedSeason, setSelectedSeason] = useState("all");
+  const [selectedSeason, setSelectedSeason] = useState("");
   const [snapshot, setSnapshot] = useState<ValidationSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -116,6 +121,7 @@ export default function ValidationPage() {
     ? snapshot.metrics.missingPlayerLinks
       + snapshot.metrics.duplicateNameRisks
       + snapshot.metrics.guestPromotionCandidates
+      + snapshot.metrics.rulebookFindings
     : 0;
 
   useEffect(() => {
@@ -130,9 +136,17 @@ export default function ValidationPage() {
 
       try {
         const nextSnapshot = await getValidationSnapshot(
-          selectedSeason === "all" ? undefined : selectedSeason
+          !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason
         );
         setSnapshot(nextSnapshot);
+        const storedSeason = readStoredSeasonFilter(VALIDATION_SEASON_STORAGE_KEY);
+        const nextSeasonValues = new Set(nextSnapshot.seasons.map((season) => season.value));
+        const resolvedSeason = storedSeason && nextSeasonValues.has(storedSeason)
+          ? storedSeason
+          : getLatestSeasonValue(nextSnapshot.seasons);
+        setSelectedSeason((currentSeason) =>
+          currentSeason || resolvedSeason
+        );
       } catch (error) {
         const message =
           error instanceof Error
@@ -148,6 +162,12 @@ export default function ValidationPage() {
     void loadValidation();
   }, [isAdmin, selectedSeason]);
 
+  useEffect(() => {
+    if (selectedSeason) {
+      storeSeasonFilter(VALIDATION_SEASON_STORAGE_KEY, selectedSeason);
+    }
+  }, [selectedSeason]);
+
   return (
     <Container maxWidth="xl">
       <Stack spacing={4}>
@@ -160,7 +180,7 @@ export default function ValidationPage() {
               <InputLabel id="validation-season-filter-label">Season</InputLabel>
               <Select
                 labelId="validation-season-filter-label"
-                value={selectedSeason}
+                value={selectedSeason || "all"}
                 label="Season"
                 onChange={(event) => setSelectedSeason(event.target.value)}
               >
@@ -236,6 +256,16 @@ export default function ValidationPage() {
                   accent="#0F9D58"
                 />
               </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: "flex" }}>
+                <MetricCard
+                  label="Rulebook Findings"
+                  value={snapshot.metrics.rulebookFindings}
+                  helper="Saved matches that need cricket-rule review"
+                  icon={<GavelRoundedIcon />}
+                  accent="#1E40AF"
+                />
+              </Grid>
             </Grid>
 
             <Alert severity="info" variant="outlined">
@@ -306,6 +336,85 @@ export default function ValidationPage() {
 
               <Grid size={{ xs: 12, lg: 5 }}>
                 <Stack spacing={3}>
+                  <Card variant="outlined">
+                    <CardContent sx={{ p: 0 }}>
+                      <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                          <Typography variant="h5">Cricket Rulebook Findings</Typography>
+                          <Chip
+                            label={`${snapshot.rulebookFindings.length} findings`}
+                            color={snapshot.rulebookFindings.length > 0 ? "info" : "success"}
+                            size="small"
+                          />
+                        </Stack>
+                      </Box>
+
+                      <TableContainer>
+                        <Table>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Match</TableCell>
+                              <TableCell>Severity</TableCell>
+                              <TableCell>Finding</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {snapshot.rulebookFindings.map((item, index) => (
+                              <TableRow key={`${item.matchId}-${item.title}-${index}`}>
+                                <TableCell>
+                                  <Stack spacing={0.25}>
+                                    <Typography fontWeight={700}>
+                                      {item.matchCode ?? "Unknown Match"}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {item.matchDate ? formatDate(item.matchDate) : "Date unavailable"}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {item.opponentName ?? "Unknown Opponent"}
+                                    </Typography>
+                                  </Stack>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={item.severity.toUpperCase()}
+                                    color={item.severity === "error" ? "error" : item.severity === "warning" ? "warning" : "info"}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Stack spacing={0.35}>
+                                    <Typography fontWeight={700}>
+                                      {item.title}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {item.rulebookName}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {item.detail}
+                                    </Typography>
+                                    <Typography variant="body2">
+                                      Suggested action: {item.recommendation}
+                                    </Typography>
+                                  </Stack>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+
+                            {snapshot.rulebookFindings.length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={3}>
+                                  <Typography color="text.secondary">
+                                    No saved-match rulebook findings are currently flagged in this scope.
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </CardContent>
+                  </Card>
+
                   <Card variant="outlined">
                     <CardContent sx={{ p: 0 }}>
                       <Box sx={{ px: 3, pt: 3, pb: 2 }}>

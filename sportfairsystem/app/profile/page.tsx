@@ -269,7 +269,7 @@ export default function ProfilePage() {
                   </Avatar>
 
                   <Stack spacing={1}>
-                    <Typography variant="h4" sx={{ fontWeight: 800, color: PROFILE_NAVY_DEEP }}>
+                    <Typography variant="h4" sx={{ fontWeight: 800, color: "text.primary" }}>
                       {profileHeading}
                     </Typography>
                     <Typography color="text.secondary">
@@ -284,22 +284,26 @@ export default function ProfilePage() {
                     <Chip
                       icon={<ShieldRoundedIcon />}
                       label={profile.role === "admin" ? "Admin Access" : "Member Access"}
-                      sx={{
-                        color: profile.role === "admin" ? "#FFFFFF" : PROFILE_NAVY,
+                      sx={(theme) => ({
+                        color: profile.role === "admin" ? "#FFFFFF" : "text.primary",
                         backgroundColor: profile.role === "admin"
                           ? PROFILE_RED
-                          : alpha("#DCE7FF", 0.68),
+                          : (theme.palette.mode === "dark"
+                            ? alpha("#FFFFFF", 0.08)
+                            : alpha("#DCE7FF", 0.68)),
                         fontWeight: 700
-                      }}
+                      })}
                     />
                     <Chip
                       icon={<SportsCricketRoundedIcon />}
                       label={isTeamLoading ? "Loading team..." : resolvedTeamName}
-                      sx={{
-                        color: PROFILE_NAVY,
-                        backgroundColor: alpha("#DCE7FF", 0.68),
+                      sx={(theme) => ({
+                        color: "text.primary",
+                        backgroundColor: (theme.palette.mode === "dark"
+                          ? alpha("#FFFFFF", 0.08)
+                          : alpha("#DCE7FF", 0.68)),
                         fontWeight: 700
-                      }}
+                      })}
                     />
                   </Stack>
                 </Stack>
@@ -319,7 +323,7 @@ export default function ProfilePage() {
               <CardContent sx={{ p: 3.5 }}>
                 <Stack spacing={3}>
                   <Stack spacing={0.75}>
-                    <Typography variant="h5" sx={{ fontWeight: 800, color: PROFILE_NAVY_DEEP }}>
+                    <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
                       Profile Details
                     </Typography>
                     <Typography color="text.secondary">
@@ -432,7 +436,7 @@ export default function ProfilePage() {
                       <Typography
                         sx={{
                           fontWeight: 700,
-                          color: PROFILE_NAVY_DEEP,
+                          color: "text.primary",
                           wordBreak: "break-word",
                           textAlign: { xs: "left", sm: "right" }
                         }}
@@ -458,7 +462,7 @@ export default function ProfilePage() {
               <CardContent sx={{ p: 3.5 }}>
                 <Stack spacing={2.5}>
                   <Stack spacing={0.75}>
-                    <Typography variant="h5" sx={{ fontWeight: 800, color: PROFILE_NAVY_DEEP }}>
+                    <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
                       Security
                     </Typography>
                     <Typography color="text.secondary">

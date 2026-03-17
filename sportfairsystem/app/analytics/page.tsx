@@ -51,6 +51,10 @@ import {
   AnalyticsSnapshot,
   getAnalyticsSnapshot
 } from "@/app/services/analyticsService";
+import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
+import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
+
+const ANALYTICS_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:analytics";
 
 const ICON_TILE_BG = "#F4F1FF";
 const ICON_TILE_COLOR = "#5B5FEF";
@@ -126,7 +130,7 @@ function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
 export default function AnalyticsPage() {
   const { isAdmin } = useAuth();
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState("all");
+  const [selectedSeason, setSelectedSeason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -143,9 +147,17 @@ export default function AnalyticsPage() {
 
       try {
         const nextSnapshot = await getAnalyticsSnapshot(
-          selectedSeason === "all" ? undefined : selectedSeason
+          !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason
         );
         setSnapshot(nextSnapshot);
+        const storedSeason = readStoredSeasonFilter(ANALYTICS_SEASON_STORAGE_KEY);
+        const nextSeasonValues = new Set(nextSnapshot.seasons.map((season) => season.value));
+        const resolvedSeason = storedSeason && nextSeasonValues.has(storedSeason)
+          ? storedSeason
+          : getLatestSeasonValue(nextSnapshot.seasons);
+        setSelectedSeason((currentSeason) =>
+          currentSeason || resolvedSeason
+        );
       } catch (error) {
         const message =
           error instanceof Error
@@ -160,6 +172,12 @@ export default function AnalyticsPage() {
 
     void loadAnalytics();
   }, [isAdmin, selectedSeason]);
+
+  useEffect(() => {
+    if (selectedSeason) {
+      storeSeasonFilter(ANALYTICS_SEASON_STORAGE_KEY, selectedSeason);
+    }
+  }, [selectedSeason]);
 
   return (
     <Container maxWidth="xl">
@@ -176,7 +194,7 @@ export default function AnalyticsPage() {
             <InputLabel id="analytics-season-filter-label">Season</InputLabel>
             <Select
               labelId="analytics-season-filter-label"
-              value={selectedSeason}
+              value={selectedSeason || "all"}
               label="Season"
               onChange={(event) => setSelectedSeason(event.target.value)}
             >
@@ -338,8 +356,8 @@ export default function AnalyticsPage() {
                           </Stack>
                         </Box>
 
-                        <Box sx={{ px: 2, pb: 2, height: 320, minWidth: 0 }}>
-                          <ResponsiveContainer width="100%" height="100%">
+                        <Box sx={{ px: 2, pb: 2, minWidth: 0 }}>
+                          <ResponsiveContainer width="100%" height={320} minWidth={0} debounce={50}>
                             <LineChart data={snapshot.matchTrend}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} />
                               <XAxis dataKey="label" tickLine={false} axisLine={false} />
@@ -379,8 +397,8 @@ export default function AnalyticsPage() {
                           </Stack>
                         </Box>
 
-                        <Box sx={{ px: 2, pb: 2, height: 320, minWidth: 0 }}>
-                          <ResponsiveContainer width="100%" height="100%">
+                        <Box sx={{ px: 2, pb: 2, minWidth: 0 }}>
+                          <ResponsiveContainer width="100%" height={320} minWidth={0} debounce={50}>
                             <BarChart data={snapshot.resultBreakdown}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} />
                               <XAxis dataKey="label" tickLine={false} axisLine={false} />

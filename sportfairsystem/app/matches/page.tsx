@@ -541,7 +541,7 @@ export default function MatchesPage() {
                 width: 28,
                 height: 4,
                 borderRadius: 999,
-                background: "linear-gradient(180deg, #E53935 0%, #FF7B57 100%)"
+                background: "linear-gradient(180deg, var(--app-danger-main) 0%, var(--app-warning-main) 100%)"
               }
             }}
           >
@@ -555,10 +555,10 @@ export default function MatchesPage() {
                   width: 48,
                   height: 48,
                   color: "#FFFFFF",
-                  background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)",
-                  boxShadow: `0 12px 28px ${alpha("#061230", 0.22)}`,
+                  background: "linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)",
+                  boxShadow: (theme) => `0 12px 28px ${alpha(theme.palette.primary.dark, 0.22)}`,
                   "&:hover": {
-                    background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)"
+                    background: "linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)"
                   }
                 }}
               >

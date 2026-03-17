@@ -43,14 +43,10 @@ import {
   SquadMetadataValues,
   updateSquadPlayerMetadata
 } from "@/app/services/squadService";
+import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
+import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
 
-const CARD_LILAC = "#F4F1FF";
-const CARD_INDIGO = "#5B5FEF";
-const PLAYER_NAVY = "#0A1A49";
-const PLAYER_NAVY_DEEP = "#061230";
-const PLAYER_RED = "#E53935";
-const PLAYER_GOLD = "#F0A202";
-const PLAYER_CORAL = "#FF6B57";
+const PLAYERS_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:players";
 
 type PlayerSortOption = "a-z" | "z-a";
 
@@ -64,20 +60,6 @@ function getPerformanceChipLabel(label: string) {
   }
 
   return label;
-}
-
-function getPerformanceChipStyles(player: PlayerSummary) {
-  if (player.role === "Bowler") {
-    return {
-      color: PLAYER_NAVY_DEEP,
-      backgroundColor: alpha(PLAYER_GOLD, 0.96)
-    };
-  }
-
-  return {
-    color: "#FFFFFF",
-    backgroundColor: PLAYER_CORAL
-  };
 }
 
 function buildMetadataChips(player: PlayerSummary) {
@@ -126,7 +108,7 @@ function getPlayerGroup(player: PlayerSummary): "batters" | "bowlers" | "all-rou
 export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerSummary[]>([]);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
-  const [selectedSeason, setSelectedSeason] = useState("all");
+  const [selectedSeason, setSelectedSeason] = useState("");
   const [selectedSort, setSelectedSort] = useState<PlayerSortOption>("a-z");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -143,6 +125,14 @@ export default function PlayersPage() {
       try {
         const nextSeasons = await getPlayerSeasons();
         setSeasons(nextSeasons);
+        const storedSeason = readStoredSeasonFilter(PLAYERS_SEASON_STORAGE_KEY);
+        const nextSeasonValues = new Set(nextSeasons.map((season) => season.value));
+        const resolvedSeason = storedSeason && nextSeasonValues.has(storedSeason)
+          ? storedSeason
+          : getLatestSeasonValue(nextSeasons);
+        setSelectedSeason((currentSeason) =>
+          currentSeason || resolvedSeason
+        );
       } catch {
         // Keep the player view usable even if season options fail to load.
       }
@@ -168,13 +158,19 @@ export default function PlayersPage() {
   }, []);
 
   useEffect(() => {
+    if (selectedSeason) {
+      storeSeasonFilter(PLAYERS_SEASON_STORAGE_KEY, selectedSeason);
+    }
+  }, [selectedSeason]);
+
+  useEffect(() => {
     const loadSquad = async () => {
       setIsLoading(true);
       setErrorMessage(null);
 
       try {
         const playerCards = await getSquadPlayerSummaries(
-          selectedSeason === "all" ? undefined : selectedSeason
+          !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason
         );
         setPlayers(playerCards);
       } catch (error) {
@@ -292,7 +288,7 @@ export default function PlayersPage() {
               <InputLabel id="players-season-filter-label">Season</InputLabel>
               <Select
                 labelId="players-season-filter-label"
-                value={selectedSeason}
+                value={selectedSeason || "all"}
                 label="Season"
                 onChange={(event) => setSelectedSeason(event.target.value)}
               >
@@ -350,7 +346,7 @@ export default function PlayersPage() {
           </Box>
         ) : visiblePlayers.length === 0 ? (
           <Alert severity="info">
-            {selectedSeason === "all"
+            {!selectedSeason || selectedSeason === "all"
               ? "No squad players found yet. Add players from the match preview flow."
               : `No squad players found for the ${selectedSeason} season.`}
           </Alert>
@@ -368,18 +364,24 @@ export default function PlayersPage() {
               return (
                 <Stack key={section.key} spacing={2.25}>
                   <Stack direction="row" spacing={1.25} alignItems="center">
-                    <Typography variant="h5" sx={{ fontWeight: 800, color: PLAYER_NAVY_DEEP }}>
+                    <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
                       {section.title}
                     </Typography>
                     <Chip
                       label={`${section.players.length} players`}
                       size="small"
-                      sx={{
-                        color: PLAYER_NAVY,
-                        backgroundColor: alpha("#DCE7FF", 0.52),
-                        borderColor: alpha(PLAYER_NAVY, 0.14)
-                      }}
-                    />
+                                              sx={(theme) => ({
+                                                color: "text.primary",
+                                                backgroundColor:
+                                                  theme.palette.mode === "dark"
+                                                    ? alpha("#FFFFFF", 0.08)
+                                                    : alpha("#DCE7FF", 0.52),
+                                                borderColor:
+                                                  theme.palette.mode === "dark"
+                                                    ? alpha("#FFFFFF", 0.12)
+                                                    : alpha(theme.palette.primary.main, 0.14)
+                                              })}
+                                            />
                   </Stack>
 
                   <Grid container spacing={3}>
@@ -390,15 +392,14 @@ export default function PlayersPage() {
                           sx={{
                             borderRadius: 3,
                             overflow: "hidden",
-                            boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+                            boxShadow: (theme) => theme.vars.customShadows.card,
                             transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
                             "&:hover": {
-                              transform: "translateY(-2px)",
-                              borderColor: "#0E63FF",
-                              boxShadow: "0 16px 30px rgba(15, 23, 42, 0.08)"
+                              borderColor: (theme) => alpha(theme.palette.primary.main, 0.42),
+                              boxShadow: (theme) => theme.vars.customShadows.z8
                             },
                             "&:hover .player-card-body, &:hover .player-card-footer": {
-                              backgroundColor: alpha("#DCE7FF", 0.34)
+                              backgroundColor: "action.hover"
                             }
                           }}
                         >
@@ -421,7 +422,7 @@ export default function PlayersPage() {
                               sx={{
                                 px: 2.5,
                                 py: 2.25,
-                                backgroundColor: "#FFFFFF",
+                                backgroundColor: "background.paper",
                                 transition: "background-color .18s ease"
                               }}
                             >
@@ -441,8 +442,9 @@ export default function PlayersPage() {
                                         display: "flex",
                                         alignItems: "center",
                                         justifyContent: "center",
-                                        color: CARD_INDIGO,
-                                        backgroundColor: CARD_LILAC,
+                                        color: "primary.main",
+                                        backgroundColor: (theme) =>
+                                          alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.18 : 0.12),
                                         flexShrink: 0
                                       }}
                                     >
@@ -463,7 +465,7 @@ export default function PlayersPage() {
                                         <Typography
                                           variant="h5"
                                           sx={{
-                                            color: PLAYER_NAVY_DEEP,
+                                            color: "text.primary",
                                             fontWeight: 800,
                                             lineHeight: 1.1
                                           }}
@@ -474,17 +476,21 @@ export default function PlayersPage() {
                                         <Chip
                                           label={getPerformanceChipLabel(player.performanceLabel)}
                                           size="small"
-                                          sx={{
+                                          sx={(theme) => ({
                                             width: "fit-content",
                                             height: 20,
-                                            color: getPerformanceChipStyles(player).color,
-                                            backgroundColor: getPerformanceChipStyles(player).backgroundColor,
+                                            color: player.role === "Bowler"
+                                              ? theme.palette.warning.contrastText
+                                              : theme.palette.error.contrastText,
+                                            backgroundColor: player.role === "Bowler"
+                                              ? theme.palette.warning.main
+                                              : theme.palette.error.main,
                                             "& .MuiChip-label": {
                                               px: 1,
                                               fontSize: "0.72rem",
                                               fontWeight: 600
                                             }
-                                          }}
+                                          })}
                                         />
                                       </Stack>
 
@@ -496,19 +502,24 @@ export default function PlayersPage() {
                                               label={chip.label}
                                               size="small"
                                               variant={chip.color ? "filled" : "outlined"}
-                                              sx={{
+                                              sx={(theme) => ({
                                                 color: chip.color === "primary"
                                                   ? "#FFFFFF"
                                                   : chip.color === "success"
-                                                    ? PLAYER_NAVY_DEEP
-                                                    : PLAYER_NAVY,
+                                                    ? "text.primary"
+                                                    : "text.primary",
                                                 backgroundColor: chip.color === "primary"
-                                                  ? PLAYER_RED
+                                                  ? theme.palette.error.main
                                                   : chip.color === "success"
-                                                    ? alpha(PLAYER_GOLD, 0.28)
-                                                    : alpha("#DCE7FF", 0.52),
-                                                borderColor: alpha(PLAYER_NAVY, 0.14)
-                                              }}
+                                                    ? alpha(theme.palette.warning.main, 0.28)
+                                                    : (theme.palette.mode === "dark"
+                                                      ? alpha("#FFFFFF", 0.08)
+                                                      : alpha(theme.palette.primary.main, 0.08)),
+                                                borderColor:
+                                                  theme.palette.mode === "dark"
+                                                    ? alpha("#FFFFFF", 0.12)
+                                                    : alpha(theme.palette.primary.main, 0.14)
+                                              })}
                                             />
                                           ))
                                         ) : (
@@ -516,7 +527,13 @@ export default function PlayersPage() {
                                             label="No squad tags yet"
                                             size="small"
                                             variant="outlined"
-                                            sx={{ color: PLAYER_NAVY, borderColor: alpha(PLAYER_NAVY, 0.16) }}
+                                            sx={(theme) => ({
+                                              color: "text.primary",
+                                              borderColor:
+                                                theme.palette.mode === "dark"
+                                                  ? alpha("#FFFFFF", 0.14)
+                                                  : alpha(theme.palette.primary.main, 0.16)
+                                            })}
                                           />
                                         )}
                                       </Stack>
@@ -529,7 +546,7 @@ export default function PlayersPage() {
                                       sx={{
                                         lineHeight: 1,
                                         fontWeight: 800,
-                                        color: PLAYER_NAVY
+                                        color: "text.primary"
                                       }}
                                     >
                                       {player.matchesPlayed}
@@ -540,7 +557,7 @@ export default function PlayersPage() {
                                       sx={{
                                         mt: 0.35,
                                         lineHeight: 1.1,
-                                        color: alpha(PLAYER_NAVY, 0.78)
+                                        color: "text.secondary"
                                       }}
                                     >
                                       MATCHES
@@ -559,7 +576,7 @@ export default function PlayersPage() {
                               px: 2.5,
                               py: 1.5,
                               justifyContent: "space-between",
-                              backgroundColor: "#FFFFFF",
+                              backgroundColor: "background.paper",
                               transition: "background-color .18s ease"
                             }}
                           >
@@ -567,7 +584,7 @@ export default function PlayersPage() {
                               component={Link}
                               href={`/players/${player.id}`}
                               size="small"
-                              sx={{ color: "#0E63FF", fontWeight: 700 }}
+                              sx={{ color: "primary.main", fontWeight: 700 }}
                             >
                               View Profile
                             </Button>
@@ -580,7 +597,7 @@ export default function PlayersPage() {
                                   setSuccessMessage(null);
                                   setEditingPlayer(player);
                                 }}
-                                sx={{ color: "#0E63FF", fontWeight: 700 }}
+                                sx={{ color: "primary.main", fontWeight: 700 }}
                               >
                                 Edit Metadata
                               </Button>

@@ -5,19 +5,22 @@ import { usePathname } from "next/navigation";
 
 import {
   Box,
-  Typography,
   List,
   ListItemButton,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  Tooltip,
+  Typography
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import { varAlpha } from "minimal-shared/utils";
 
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import SportsCricketIcon from "@mui/icons-material/SportsCricket";
 import GroupIcon from "@mui/icons-material/Group";
 import QueryStatsIcon from "@mui/icons-material/QueryStats";
 import RuleRoundedIcon from "@mui/icons-material/RuleRounded";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import { useAuth } from "@/app/context/AuthContext";
 import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 
@@ -32,13 +35,10 @@ const baseNavItems = [
 ];
 
 const adminNavItems = [
+  { title: "Planner", path: "/planner", icon: <EventAvailableRoundedIcon /> },
   { title: "Analytics", path: "/analytics", icon: <QueryStatsIcon /> },
   { title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> }
 ];
-
-const SIDEBAR_NAVY = "#0A1A49";
-const SIDEBAR_NAVY_DEEP = "#061230";
-const SIDEBAR_RED = "#E53935";
 
 export default function Sidebar({ collapsed }: Props) {
 
@@ -60,8 +60,9 @@ export default function Sidebar({ collapsed }: Props) {
         position: "fixed",
         overflowY: "auto",
         transition: "width .2s",
-        bgcolor: "#FBFCFF",
-        backgroundImage: `linear-gradient(180deg, ${alpha("#DCE7FF", 0.35)} 0%, rgba(255,255,255,0) 26%)`
+        bgcolor: "background.paper",
+        backgroundImage: (theme) =>
+          `linear-gradient(180deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.1)} 0%, transparent 26%)`
       }}
     >
 
@@ -84,10 +85,10 @@ export default function Sidebar({ collapsed }: Props) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: SIDEBAR_NAVY,
+              color: "var(--app-accent-dark)",
               border: "1px solid",
-              borderColor: alpha(SIDEBAR_NAVY, 0.14),
-              backgroundColor: alpha("#DCE7FF", 0.45)
+              borderColor: (theme) => varAlpha(theme.vars.palette.primary.mainChannel, 0.18),
+              backgroundColor: "var(--app-accent-soft)"
             }}
           >
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
@@ -114,96 +115,108 @@ export default function Sidebar({ collapsed }: Props) {
 
           const active = pathname === item.path;
 
-          return (
-
-            <Link
-              key={item.title}
-              href={item.path}
-              style={{ textDecoration: "none", color: "inherit" }}
-            >
-
-              <ListItemButton
-                sx={{
-                  borderRadius: collapsed ? 3 : 2.5,
-                  mb: 1.25,
-                  position: "relative",
-                  justifyContent: collapsed ? "center" : "flex-start",
-                  px: collapsed ? 1.5 : 1.75,
-                  py: collapsed ? 1.5 : 1.2,
-                  color: active ? "#FFFFFF" : "text.primary",
+          const listItem = (
+            <ListItemButton
+              sx={{
+                borderRadius: collapsed ? 3 : 2.5,
+                mb: 1.25,
+                position: "relative",
+                justifyContent: collapsed ? "center" : "flex-start",
+                px: collapsed ? 1.5 : 1.75,
+                py: collapsed ? 1.5 : 1.2,
+                color: active ? "#FFFFFF" : "text.primary",
+                background: active
+                  ? "linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 58%, var(--app-header-end) 100%)"
+                  : "transparent",
+                boxShadow: active
+                  ? (theme) => `0 12px 28px ${varAlpha(theme.vars.palette.grey["900Channel"], 0.2)}`
+                  : "none",
+                transition: "all .18s ease",
+                "&:hover": {
                   background: active
-                    ? `linear-gradient(135deg, ${SIDEBAR_NAVY_DEEP} 0%, ${SIDEBAR_NAVY} 58%, #102969 100%)`
-                    : "transparent",
-                  boxShadow: active
-                    ? `0 12px 28px ${alpha(SIDEBAR_NAVY_DEEP, 0.16)}`
-                    : "none",
-                  transition: "all .18s ease",
-                  "&:hover": {
-                    background: active
-                      ? `linear-gradient(135deg, ${SIDEBAR_NAVY_DEEP} 0%, ${SIDEBAR_NAVY} 58%, #102969 100%)`
-                      : `linear-gradient(135deg, ${alpha(SIDEBAR_NAVY, 0.08)} 0%, ${alpha("#102969", 0.04)} 100%)`,
-                    transform: collapsed ? "translateY(-1px)" : "translateX(3px)"
-                  },
-                  "&::before": active
-                    ? {
-                      content: '""',
-                      position: "absolute",
-                      left: collapsed ? "50%" : -12,
-                      bottom: collapsed ? -8 : "20%",
-                      transform: collapsed ? "translateX(-50%)" : "none",
-                      height: collapsed ? 4 : "60%",
-                      width: collapsed ? "60%" : 4,
-                      borderRadius: 999,
-                      background: `linear-gradient(180deg, ${SIDEBAR_RED} 0%, #FF7B57 100%)`
-                    }
+                    ? "linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 58%, var(--app-header-end) 100%)"
                     : undefined,
-                  "&::after": active
-                    ? {
-                      content: '""',
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "inherit",
-                      pointerEvents: "none",
-                      backgroundImage: [
-                        `linear-gradient(${alpha(SIDEBAR_RED, 0.26)} 0 0)`,
-                        `linear-gradient(${alpha(SIDEBAR_RED, 0.26)} 0 0)`
-                      ].join(", "),
-                      backgroundRepeat: "no-repeat",
-                      backgroundSize: ["26px 2px", "2px 26px"].join(", "),
-                      backgroundPosition: ["84% 28%", "84% 28%"].join(", ")
+                  transform: collapsed ? "translateY(-1px)" : "translateX(3px)"
+                },
+                ...(active
+                  ? {}
+                  : {
+                    "&:hover": {
+                      background: (theme: any) =>
+                        `linear-gradient(135deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.08)} 0%, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.03)} 100%)`,
+                      transform: collapsed ? "translateY(-1px)" : "translateX(3px)"
                     }
-                    : undefined
+                  }),
+                "&::before": active
+                  ? {
+                    content: '""',
+                    position: "absolute",
+                    left: collapsed ? "50%" : -12,
+                    bottom: collapsed ? -8 : "20%",
+                    transform: collapsed ? "translateX(-50%)" : "none",
+                    height: collapsed ? 4 : "60%",
+                    width: collapsed ? "60%" : 4,
+                    borderRadius: 999,
+                    background: "linear-gradient(180deg, var(--app-danger-main) 0%, var(--app-warning-main) 100%)"
+                  }
+                  : undefined,
+                "&::after": active
+                  ? {
+                    content: '""',
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "inherit",
+                    pointerEvents: "none",
+                    backgroundImage: [
+                      `linear-gradient(${varAlpha("var(--palette-error-mainChannel)", 0.26)} 0 0)`,
+                      `linear-gradient(${varAlpha("var(--palette-error-mainChannel)", 0.26)} 0 0)`
+                    ].join(", "),
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: ["26px 2px", "2px 26px"].join(", "),
+                    backgroundPosition: ["84% 28%", "84% 28%"].join(", ")
+                  }
+                  : undefined
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: collapsed ? 0 : 40,
+                  color: active ? "#FFFFFF" : "text.secondary",
+                  justifyContent: "center",
+                  "& svg": {
+                    fontSize: 22
+                  }
                 }}
               >
+                {item.icon}
+              </ListItemIcon>
 
-                <ListItemIcon
-                  sx={{
-                    minWidth: collapsed ? 0 : 40,
-                    color: active ? "#FFFFFF" : "text.secondary",
-                    justifyContent: "center",
-                    "& svg": {
-                      fontSize: 22
-                    }
+              {!collapsed && (
+                <ListItemText
+                  primary={item.title}
+                  primaryTypographyProps={{
+                    fontWeight: active ? 700 : 500
                   }}
-                >
-                  {item.icon}
-                </ListItemIcon>
+                />
+              )}
+            </ListItemButton>
+          );
 
-                {!collapsed && (
-
-                  <ListItemText
-                    primary={item.title}
-                    primaryTypographyProps={{
-                      fontWeight: active ? 700 : 500
-                    }}
-                  />
-
-                )}
-
-              </ListItemButton>
-
-            </Link>
-
+          return (
+            <Tooltip
+              key={item.title}
+              title={collapsed ? item.title : ""}
+              placement="right"
+              arrow
+              disableHoverListener={!collapsed}
+            >
+              <Link
+                href={item.path}
+                style={{ textDecoration: "none", color: "inherit", display: "block" }}
+              >
+                {listItem}
+              </Link>
+            </Tooltip>
           );
 
         })}

@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { varAlpha } from "minimal-shared/utils";
 
 import { useAuth } from "@/app/context/AuthContext";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
 const PUBLIC_ROUTES = ["/login", "/signup", "/reset-password"];
-const ADMIN_ONLY_ROUTES = ["/analytics", "/validation", "/upload"];
+const ADMIN_ONLY_ROUTES = ["/planner", "/analytics", "/validation", "/upload"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
 
@@ -155,7 +156,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             flex: 1,
             minHeight: 0,
             p: 4,
-            overflow: isMatchesPage ? "hidden" : "auto"
+            overflow: isMatchesPage ? "hidden" : "auto",
+            bgcolor: "background.default",
+            backgroundImage: (theme) => [
+              `linear-gradient(180deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.12)} 0%, transparent 28%)`,
+              `radial-gradient(circle at top right, ${varAlpha(theme.vars.palette.secondary.mainChannel, 0.08)}, transparent 24%)`
+            ].join(", ")
           }}
         >
           {children}

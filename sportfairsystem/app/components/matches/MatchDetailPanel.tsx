@@ -11,6 +11,7 @@ import {
   Tooltip
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import { varAlpha } from "minimal-shared/utils";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 
 import { formatName } from "@/app/services/formatname";
@@ -20,12 +21,6 @@ import { formatDate } from "@/app/utils/formatDate";
 import BattingTable from "./BattingTable";
 import BowlingTable from "./BowlingTable";
 import FallOfWickets from "./FallofWickets";
-
-const JERSEY_NAVY = "#0A1A49";
-const JERSEY_NAVY_DEEP = "#061230";
-const JERSEY_RED = "#E53935";
-const JERSEY_RED_DARK = "#B32622";
-const JERSEY_LINE = "#203A7A";
 
 type MatchPlayer = {
   team_name: string | null;
@@ -56,6 +51,7 @@ interface MatchDetailPanelProps {
     team_b: string | null;
     match_date: string | null;
     result: string | null;
+    result_summary?: string | null;
     winner?: string | null;
     match_code?: string | null;
     innings?: MatchInnings[];
@@ -67,7 +63,62 @@ interface MatchDetailPanelProps {
 function getResultTone(result: string | null) {
   if (result === "Won") return "success";
   if (result === "Lost") return "error";
+  if (result === "Tie") return "info";
+  if (result === "Draw") return "warning";
   return "default";
+}
+
+function inferTieFromInnings(innings: MatchInnings[] | undefined) {
+  if (!innings || innings.length < 2) {
+    return false;
+  }
+
+  const inningsTotals = innings
+    .slice(0, 2)
+    .map((entry) => entry.runs)
+    .filter((runs): runs is number => typeof runs === "number");
+
+  if (inningsTotals.length < 2) {
+    return false;
+  }
+
+  return inningsTotals[0] === inningsTotals[1];
+}
+
+function getDisplayResult(match: MatchDetailPanelProps["match"]) {
+  const rawResult = typeof match.result === "string" ? match.result.trim() : "";
+  const normalizedResult = rawResult.toLowerCase();
+  const summary = typeof match.result_summary === "string"
+    ? match.result_summary.trim().toLowerCase()
+    : "";
+  const tiedOnScore = inferTieFromInnings(match.innings);
+
+  if (normalizedResult === "won") {
+    return "Won";
+  }
+
+  if (normalizedResult === "lost") {
+    return "Lost";
+  }
+
+  if (
+    normalizedResult === "tie"
+    || summary.includes("tie")
+    || summary.includes("scores level")
+    || tiedOnScore
+  ) {
+    return "Tie";
+  }
+
+  if (normalizedResult === "draw" || summary.includes("draw")) {
+    return "Draw";
+  }
+
+  if (rawResult && normalizedResult !== "unknown") {
+    return rawResult;
+  }
+
+  return "Unknown";
 }
 
 function getDisplayName(name: string | null | undefined) {
@@ -89,33 +140,83 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
   }
 
   const innings = match.innings || [];
-  const resultTone = getResultTone(match.result);
+  const displayResult = getDisplayResult(match);
+  const resultTone = getResultTone(displayResult);
 
   return (
     <Box>
 
       <Paper
         variant="outlined"
-        sx={() => ({
+        sx={(theme) => ({
           p: 3,
           mb: 2,
-          borderRadius: 3,
+          borderRadius: 4,
           color: "#F7F9FC",
-          background: `linear-gradient(135deg, ${JERSEY_NAVY_DEEP} 0%, ${JERSEY_NAVY} 52%, #102969 100%)`,
-          borderColor: alpha(JERSEY_RED, 0.22),
+          background: "linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 52%, var(--app-header-end) 100%)",
+          borderColor: varAlpha(theme.vars.palette.error.mainChannel, 0.18),
           overflow: "hidden",
           position: "relative",
-          boxShadow: `0 10px 24px ${alpha(JERSEY_NAVY_DEEP, 0.14)}`,
+          boxShadow: `0 18px 42px ${varAlpha(theme.vars.palette.grey["900Channel"], 0.24)}`,
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background: [
+              `linear-gradient(90deg, transparent 0%, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.22)} 48%, transparent 100%)`,
+              `radial-gradient(circle at 12% 88%, ${varAlpha(theme.vars.palette.error.mainChannel, 0.18)}, transparent 22%)`,
+              `radial-gradient(circle at 82% 24%, ${varAlpha(theme.vars.palette.error.mainChannel, 0.12)}, transparent 18%)`
+            ].join(", ")
+          },
           "&::after": {
             content: '""',
             position: "absolute",
             inset: 0,
-            background: [
-              `radial-gradient(circle at top right, ${alpha(JERSEY_RED, 0.24)}, transparent 22%)`,
-              `radial-gradient(circle at bottom left, ${alpha(JERSEY_RED_DARK, 0.2)}, transparent 20%)`,
-              `linear-gradient(90deg, transparent 0%, ${alpha(JERSEY_LINE, 0.2)} 100%)`
+            pointerEvents: "none",
+            backgroundImage: [
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.28)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.28)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.28)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.28)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.2)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.2)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.2)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.2)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.14)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.14)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.14)} 0 0)`,
+              `linear-gradient(${varAlpha(theme.vars.palette.error.mainChannel, 0.14)} 0 0)`
             ].join(", "),
-            pointerEvents: "none"
+            backgroundRepeat: "no-repeat",
+            backgroundSize: [
+              "64px 3px",
+              "3px 64px",
+              "40px 3px",
+              "3px 40px",
+              "76px 2px",
+              "2px 76px",
+              "48px 2px",
+              "2px 48px",
+              "90px 2px",
+              "2px 90px",
+              "54px 2px",
+              "2px 54px"
+            ].join(", "),
+            backgroundPosition: [
+              "82% 22%",
+              "82% 22%",
+              "86% 28%",
+              "86% 28%",
+              "14% 82%",
+              "14% 82%",
+              "18% 74%",
+              "18% 74%",
+              "64% 58%",
+              "64% 58%",
+              "70% 66%",
+              "70% 66%"
+            ].join(", ")
           }
         })}
       >
@@ -164,7 +265,7 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
                 )}
 
                 <Chip
-                  label={match.result || "Unknown"}
+                  label={displayResult}
                   color={resultTone}
                   size="small"
                   sx={{
@@ -182,16 +283,16 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
                   <IconButton
                     onClick={onDelete}
                     size="small"
-                    sx={{
+                    sx={(theme) => ({
                       color: "#FFFFFF",
                       border: "1px solid",
                       borderColor: alpha("#FFFFFF", 0.24),
                       backgroundColor: alpha("#FFFFFF", 0.04),
                       "&:hover": {
                         borderColor: alpha("#FFFFFF", 0.32),
-                        backgroundColor: alpha(JERSEY_RED, 0.16)
+                        backgroundColor: varAlpha(theme.vars.palette.error.mainChannel, 0.16)
                       }
-                    }}
+                    })}
                   >
                     <DeleteOutlineRoundedIcon fontSize="small" />
                   </IconButton>
@@ -251,12 +352,18 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
           <Paper
             key={inn.id || `${inn.team_name}-${index}`}
             variant="outlined"
-            sx={() => ({
+            sx={(theme) => ({
               mb: 4,
               p: 3,
               borderRadius: 3,
-              borderColor: alpha(JERSEY_LINE, 0.18),
-              background: `linear-gradient(180deg, ${alpha(JERSEY_NAVY, 0.04)} 0%, rgba(255,255,255,0.98) 18%)`,
+              borderColor:
+                theme.palette.mode === "dark"
+                  ? alpha("#FFFFFF", 0.08)
+                  : varAlpha(theme.vars.palette.primary.mainChannel, 0.18),
+              background:
+                theme.palette.mode === "dark"
+                  ? theme.vars.palette.background.paper
+                  : `linear-gradient(180deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.06)} 0%, rgba(255,255,255,0.98) 18%)`,
               boxShadow: "none"
             })}
           >
@@ -279,26 +386,41 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
                     <Chip
                       label={`${inn.runs ?? "-"} / ${inn.wickets ?? "-"}`}
                       color={tone}
-                      sx={{
+                      sx={(theme) => ({
                         fontWeight: 700,
-                        backgroundColor: JERSEY_RED,
+                        backgroundColor: theme.vars.palette.error.main,
                         color: "#FFFFFF"
-                      }}
+                      })}
                     />
                     <Chip
                       label={`${inn.overs ?? "-"} Overs`}
                       variant="outlined"
-                      sx={{ borderColor: alpha(JERSEY_NAVY, 0.18) }}
+                      sx={(theme) => ({
+                        borderColor:
+                          theme.palette.mode === "dark"
+                            ? alpha("#FFFFFF", 0.14)
+                            : varAlpha(theme.vars.palette.primary.mainChannel, 0.18)
+                      })}
                     />
                     <Chip
                       label={`CRR ${runRate ?? "-"}`}
                       variant="outlined"
-                      sx={{ borderColor: alpha(JERSEY_NAVY, 0.18) }}
+                      sx={(theme) => ({
+                        borderColor:
+                          theme.palette.mode === "dark"
+                            ? alpha("#FFFFFF", 0.14)
+                            : varAlpha(theme.vars.palette.primary.mainChannel, 0.18)
+                      })}
                     />
                     <Chip
                       label={`Extras ${inn.extras ?? 0}`}
                       variant="outlined"
-                      sx={{ borderColor: alpha(JERSEY_NAVY, 0.18) }}
+                      sx={(theme) => ({
+                        borderColor:
+                          theme.palette.mode === "dark"
+                            ? alpha("#FFFFFF", 0.14)
+                            : varAlpha(theme.vars.palette.primary.mainChannel, 0.18)
+                      })}
                     />
                   </Stack>
                 </Box>
@@ -320,19 +442,25 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
               {yetToBat.length > 0 && (
                 <Paper
                   variant="outlined"
-                  sx={() => ({
+                  sx={(theme) => ({
                     px: 2,
                     py: 1.5,
                     borderRadius: 2.5,
-                    backgroundColor: alpha(JERSEY_RED, 0.04),
-                    borderColor: alpha(JERSEY_RED, 0.12)
+                    backgroundColor:
+                      theme.palette.mode === "dark"
+                        ? alpha("#FFFFFF", 0.04)
+                        : varAlpha(theme.vars.palette.error.mainChannel, 0.04),
+                    borderColor:
+                      theme.palette.mode === "dark"
+                        ? alpha("#FFFFFF", 0.1)
+                        : varAlpha(theme.vars.palette.error.mainChannel, 0.12)
                   })}
                 >
-                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 0.5, color: "text.primary", fontWeight: 700 }}>
                     Yet To Bat
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.primary" }}>
                     {yetToBat.map(formatName).join(", ")}
                   </Typography>
                 </Paper>

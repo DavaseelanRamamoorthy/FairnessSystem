@@ -124,6 +124,60 @@ function extractCompetitionName(matchTitle: string | null) {
   return competitionMatch ? competitionMatch[1].trim() : null;
 }
 
+function countVsOccurrences(value: string) {
+  return (value.match(/\bvs\b/gi) ?? []).length;
+}
+
+function buildMatchTitle(
+  rawTitle: string | null,
+  teamA: string | null,
+  teamB: string | null
+) {
+  const normalizedRawTitle = rawTitle ? normalizeMatchWhitespace(rawTitle) : null;
+  const competitionName = extractCompetitionName(normalizedRawTitle);
+
+  if (!teamA || !teamB) {
+    return normalizedRawTitle;
+  }
+
+  const canonicalTitle = competitionName
+    ? `${teamA} vs ${teamB} (${competitionName})`
+    : `${teamA} vs ${teamB}`;
+
+  if (!normalizedRawTitle) {
+    return canonicalTitle;
+  }
+
+  const normalizedTitleKey = normalizeLooseTextKey(normalizedRawTitle);
+  const teamAKey = normalizeLooseTextKey(teamA);
+  const teamBKey = normalizeLooseTextKey(teamB);
+  const hasTeamA = normalizedTitleKey.includes(teamAKey);
+  const hasTeamB = normalizedTitleKey.includes(teamBKey);
+  const vsCount = countVsOccurrences(normalizedRawTitle);
+
+  if (!hasTeamA || !hasTeamB || vsCount !== 1) {
+    return canonicalTitle;
+  }
+
+  return normalizedRawTitle;
+}
+
+function extractResultSummary(firstPageText: string) {
+  const summaryBoundaryMatch = firstPageText.match(/\s(Best Performances|Match Officials)\b/i);
+  const summaryBoundaryIndex = summaryBoundaryMatch?.index ?? firstPageText.length;
+  const summarySection = firstPageText.slice(0, summaryBoundaryIndex);
+  const resultMatches = Array.from(summarySection.matchAll(/(?:^|\s)Result\s+/gi));
+  const lastResultMatch = resultMatches.at(-1);
+
+  if (!lastResultMatch || lastResultMatch.index === undefined) {
+    return null;
+  }
+
+  const resultStart = lastResultMatch.index + lastResultMatch[0].length;
+  const rawSummary = summarySection.slice(resultStart).trim();
+  return rawSummary ? normalizeMatchWhitespace(rawSummary) : null;
+}
+
 function parseMatchOfficials(pageText: string) {
   const officialsSectionMatch = pageText.match(/Match Officials\s+No\s+Name\s+Role\s+Signature\s+([\s\S]+)$/i);
 
@@ -312,8 +366,7 @@ export async function parseMatchFromBase64(
   const squadPageText = pageTexts.find((pageText) => pageText.includes("Playing Squad")) ?? "";
 
   const titleMatch = firstPageText.match(/^(.+?)\s+\d{1,2}\/\d{1,2}\/\d{2},/);
-  const matchTitle = titleMatch ? normalizeMatchWhitespace(titleMatch[1]) : null;
-  const competitionName = extractCompetitionName(matchTitle);
+  const rawMatchTitle = titleMatch ? normalizeMatchWhitespace(titleMatch[1]) : null;
 
   const dateMatch = fullText.match(/Date\s+(\d{4}-\d{2}-\d{2})/);
   const matchDate = dateMatch ? dateMatch[1] : null;
@@ -330,6 +383,9 @@ export async function parseMatchFromBase64(
     teamB = normalizeMatchWhitespace(headerMatch[2]);
   }
 
+  const matchTitle = buildMatchTitle(rawMatchTitle, teamA, teamB);
+  const competitionName = extractCompetitionName(rawMatchTitle) ?? extractCompetitionName(matchTitle);
+
   const groundMatch = fullText.match(/Ground\s+(.+?)\s+Date/i);
   const ground = groundMatch ? normalizeMatchWhitespace(groundMatch[1]) : null;
 
@@ -338,16 +394,13 @@ export async function parseMatchFromBase64(
   const tossDecision = tossMatch ? tossMatch[2].toLowerCase() : null;
 
   const resultMatch = fullText.match(/Result\s+([A-Za-z\s().&]+?)\s+won by/i);
-  const resultSummaryMatch = firstPageText.match(/Result\s+(.+?)\s+Best Performances/i);
 
   let winner: string | null = null;
   if (resultMatch) {
     winner = normalizeMatchWhitespace(resultMatch[1]);
   }
 
-  const resultSummary = resultSummaryMatch
-    ? normalizeMatchWhitespace(resultSummaryMatch[1])
-    : null;
+  const resultSummary = extractResultSummary(firstPageText);
 
   let matchResult: "Won" | "Lost" | "Unknown" = "Unknown";
   if (winner) {

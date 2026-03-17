@@ -53,15 +53,15 @@ export default function RunsTrendChart({ data }: Props) {
         <text
           x={0}
           y={0}
-          dy={16}
+          dy={14}
           textAnchor="middle"
           fill="#102a5c"
           fontSize="12"
           fontWeight="700"
         >
-          <tspan x="0">{payload.payload.matchLabel}</tspan>
-          <tspan x="0" dy="16" fontSize="11" fontWeight="500" fill="#52627a">
-            {payload.payload.match}
+          <tspan x="0">{payload.payload.match}</tspan>
+          <tspan x="0" dy="18" fontSize="11" fontWeight="500" fill="#52627a">
+            {payload.payload.matchLabel}
           </tspan>
         </text>
       </g>
@@ -109,11 +109,11 @@ export default function RunsTrendChart({ data }: Props) {
 
   return (
     <Box sx={{ width: "100%", minWidth: 0, height: 300 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
+      <ResponsiveContainer width="100%" height={300} minWidth={0} debounce={50}>
+        <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 16 }}>
           <CartesianGrid strokeDasharray="3 3" />
 
-          <XAxis dataKey="matchLabel" height={56} interval={0} tick={renderTick} />
+          <XAxis dataKey="match" height={68} interval={0} tick={renderTick} />
 
           <YAxis />
 

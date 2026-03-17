@@ -26,6 +26,77 @@ type TeamPlayerRecord = {
   roleTags: string[];
 };
 
+type DuplicateCheckMatchRow = {
+  id: string;
+  match_code: string | null;
+  raw_text: string | null;
+  parsed_payload: ParsedMatch | null;
+};
+
+function normalizeComparableText(value: string | null | undefined) {
+  return (value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function buildParsedMatchSignature(parsed: ParsedMatch | null | undefined) {
+  if (!parsed) {
+    return "";
+  }
+
+  return JSON.stringify({
+    matchDate: parsed.matchDate ?? null,
+    teamA: normalizeComparableText(parsed.teamA),
+    teamB: normalizeComparableText(parsed.teamB),
+    tossWinner: normalizeComparableText(parsed.tossWinner),
+    tossDecision: normalizeComparableText(parsed.tossDecision),
+    winner: normalizeComparableText(parsed.winner),
+    matchResult: normalizeComparableText(parsed.matchResult),
+    resultSummary: normalizeComparableText(parsed.resultSummary),
+    innings: (parsed.innings ?? []).map((innings) => ({
+      inningsNumber: innings.innings_number ?? null,
+      teamName: normalizeComparableText(innings.teamName),
+      runs: innings.runs ?? null,
+      wickets: innings.wickets ?? null,
+      overs: innings.overs ?? null,
+      extras: innings.extras ?? null,
+      batting: (innings.battingStats ?? []).map((batting) => ({
+        player: normalizeComparableText(batting.player_name),
+        runs: batting.runs ?? null,
+        balls: batting.balls ?? null,
+        dismissal: normalizeComparableText(batting.dismissal)
+      })),
+      bowling: (innings.bowlingStats ?? []).map((bowling) => ({
+        player: normalizeComparableText(bowling.player_name),
+        wickets: bowling.wickets ?? null,
+        overs: bowling.overs ?? null,
+        runs: bowling.runs ?? null
+      }))
+    }))
+  });
+}
+
+function findDuplicateStoredMatch(
+  storedMatches: DuplicateCheckMatchRow[],
+  parsed: ParsedMatch
+) {
+  const incomingRawText = normalizeComparableText(parsed.rawText);
+  const incomingSignature = buildParsedMatchSignature(parsed);
+
+  return storedMatches.find((storedMatch) => {
+    const storedRawText = normalizeComparableText(storedMatch.raw_text);
+
+    if (incomingRawText && storedRawText && incomingRawText === storedRawText) {
+      return true;
+    }
+
+    const storedSignature = buildParsedMatchSignature(storedMatch.parsed_payload);
+
+    return incomingSignature !== "" && storedSignature !== "" && incomingSignature === storedSignature;
+  });
+}
+
 function getDerivedPlaying11(
   parsed: ParsedMatch,
   teamName: string | null
@@ -160,6 +231,29 @@ export async function saveMatchToDatabase(
 
   if (teamError || !teamData) {
     throw new Error("Team not found.");
+  }
+
+  const { data: potentialDuplicateMatches, error: duplicateLookupError } = await supabase
+    .from("matches")
+    .select("id, match_code, raw_text, parsed_payload")
+    .eq("team_id", teamData.id)
+    .eq("match_date", parsed.matchDate);
+
+  if (duplicateLookupError) {
+    throw duplicateLookupError;
+  }
+
+  const duplicateMatch = findDuplicateStoredMatch(
+    (potentialDuplicateMatches ?? []) as DuplicateCheckMatchRow[],
+    parsed
+  );
+
+  if (duplicateMatch) {
+    throw new Error(
+      duplicateMatch.match_code
+        ? `This scorecard is already saved as ${duplicateMatch.match_code}.`
+        : "This scorecard is already saved."
+    );
   }
 
   // 2. Ensure current-team players exist in players

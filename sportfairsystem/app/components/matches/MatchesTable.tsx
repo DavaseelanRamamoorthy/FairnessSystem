@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Box,
@@ -19,6 +19,10 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 import { formatDate } from "@/app/utils/formatDate";
+import { sortSeasonLabelsDescending } from "@/app/utils/seasonSelection";
+import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
+
+const MATCHES_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:matches";
 
 type MatchRow = {
   id: string;
@@ -45,11 +49,11 @@ const groupOptions: { label: string; value: GroupOption }[] = [
 ];
 
 function getSeasonLabel(matchDate: string | null) {
-  if (!matchDate) return "Unknown Season";
+  if (!matchDate) return "Unknown";
 
   const [year] = matchDate.split("-");
 
-  return year ? `${year} Season` : "Unknown Season";
+  return year ? year : "Unknown";
 }
 
 function getGroupLabel(match: MatchRow, groupBy: GroupOption) {
@@ -103,17 +107,39 @@ export default function MatchesTable<T extends MatchRow>({
 }: Props<T>) {
 
   const [resultFilter, setResultFilter] = useState("All");
-  const [seasonFilter, setSeasonFilter] = useState("All Seasons");
+  const [seasonFilter, setSeasonFilter] = useState("");
   const [groupBy, setGroupBy] = useState<GroupOption>("none");
   const [page, setPage] = useState(0);
   const rowsPerPage = 10;
 
-  const seasonOptions = [
-    "All Seasons",
-    ...Array.from(
-      new Set(rows.map((row) => getSeasonLabel(row.match_date)))
-    )
-  ];
+  const availableSeasonLabels = useMemo(
+    () =>
+      sortSeasonLabelsDescending(
+        Array.from(new Set(rows.map((row) => getSeasonLabel(row.match_date))))
+      ),
+    [rows]
+  );
+
+  const seasonOptions = ["All Seasons", ...availableSeasonLabels];
+  const effectiveSeasonFilter = seasonFilter || availableSeasonLabels[0] || "All Seasons";
+
+  useEffect(() => {
+    const storedSeason = readStoredSeasonFilter(MATCHES_SEASON_STORAGE_KEY);
+
+    if (!storedSeason) {
+      return;
+    }
+
+    if (storedSeason === "All Seasons" || availableSeasonLabels.includes(storedSeason)) {
+      setSeasonFilter(storedSeason);
+    }
+  }, [availableSeasonLabels]);
+
+  useEffect(() => {
+    if (seasonFilter) {
+      storeSeasonFilter(MATCHES_SEASON_STORAGE_KEY, seasonFilter);
+    }
+  }, [seasonFilter]);
 
   const filteredRows = rows.filter((row) => {
     const result = getDisplayResult(row).label;
@@ -123,7 +149,7 @@ export default function MatchesTable<T extends MatchRow>({
       resultFilter === "All" || result === resultFilter;
 
     const matchesSeason =
-      seasonFilter === "All Seasons" || season === seasonFilter;
+      effectiveSeasonFilter === "All Seasons" || season === effectiveSeasonFilter;
 
     return matchesResult && matchesSeason;
   });
@@ -191,7 +217,7 @@ export default function MatchesTable<T extends MatchRow>({
           <Select
             labelId="match-season-filter-label"
             label="Season"
-            value={seasonFilter}
+            value={effectiveSeasonFilter}
             onChange={(event) => {
               setSeasonFilter(event.target.value);
               setPage(0);

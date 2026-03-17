@@ -15,6 +15,7 @@ import {
   Tooltip
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import { varAlpha } from "minimal-shared/utils";
 import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 import PersonRemoveRoundedIcon from "@mui/icons-material/PersonRemoveRounded";
 import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
@@ -22,9 +23,6 @@ import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
 import { ParsedMatch, Innings } from "@/app/types/match.types";
 import { formatName } from "@/app/services/formatname";
-
-const CARD_LILAC = "#F4F1FF";
-const CARD_INDIGO = "#5B5FEF";
 
 type PreviewPlayer = {
   name: string;
@@ -263,10 +261,10 @@ export default function MatchPreviewModal({
                             py: 2,
                             borderRadius: 3,
                             borderColor: player.addToSquad
-                              ? alpha(CARD_INDIGO, 0.28)
+                              ? (theme) => varAlpha(theme.vars.palette.primary.mainChannel, 0.28)
                               : undefined,
                             backgroundColor: player.addToSquad
-                              ? alpha(CARD_INDIGO, 0.03)
+                              ? (theme) => varAlpha(theme.vars.palette.primary.mainChannel, 0.05)
                               : "background.paper"
                           }}
                         >
@@ -287,8 +285,8 @@ export default function MatchPreviewModal({
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
-                                  color: CARD_INDIGO,
-                                  backgroundColor: CARD_LILAC,
+                                  color: "primary.main",
+                                  backgroundColor: (theme) => varAlpha(theme.vars.palette.primary.mainChannel, 0.12),
                                   flexShrink: 0
                                 }}
                               >
@@ -326,17 +324,22 @@ export default function MatchPreviewModal({
                                   height: 42,
                                   borderRadius: "50%",
                                   color: "#FFFFFF",
-                                  background: player.addToSquad
-                                    ? "linear-gradient(135deg, #B32622 0%, #E53935 100%)"
-                                    : "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)",
-                                  boxShadow: player.addToSquad
-                                    ? `0 10px 24px ${alpha("#B32622", 0.18)}`
-                                    : `0 10px 24px ${alpha("#061230", 0.18)}`,
-                                  "&:hover": {
-                                    background: player.addToSquad
-                                      ? "linear-gradient(135deg, #B32622 0%, #E53935 100%)"
-                                      : "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)"
-                                  }
+                                  background: (theme) =>
+                                    player.addToSquad
+                                      ? `linear-gradient(135deg, ${theme.vars.palette.error.dark} 0%, ${theme.vars.palette.error.main} 100%)`
+                                      : "linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)",
+                                  boxShadow: (theme) =>
+                                    player.addToSquad
+                                      ? theme.vars.customShadows.error
+                                      : theme.vars.customShadows.primary,
+                                  "&:hover": player.addToSquad
+                                    ? {
+                                      background: (theme) =>
+                                        `linear-gradient(135deg, ${theme.vars.palette.error.dark} 0%, ${theme.vars.palette.error.main} 100%)`
+                                    }
+                                    : {
+                                      background: "linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)"
+                                    }
                                 }}
                               >
                                 {player.addToSquad ? (
@@ -378,15 +381,7 @@ export default function MatchPreviewModal({
               onClick={onClose}
               sx={{
                 minWidth: 112,
-                borderRadius: 999,
-                px: 2.5,
-                py: 1,
-                fontWeight: 700,
-                color: "text.primary",
-                backgroundColor: alpha("#DCE7FF", 0.28),
-                "&:hover": {
-                  backgroundColor: alpha("#DCE7FF", 0.42)
-                }
+                borderRadius: 999
               }}
             >
               Cancel
@@ -397,15 +392,7 @@ export default function MatchPreviewModal({
               onClick={onSave}
               sx={{
                 minWidth: 136,
-                borderRadius: 999,
-                px: 2.75,
-                py: 1,
-                fontWeight: 700,
-                background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)",
-                boxShadow: `0 12px 28px ${alpha("#061230", 0.2)}`,
-                "&:hover": {
-                  background: "linear-gradient(135deg, #061230 0%, #0A1A49 62%, #102969 100%)"
-                }
+                borderRadius: 999
               }}
             >
               Save Match

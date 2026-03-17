@@ -22,6 +22,30 @@ const MuiButton: Components<Theme>['MuiButton'] = {
     disableElevation: true,
   },
   styleOverrides: {
+    root: ({ theme }) => ({
+      borderRadius: 14,
+      textTransform: 'none',
+      fontWeight: 700,
+      paddingInline: theme.spacing(2),
+      minHeight: 40,
+    }),
+    contained: ({ theme }) => ({
+      color: theme.vars.palette.primary.contrastText,
+      background: 'linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)',
+      boxShadow: theme.vars.customShadows.primary,
+      '&:hover': {
+        background: 'linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)',
+        boxShadow: theme.vars.customShadows.z12,
+      },
+    }),
+    containedError: ({ theme }) => ({
+      color: theme.vars.palette.error.contrastText,
+      background: `linear-gradient(135deg, ${theme.vars.palette.error.dark} 0%, ${theme.vars.palette.error.main} 100%)`,
+      boxShadow: theme.vars.customShadows.error,
+      '&:hover': {
+        background: `linear-gradient(135deg, ${theme.vars.palette.error.dark} 0%, ${theme.vars.palette.error.main} 100%)`,
+      },
+    }),
     containedInherit: ({ theme }) => ({
       color: theme.vars.palette.common.white,
       backgroundColor: theme.vars.palette.grey[800],
@@ -30,9 +54,37 @@ const MuiButton: Components<Theme>['MuiButton'] = {
         backgroundColor: theme.vars.palette.grey[800],
       },
     }),
+    outlined: ({ theme }) => ({
+      borderWidth: 1,
+      borderColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.28),
+      '&:hover': {
+        borderWidth: 1,
+        borderColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.4),
+        backgroundColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.06),
+      },
+    }),
+    text: ({ theme }) => ({
+      '&:hover': {
+        backgroundColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.08),
+      },
+    }),
     sizeLarge: {
       minHeight: 48,
     },
+  },
+};
+
+const MuiFab: Components<Theme>['MuiFab'] = {
+  styleOverrides: {
+    root: ({ theme }) => ({
+      color: theme.vars.palette.common.white,
+      background: 'linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)',
+      boxShadow: theme.vars.customShadows.primary,
+      '&:hover': {
+        background: 'linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)',
+        boxShadow: theme.vars.customShadows.z12,
+      },
+    }),
   },
 };
 
@@ -41,9 +93,10 @@ const MuiCard: Components<Theme>['MuiCard'] = {
     root: ({ theme }) => ({
       zIndex: 0,
       position: 'relative',
-      backgroundColor: theme.vars.palette.common.white,
+      color: theme.vars.palette.text.primary,
+      backgroundColor: theme.vars.palette.background.paper,
       border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.12)}`,
-      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+      boxShadow: theme.vars.customShadows.card,
       borderRadius:
         typeof theme.shape.borderRadius === 'number'
           ? theme.shape.borderRadius * 1.5
@@ -77,9 +130,10 @@ const MuiPaper: Components<Theme>['MuiPaper'] = {
   styleOverrides: {
     root: { backgroundImage: 'none' },
     outlined: ({ theme }) => ({
-      backgroundColor: theme.vars.palette.common.white,
+      color: theme.vars.palette.text.primary,
+      backgroundColor: theme.vars.palette.background.paper,
       borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
-      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+      boxShadow: theme.vars.customShadows.card,
       borderRadius:
         typeof theme.shape.borderRadius === 'number'
           ? theme.shape.borderRadius * 1.5
@@ -189,6 +243,7 @@ export const components = {
   MuiRadio,
   MuiTable,
   MuiButton,
+  MuiFab,
   MuiBackdrop,
   MuiMenuItem,
   MuiCheckbox,

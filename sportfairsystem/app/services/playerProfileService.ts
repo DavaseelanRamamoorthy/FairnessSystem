@@ -36,6 +36,7 @@ type MatchRow = {
   team_a: string | null;
   team_b: string | null;
   result: string | null;
+  result_summary?: string | null;
   match_code: string | null;
 };
 
@@ -69,6 +70,7 @@ type BattingStatRow = {
   innings_id: string;
   player_id: string | null;
   player_name: string | null;
+  dismissal: string | null;
   runs: number | null;
   balls: number | null;
 };
@@ -116,6 +118,7 @@ export type PlayerProfile = {
   battingMatches: number;
   bowlingMatches: number;
   totalRuns: number;
+  catches: number;
   strikeRate: number | null;
   totalWickets: number;
   economy: number | null;
@@ -129,11 +132,16 @@ export type PlayerProfile = {
     matchDate: string | null;
     opponentName: string | null;
     result: string | null;
+    resultSummary: string | null;
     matchCode: string | null;
     scorecard: MatchDetailRow;
     runs: number;
     wickets: number;
   }>;
+};
+
+type SquadPlayerSummaryOptions = {
+  includeInactiveForSeason?: boolean;
 };
 
 function oversToBalls(overs: number) {
@@ -157,7 +165,7 @@ function buildSeasonOptions(matches: Array<Pick<MatchRow, "match_date">>): Seaso
     .sort((left, right) => right.localeCompare(left))
     .map((season) => ({
       value: season,
-      label: `${season} Season`
+      label: season
     }));
 }
 
@@ -280,7 +288,7 @@ async function loadSharedPlayerData(teamId: string, season?: string) {
 
   const { data: matchData, error: matchError } = await supabase
     .from("matches")
-    .select("id, match_date, team_a, team_b, result, match_code")
+    .select("id, match_date, team_a, team_b, result, result_summary, match_code")
     .eq("team_id", teamId)
     .order("match_date", { ascending: false });
 
@@ -337,7 +345,7 @@ async function loadSharedPlayerData(teamId: string, season?: string) {
     ] = await Promise.all([
       supabase
         .from("batting_stats")
-        .select("innings_id, player_id, player_name, runs, balls")
+        .select("innings_id, player_id, player_name, dismissal, runs, balls")
         .in("innings_id", inningsIds),
       supabase
         .from("bowling_stats")
@@ -365,6 +373,36 @@ async function loadSharedPlayerData(teamId: string, season?: string) {
     battingStats,
     bowlingStats
   };
+}
+
+function countCatchesFromDismissal(
+  dismissal: string | null | undefined,
+  normalizedPlayerName: string
+) {
+  const normalizedDismissal = (dismissal ?? "")
+    .toUpperCase()
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalizedDismissal) {
+    return 0;
+  }
+
+  const escapedPlayerName = normalizedPlayerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const flexiblePlayerName = `${escapedPlayerName}(?:\\s+[A-Z]+\\.?)*`;
+
+  const catchPatterns = [
+    new RegExp(`\\bC\\s*&\\s*B\\s+${flexiblePlayerName}\\b`),
+    new RegExp(`\\b(?:C|CAUGHT|CT)\\s+${flexiblePlayerName}\\s+B\\b`),
+    new RegExp(`\\b(?:C|CAUGHT|CT)\\s+${flexiblePlayerName}\\b`)
+  ];
+
+  if (catchPatterns.some((pattern) => pattern.test(normalizedDismissal))) {
+    return 1;
+  }
+
+  return 0;
 }
 
 function aggregatePlayerStats(
@@ -487,7 +525,10 @@ export async function getPlayerSeasons() {
   return buildSeasonOptions(matches);
 }
 
-export async function getSquadPlayerSummaries(season?: string) {
+export async function getSquadPlayerSummaries(
+  season?: string,
+  options?: SquadPlayerSummaryOptions
+) {
   const teamId = await getCurrentTeamId();
   const {
     squadPlayers,
@@ -514,6 +555,10 @@ export async function getSquadPlayerSummaries(season?: string) {
   return summaries
     .filter((player) => {
       if (!season) {
+        return true;
+      }
+
+      if (options?.includeInactiveForSeason) {
         return true;
       }
 
@@ -569,6 +614,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
   const normalizedPlayerName = cleanName(player.name);
 
   const runsByMatch = new Map<string, number>();
+  const catchesByMatch = new Map<string, number>();
   battingStats.forEach((row) => {
     const innings = inningsById.get(row.innings_id);
     const isCurrentTeamFallbackMatch =
@@ -586,6 +632,28 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     }
 
     runsByMatch.set(matchId, (runsByMatch.get(matchId) ?? 0) + (row.runs ?? 0));
+  });
+
+  battingStats.forEach((row) => {
+    const innings = inningsById.get(row.innings_id);
+
+    if (!innings?.team_name || innings.team_name === currentTeamName) {
+      return;
+    }
+
+    const catchCount = countCatchesFromDismissal(row.dismissal, normalizedPlayerName);
+
+    if (catchCount === 0) {
+      return;
+    }
+
+    const matchId = inningsToMatchId.get(row.innings_id);
+
+    if (!matchId) {
+      return;
+    }
+
+    catchesByMatch.set(matchId, (catchesByMatch.get(matchId) ?? 0) + catchCount);
   });
 
   const wicketsByMatch = new Map<string, number>();
@@ -634,6 +702,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
         team_a,
         team_b,
         result,
+        result_summary,
         winner,
         match_code,
         innings (
@@ -668,6 +737,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     matchDate: match.match_date,
     opponentName: getOpponentName(match.team_a, match.team_b, currentTeamName),
     result: match.result,
+    resultSummary: match.result_summary ?? null,
     matchCode: match.match_code,
     scorecard: detailedMatchesById.get(match.id) ?? {
       ...match,
@@ -689,6 +759,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     battingMatches: stats.battingMatchIds.size,
     bowlingMatches: stats.bowlingMatchIds.size,
     totalRuns: stats.battingRuns,
+    catches: Array.from(catchesByMatch.values()).reduce((sum, count) => sum + count, 0),
     strikeRate,
     totalWickets: stats.bowlingWickets,
     economy,

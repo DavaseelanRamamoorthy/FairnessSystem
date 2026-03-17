@@ -26,14 +26,13 @@ import {
   Stack,
   Typography
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
-import AirlineSeatReclineNormalRoundedIcon from "@mui/icons-material/AirlineSeatReclineNormalRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import FlashOnRoundedIcon from "@mui/icons-material/FlashOnRounded";
-import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import TrackChangesRoundedIcon from "@mui/icons-material/TrackChangesRounded";
-import WaterDropRoundedIcon from "@mui/icons-material/WaterDropRounded";
+import FrontHandRoundedIcon from "@mui/icons-material/FrontHandRounded";
 
 import { currentTeamName } from "@/app/config/teamConfig";
 import { formatName } from "@/app/services/formatname";
@@ -43,7 +42,10 @@ import {
   PlayerProfile,
   SeasonOption
 } from "@/app/services/playerProfileService";
+import { useAuth } from "@/app/context/AuthContext";
 import { formatDate } from "@/app/utils/formatDate";
+import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
+import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
 
 const PLAYER_NAVY = "#0A1A49";
@@ -110,6 +112,7 @@ const KPI_CARD_STYLES = {
   }
 } as const;
 const RECENT_MATCHES_PAGE_SIZE = 5;
+const PLAYER_PROFILE_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:player-profile";
 
 type KpiCardTone = keyof typeof KPI_CARD_STYLES;
 
@@ -175,24 +178,12 @@ function formatUsageFooter(profile: PlayerProfile) {
   return `${profile.matchesPlayed} of ${profile.totalTeamMatches} selected matches`;
 }
 
-function formatActiveUsageFooter(profile: PlayerProfile) {
-  if (profile.totalTeamMatches === 0) {
-    return "No team matches in scope";
-  }
-
-  return `${profile.activeMatches} of ${profile.totalTeamMatches} active matches`;
-}
-
-function formatBenchFooter(profile: PlayerProfile) {
-  if (profile.matchesPlayed === 0) {
-    return "No selected matches in scope";
-  }
-
-  const benchRate = Math.round((profile.benchMatches / profile.matchesPlayed) * 100);
-  return `${benchRate}% of selected matches were unused`;
-}
-
-function buildPlayerSummaryText(profile: PlayerProfile, usagePercent: number, activeUsagePercent: number) {
+function buildPlayerSummaryText(
+  profile: PlayerProfile,
+  usagePercent: number,
+  activeUsagePercent: number,
+  includeSelectionUsage: boolean
+) {
   const name = formatName(profile.name);
   const bestFit = getBestFitLabel(profile);
   const selectionLine = `${profile.matchesPlayed} of ${profile.totalTeamMatches} team matches`;
@@ -201,22 +192,59 @@ function buildPlayerSummaryText(profile: PlayerProfile, usagePercent: number, ac
     ? `${profile.totalRuns} runs at SR ${profile.strikeRate?.toFixed(2) ?? "-"}`
     : "no major batting output yet";
   const bowlingLine = profile.totalWickets > 0
-    ? `${profile.totalWickets} wickets at EC ${profile.economy?.toFixed(2) ?? "-"}`
+    ? `${profile.totalWickets} wickets at EC ${profile.economy?.toFixed(2) ?? "-"}` 
     : "limited bowling output so far";
+  const selectionUsageText = includeSelectionUsage
+    ? `with selection usage at ${usagePercent}% and `
+    : "";
 
   if (bestFit === "All-Rounder") {
-    return `${name} is currently profiling as an All-Rounder for ${currentTeamName}, with selection usage at ${usagePercent}% and active usage at ${activeUsagePercent}%. Across ${selectionLine}, the player has delivered ${battingLine} and ${bowlingLine}, making them a two-phase contributor in the current scope.`;
+    return `${name} is currently profiling as an All-Rounder for ${currentTeamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the player has delivered ${battingLine} and ${bowlingLine}, making them a two-phase contributor in the current scope.`;
   }
 
   if (bestFit === "Bowler") {
-    return `${name} is currently profiling as a Bowler for ${currentTeamName}. The player has been selected in ${selectionLine}, with ${activeLine} and ${activeUsagePercent}% active usage. The strongest return is ${bowlingLine}, while batting impact is currently ${battingLine}.`;
+    return `${name} is currently profiling as a Bowler for ${currentTeamName}. The player has been selected in ${selectionLine}, with ${activeLine} and ${activeUsagePercent}% active usage. ${includeSelectionUsage ? `Selection usage currently sits at ${usagePercent}%. ` : ""}The strongest return is ${bowlingLine}, while batting impact is currently ${battingLine}.`;
   }
 
   if (bestFit === "Batter") {
-    return `${name} is currently profiling as a Batter for ${currentTeamName}, with selection usage at ${usagePercent}% and active usage at ${activeUsagePercent}%. Across ${selectionLine}, the primary output is ${battingLine}, while bowling impact remains ${bowlingLine}.`;
+    return `${name} is currently profiling as a Batter for ${currentTeamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the primary output is ${battingLine}, while bowling impact remains ${bowlingLine}.`;
   }
 
   return `${name} is still developing into a clearer role fit. The player has been selected in ${selectionLine}, with ${activeLine}, and currently shows ${battingLine} alongside ${bowlingLine}.`;
+}
+
+function getRatePercentage(value: number, total: number) {
+  if (total <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
+}
+
+function getDisplayResultLabel(match: PlayerProfile["recentMatches"][number]) {
+  const rawResult = typeof match.result === "string" ? match.result.trim() : "";
+  const normalizedResult = rawResult.toLowerCase();
+  const normalizedSummary = typeof match.resultSummary === "string"
+    ? match.resultSummary.trim().toLowerCase()
+    : "";
+
+  if (normalizedResult === "won") {
+    return "Won";
+  }
+
+  if (normalizedResult === "lost") {
+    return "Lost";
+  }
+
+  if (normalizedResult === "tie" || normalizedSummary.includes("tie")) {
+    return "Tie";
+  }
+
+  if (normalizedResult === "draw" || normalizedSummary.includes("draw")) {
+    return "Draw";
+  }
+
+  return rawResult || "Unknown";
 }
 
 function ProfileKpiCard({
@@ -355,10 +383,12 @@ function ProfileKpiCard({
 export default function PlayerProfilePage() {
   const params = useParams<{ playerId: string }>();
   const playerId = Array.isArray(params.playerId) ? params.playerId[0] : params.playerId;
+  const theme = useTheme();
+  const { isAdmin } = useAuth();
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
-  const [selectedSeason, setSelectedSeason] = useState("all");
+  const [selectedSeason, setSelectedSeason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recentMatchesPage, setRecentMatchesPage] = useState(0);
@@ -369,6 +399,14 @@ export default function PlayerProfilePage() {
       try {
         const nextSeasons = await getPlayerSeasons();
         setSeasons(nextSeasons);
+        const storedSeason = readStoredSeasonFilter(PLAYER_PROFILE_SEASON_STORAGE_KEY);
+        const nextSeasonValues = new Set(nextSeasons.map((season) => season.value));
+        const resolvedSeason = storedSeason && nextSeasonValues.has(storedSeason)
+          ? storedSeason
+          : getLatestSeasonValue(nextSeasons);
+        setSelectedSeason((currentSeason) =>
+          currentSeason || resolvedSeason
+        );
       } catch {
         // Keep the player profile usable even if season options fail to load.
       }
@@ -376,6 +414,12 @@ export default function PlayerProfilePage() {
 
     void loadSeasons();
   }, []);
+
+  useEffect(() => {
+    if (selectedSeason) {
+      storeSeasonFilter(PLAYER_PROFILE_SEASON_STORAGE_KEY, selectedSeason);
+    }
+  }, [selectedSeason]);
 
   useEffect(() => {
     const loadPlayerProfile = async () => {
@@ -391,7 +435,7 @@ export default function PlayerProfilePage() {
       try {
         const playerProfile = await getPlayerProfile(
           playerId,
-          selectedSeason === "all" ? undefined : selectedSeason
+          !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason
         );
         setProfile(playerProfile);
       } catch (error) {
@@ -411,6 +455,7 @@ export default function PlayerProfilePage() {
 
   useEffect(() => {
     setRecentMatchesPage(0);
+    setExpandedMatchId(false);
   }, [selectedSeason, profile?.id]);
 
   const usagePercent = profile && profile.totalTeamMatches > 0
@@ -420,43 +465,41 @@ export default function PlayerProfilePage() {
     ? Math.round((profile.activeMatches / profile.totalTeamMatches) * 100)
     : 0;
   const playerSummaryText = profile
-    ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent)
+    ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, isAdmin)
     : "";
 
   const recentMatchesPageCount = profile
     ? Math.max(1, Math.ceil(profile.recentMatches.length / RECENT_MATCHES_PAGE_SIZE))
     : 1;
 
-  useEffect(() => {
-    const visibleMatches = profile
-      ? profile.recentMatches.slice(
-        recentMatchesPage * RECENT_MATCHES_PAGE_SIZE,
-        recentMatchesPage * RECENT_MATCHES_PAGE_SIZE + RECENT_MATCHES_PAGE_SIZE
-      )
-      : [];
-
-    if (visibleMatches.length === 0) {
-      setExpandedMatchId(false);
-      return;
-    }
-
-    setExpandedMatchId((currentExpandedMatchId) => {
-      if (
-        currentExpandedMatchId
-        && visibleMatches.some((match) => match.id === currentExpandedMatchId)
-      ) {
-        return currentExpandedMatchId;
-      }
-
-      return visibleMatches[0].id;
-    });
-  }, [profile, recentMatchesPage]);
-
   const paginatedRecentMatches = profile
     ? profile.recentMatches.slice(
       recentMatchesPage * RECENT_MATCHES_PAGE_SIZE,
       recentMatchesPage * RECENT_MATCHES_PAGE_SIZE + RECENT_MATCHES_PAGE_SIZE
-    )
+      )
+    : [];
+
+  const involvementBars = profile
+    ? [
+      {
+        label: "Batting Involvement",
+        value: profile.battingMatches,
+        total: profile.matchesPlayed,
+        color: PLAYER_CORAL
+      },
+      {
+        label: "Bowling Involvement",
+        value: profile.bowlingMatches,
+        total: profile.matchesPlayed,
+        color: PLAYER_GOLD
+      },
+      {
+        label: "Active Usage",
+        value: profile.activeMatches,
+        total: profile.totalTeamMatches,
+        color: "#29C77A"
+      }
+    ]
     : [];
 
   return (
@@ -472,10 +515,10 @@ export default function PlayerProfilePage() {
               mb: 2,
               px: 0,
               minWidth: 0,
-              color: alpha(PLAYER_NAVY, 0.76),
+              color: "text.secondary",
               "&:hover": {
                 backgroundColor: "transparent",
-                color: PLAYER_NAVY
+                color: "text.primary"
               }
             }}
           >
@@ -492,7 +535,7 @@ export default function PlayerProfilePage() {
               >
                 <Stack spacing={1}>
                   <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                    <Typography variant="h3" sx={{ fontWeight: 800, color: PLAYER_NAVY_DEEP }}>
+                    <Typography variant="h3" sx={{ fontWeight: 800, color: "text.primary" }}>
                       {formatName(profile.name)}
                     </Typography>
 
@@ -535,7 +578,7 @@ export default function PlayerProfilePage() {
                   <InputLabel id="player-profile-season-filter-label">Season</InputLabel>
                   <Select
                     labelId="player-profile-season-filter-label"
-                    value={selectedSeason}
+                    value={selectedSeason || "all"}
                     label="Season"
                     onChange={(event) => setSelectedSeason(event.target.value)}
                   >
@@ -555,11 +598,18 @@ export default function PlayerProfilePage() {
 
               <Card
                 variant="outlined"
-                sx={{
+                sx={(currentTheme) => ({
                   borderRadius: 3,
-                  borderColor: alpha(PLAYER_NAVY, 0.12),
-                  background: `linear-gradient(180deg, ${alpha("#DCE7FF", 0.16)} 0%, #FFFFFF 100%)`
-                }}
+                  borderColor:
+                    currentTheme.palette.mode === "dark"
+                      ? alpha("#FFFFFF", 0.1)
+                      : alpha(PLAYER_NAVY, 0.12),
+                  background:
+                    currentTheme.palette.mode === "dark"
+                      ? "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)"
+                      : `linear-gradient(180deg, ${alpha("#DCE7FF", 0.16)} 0%, #FFFFFF 100%)`,
+                  boxShadow: "none"
+                })}
               >
                 <CardContent sx={{ px: 2.5, py: 2.25 }}>
                   <Stack spacing={1}>
@@ -569,7 +619,7 @@ export default function PlayerProfilePage() {
                     >
                       AI Summary
                     </Typography>
-                    <Typography sx={{ color: PLAYER_NAVY, lineHeight: 1.7 }}>
+                    <Typography sx={{ color: "text.primary", lineHeight: 1.7 }}>
                       {playerSummaryText}
                     </Typography>
                   </Stack>
@@ -607,56 +657,6 @@ export default function PlayerProfilePage() {
 
               <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
                 <ProfileKpiCard
-                  label="Selection Usage"
-                  value={`${usagePercent}%`}
-                  icon={<GroupsRoundedIcon />}
-                  tone="deep"
-                  footer={formatUsageFooter(profile)}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
-                <ProfileKpiCard
-                  label="Active Usage"
-                  value={`${activeUsagePercent}%`}
-                  icon={<TrackChangesRoundedIcon />}
-                  tone="emerald"
-                  footer={formatActiveUsageFooter(profile)}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
-                <ProfileKpiCard
-                  label="Bench Stats"
-                  value={profile.benchMatches}
-                  icon={<AirlineSeatReclineNormalRoundedIcon />}
-                  tone="coral"
-                  footer={formatBenchFooter(profile)}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
-                <ProfileKpiCard
-                  label="Batting Matches"
-                  value={profile.battingMatches}
-                  icon={<FlashOnRoundedIcon />}
-                  tone="red"
-                  footer="Matches with batting involvement"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
-                <ProfileKpiCard
-                  label="Bowling Matches"
-                  value={profile.bowlingMatches}
-                  icon={<WaterDropRoundedIcon />}
-                  tone="gold"
-                  footer="Matches with bowling involvement"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
-                <ProfileKpiCard
                   label="Total Runs"
                   value={profile.totalRuns}
                   icon={<FlashOnRoundedIcon />}
@@ -667,23 +667,9 @@ export default function PlayerProfilePage() {
 
               <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
                 <ProfileKpiCard
-                  label="SR"
-                  value={profile.strikeRate ? profile.strikeRate.toFixed(2) : "-"}
+                  label="Wickets"
+                  value={profile.totalWickets}
                   icon={<TrackChangesRoundedIcon />}
-                  tone="violet"
-                  footer="Strike rate in scope"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
-                <ProfileKpiCard
-                  label="Wkts / EC"
-                  value={
-                    profile.totalWickets > 0 || profile.economy !== null
-                      ? `${profile.totalWickets} / ${profile.economy?.toFixed(2) ?? "-"}`
-                      : "-"
-                  }
-                  icon={<WaterDropRoundedIcon />}
                   tone="gold"
                   footer="Bowling contribution"
                 />
@@ -691,28 +677,181 @@ export default function PlayerProfilePage() {
 
               <Grid size={{ xs: 12, sm: 6, lg: 3, xl: 3 }} sx={{ display: "flex" }}>
                 <ProfileKpiCard
-                  label="Best Fit"
-                  value={getBestFitLabel(profile)}
-                  icon={<TrackChangesRoundedIcon />}
-                  tone="violet"
-                  footer="Best-fit role signal"
-                  compactValue
+                  label="Catches"
+                  value={profile.catches}
+                  icon={<FrontHandRoundedIcon />}
+                  tone="deep"
+                  footer="Fielding contribution"
                 />
               </Grid>
             </Grid>
 
             <Grid container spacing={3}>
+              <Grid size={{ xs: 12, lg: 6 }} sx={{ display: "flex" }}>
+                <Card
+                  variant="outlined"
+                  sx={(currentTheme) => ({
+                    width: "100%",
+                    borderRadius: 3,
+                    borderColor:
+                      currentTheme.palette.mode === "dark"
+                        ? alpha("#FFFFFF", 0.1)
+                        : alpha(PLAYER_NAVY, 0.12),
+                    boxShadow: "none",
+                    height: "100%"
+                  })}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Stack spacing={2.5}>
+                      <Typography variant="h5" sx={{ color: "text.primary", fontWeight: 800 }}>
+                        Performance Snapshot
+                      </Typography>
+
+                      <Stack spacing={2}>
+                        {involvementBars.map((item) => {
+                          const percentage = getRatePercentage(item.value, item.total);
+
+                          return (
+                            <Stack key={item.label} spacing={0.85}>
+                              <Stack direction="row" justifyContent="space-between" spacing={2}>
+                                <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                                  {item.label}
+                                </Typography>
+                                <Typography color="text.secondary">
+                                  {item.value} / {item.total || 0}
+                                </Typography>
+                              </Stack>
+
+                              <Box
+                                sx={(currentTheme) => ({
+                                  height: 12,
+                                  borderRadius: 999,
+                                  overflow: "hidden",
+                                  backgroundColor:
+                                    currentTheme.palette.mode === "dark"
+                                      ? alpha("#FFFFFF", 0.08)
+                                      : alpha(PLAYER_NAVY, 0.08)
+                                })}
+                              >
+                                <Box
+                                  sx={{
+                                    width: `${percentage}%`,
+                                    height: "100%",
+                                    borderRadius: 999,
+                                    background: `linear-gradient(90deg, ${alpha(item.color, 0.88)} 0%, ${item.color} 100%)`
+                                  }}
+                                />
+                              </Box>
+                            </Stack>
+                          );
+                        })}
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid size={{ xs: 12, lg: 6 }} sx={{ display: "flex" }}>
+                <Card
+                  variant="outlined"
+                  sx={(currentTheme) => ({
+                    width: "100%",
+                    borderRadius: 3,
+                    borderColor:
+                      currentTheme.palette.mode === "dark"
+                        ? alpha("#FFFFFF", 0.1)
+                        : alpha(PLAYER_NAVY, 0.12),
+                    boxShadow: "none",
+                    height: "100%"
+                  })}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Stack spacing={2.25}>
+                      <Typography variant="h5" sx={{ color: "text.primary", fontWeight: 800 }}>
+                        Output Summary
+                      </Typography>
+
+                      <Stack spacing={1.5}>
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Typography color="text.secondary">Best Fit</Typography>
+                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                            {getBestFitLabel(profile)}
+                          </Typography>
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Typography color="text.secondary">Strike Rate</Typography>
+                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                            {profile.strikeRate ? profile.strikeRate.toFixed(2) : "-"}
+                          </Typography>
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Typography color="text.secondary">Wickets / Economy</Typography>
+                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                            {profile.totalWickets > 0 || profile.economy !== null
+                              ? `${profile.totalWickets} / ${profile.economy?.toFixed(2) ?? "-"}`
+                              : "-"}
+                          </Typography>
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Typography color="text.secondary">Batting Matches</Typography>
+                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                            {profile.battingMatches}
+                          </Typography>
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Typography color="text.secondary">Bowling Matches</Typography>
+                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                            {profile.bowlingMatches}
+                          </Typography>
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Typography color="text.secondary">Active Usage</Typography>
+                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                            {activeUsagePercent}% ({profile.activeMatches} of {profile.totalTeamMatches} active matches)
+                          </Typography>
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Typography color="text.secondary">Bench Stats</Typography>
+                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                            {profile.benchMatches} unused appearances
+                          </Typography>
+                        </Stack>
+
+                        {isAdmin && (
+                          <Stack direction="row" justifyContent="space-between" spacing={2}>
+                            <Typography color="text.secondary">Selection Usage</Typography>
+                            <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
+                              {usagePercent}% ({formatUsageFooter(profile)})
+                            </Typography>
+                          </Stack>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
               <Grid size={{ xs: 12 }}>
                 <Card
                   variant="outlined"
-                  sx={{
+                  sx={(currentTheme) => ({
                     borderRadius: 3,
-                    borderColor: alpha(PLAYER_NAVY, 0.12)
-                  }}
+                    borderColor:
+                      currentTheme.palette.mode === "dark"
+                        ? alpha("#FFFFFF", 0.1)
+                        : alpha(PLAYER_NAVY, 0.12),
+                    boxShadow: "none"
+                  })}
                 >
                   <CardContent sx={{ p: 0 }}>
                     <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                      <Typography variant="h5" sx={{ color: PLAYER_NAVY_DEEP, fontWeight: 800 }}>
+                      <Typography variant="h5" sx={{ color: "text.primary", fontWeight: 800 }}>
                         Matches Played
                       </Typography>
                     </Box>
@@ -726,27 +865,37 @@ export default function PlayerProfilePage() {
                             setExpandedMatchId(isExpanded ? match.id : false);
                           }}
                           disableGutters
-                          sx={{
+                          sx={(currentTheme) => ({
                             borderRadius: 3,
                             overflow: "hidden",
                             border: "1px solid",
-                            borderColor: alpha(PLAYER_NAVY, 0.1),
+                            borderColor:
+                              currentTheme.palette.mode === "dark"
+                                ? alpha("#FFFFFF", 0.1)
+                                : alpha(PLAYER_NAVY, 0.1),
                             boxShadow: "none",
+                            backgroundColor:
+                              currentTheme.palette.mode === "dark"
+                                ? alpha("#FFFFFF", 0.04)
+                                : "#FFFFFF",
                             "&::before": {
                               display: "none"
                             }
-                          }}
+                          })}
                         >
                           <AccordionSummary
-                            expandIcon={<ExpandMoreRoundedIcon sx={{ color: PLAYER_NAVY }} />}
-                            sx={{
+                            expandIcon={<ExpandMoreRoundedIcon sx={{ color: "text.secondary" }} />}
+                            sx={(currentTheme) => ({
                               px: 2,
                               py: 1.25,
-                              backgroundColor: alpha("#DCE7FF", 0.14),
+                              backgroundColor:
+                                currentTheme.palette.mode === "dark"
+                                  ? alpha("#FFFFFF", 0.05)
+                                  : alpha("#DCE7FF", 0.14),
                               "& .MuiAccordionSummary-content": {
                                 my: 0
                               }
-                            }}
+                            })}
                           >
                             <Stack
                               direction={{ xs: "column", md: "row" }}
@@ -756,7 +905,7 @@ export default function PlayerProfilePage() {
                               sx={{ width: "100%", pr: 1 }}
                             >
                               <Stack spacing={0.35}>
-                                <Typography sx={{ fontWeight: 700, color: PLAYER_NAVY_DEEP }}>
+                                <Typography sx={{ fontWeight: 700, color: "text.primary" }}>
                                   {match.opponentName ?? "Unknown Opponent"}
                                 </Typography>
                                 <Stack direction="row" spacing={1.25} useFlexGap flexWrap="wrap">
@@ -789,21 +938,26 @@ export default function PlayerProfilePage() {
                                   }}
                                 />
                                 <Chip
-                                  label={match.result ?? "Unknown"}
+                                  label={getDisplayResultLabel(match)}
                                   size="small"
                                   sx={
-                                    match.result === "Won"
+                                    getDisplayResultLabel(match) === "Won"
                                       ? {
                                         color: PLAYER_NAVY_DEEP,
                                         backgroundColor: alpha(PLAYER_GOLD, 0.28)
                                       }
-                                      : match.result === "Lost"
+                                      : getDisplayResultLabel(match) === "Lost"
                                         ? {
                                           color: "#FFFFFF",
                                           backgroundColor: PLAYER_RED
                                         }
+                                        : getDisplayResultLabel(match) === "Tie"
+                                          ? {
+                                            color: "#FFFFFF",
+                                            backgroundColor: theme.palette.info.main
+                                          }
                                         : {
-                                          color: PLAYER_NAVY,
+                                          color: "text.primary",
                                           backgroundColor: alpha("#DCE7FF", 0.52)
                                         }
                                   }
@@ -841,7 +995,10 @@ export default function PlayerProfilePage() {
                         <Pagination
                           count={recentMatchesPageCount}
                           page={recentMatchesPage + 1}
-                          onChange={(_event, nextPage) => setRecentMatchesPage(nextPage - 1)}
+                          onChange={(_event, nextPage) => {
+                            setRecentMatchesPage(nextPage - 1);
+                            setExpandedMatchId(false);
+                          }}
                           color="primary"
                           shape="rounded"
                         />

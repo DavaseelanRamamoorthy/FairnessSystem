@@ -116,7 +116,7 @@ function buildSeasonOptions(matches: MatchRow[]): SeasonOption[] {
     .sort((left, right) => right.localeCompare(left))
     .map((season) => ({
       value: season,
-      label: `${season} Season`
+      label: season
     }));
 }
 

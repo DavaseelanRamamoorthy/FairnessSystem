@@ -1,7 +1,10 @@
 import { currentTeamName } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
+import { CricketRuleSeverity } from "@/app/services/cricketRulebook";
+import { evaluateParsedMatchAgainstCricketRulebook } from "@/app/services/ruleEvaluationService";
 import { getCurrentTeamId } from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
+import { ParsedMatch } from "@/app/types/match.types";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 
 export type ValidationSeasonOption = {
@@ -13,8 +16,10 @@ type MatchRow = {
   id: string;
   match_date: string | null;
   match_code: string | null;
+  competition_name?: string | null;
   team_a: string | null;
   team_b: string | null;
+  parsed_payload?: ParsedMatch | null;
 };
 
 type PlayerRow = {
@@ -76,6 +81,18 @@ export type GuestPromotionCandidate = {
   bowlingMatches: number;
 };
 
+export type RulebookIssueItem = {
+  matchId: string;
+  matchCode: string | null;
+  matchDate: string | null;
+  opponentName: string | null;
+  rulebookName: string;
+  severity: CricketRuleSeverity;
+  title: string;
+  detail: string;
+  recommendation: string;
+};
+
 export type XiWarningItem = {
   matchId: string;
   matchCode: string | null;
@@ -93,11 +110,13 @@ export type ValidationSnapshot = {
     missingPlayerLinks: number;
     duplicateNameRisks: number;
     guestPromotionCandidates: number;
+    rulebookFindings: number;
     xiWarnings: number;
   };
   missingPlayerLinks: ValidationIssueItem[];
   duplicateNameRisks: DuplicateNameRiskItem[];
   guestPromotionCandidates: GuestPromotionCandidate[];
+  rulebookFindings: RulebookIssueItem[];
   xiWarnings: XiWarningItem[];
 };
 
@@ -116,7 +135,7 @@ function buildSeasonOptions(matches: MatchRow[]): ValidationSeasonOption[] {
     .sort((left, right) => right.localeCompare(left))
     .map((season) => ({
       value: season,
-      label: `${season} Season`
+      label: season
     }));
 }
 
@@ -128,11 +147,13 @@ function buildEmptySnapshot(seasons: ValidationSeasonOption[]): ValidationSnapsh
       missingPlayerLinks: 0,
       duplicateNameRisks: 0,
       guestPromotionCandidates: 0,
+      rulebookFindings: 0,
       xiWarnings: 0
     },
     missingPlayerLinks: [],
     duplicateNameRisks: [],
     guestPromotionCandidates: [],
+    rulebookFindings: [],
     xiWarnings: []
   };
 }
@@ -146,7 +167,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
   ] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, match_date, match_code, team_a, team_b")
+      .select("id, match_date, match_code, competition_name, team_a, team_b, parsed_payload")
       .eq("team_id", teamId)
       .order("match_date", { ascending: false }),
     supabase
@@ -386,6 +407,28 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
       return left.playerName.localeCompare(right.playerName);
     });
 
+  const rulebookFindings: RulebookIssueItem[] = matches.flatMap((match) => {
+    if (!match.parsed_payload) {
+      return [];
+    }
+
+    const evaluation = evaluateParsedMatchAgainstCricketRulebook(match.parsed_payload);
+
+    return evaluation.findings
+      .filter((finding) => finding.severity !== "info")
+      .map((finding) => ({
+        matchId: match.id,
+        matchCode: match.match_code,
+        matchDate: match.match_date,
+        opponentName: getOpponentName(match.team_a, match.team_b, currentTeamName),
+        rulebookName: evaluation.rulebook.name,
+        severity: finding.severity,
+        title: finding.title,
+        detail: finding.summary,
+        recommendation: finding.recommendation
+      }));
+  });
+
   const battingActivityByMatch = new Map<string, Set<string>>();
   const bowlingActivityByMatch = new Map<string, Set<string>>();
 
@@ -455,6 +498,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
     missingPlayerLinks.length
     + duplicateNameRisks.length
     + guestPromotionCandidates.length
+    + rulebookFindings.length
     + xiWarnings.length;
 
   return {
@@ -464,11 +508,13 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
       missingPlayerLinks: missingPlayerLinks.length,
       duplicateNameRisks: duplicateNameRisks.length,
       guestPromotionCandidates: guestPromotionCandidates.length,
+      rulebookFindings: rulebookFindings.length,
       xiWarnings: xiWarnings.length
     },
     missingPlayerLinks,
     duplicateNameRisks,
     guestPromotionCandidates,
+    rulebookFindings,
     xiWarnings
   };
 }

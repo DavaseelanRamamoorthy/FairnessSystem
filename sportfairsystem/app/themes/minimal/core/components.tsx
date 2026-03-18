@@ -89,14 +89,22 @@ const MuiFab: Components<Theme>['MuiFab'] = {
 };
 
 const MuiCard: Components<Theme>['MuiCard'] = {
+  defaultProps: {
+    variant: 'outlined',
+  },
   styleOverrides: {
     root: ({ theme }) => ({
       zIndex: 0,
       position: 'relative',
       color: theme.vars.palette.text.primary,
       backgroundColor: theme.vars.palette.background.paper,
-      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.12)}`,
-      boxShadow: theme.vars.customShadows.card,
+      backgroundImage: [
+        `linear-gradient(180deg, ${varAlpha(theme.vars.palette.common.whiteChannel, theme.palette.mode === 'dark' ? 0.02 : 0.7)} 0%, transparent 100%)`,
+      ].join(', '),
+      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], theme.palette.mode === 'dark' ? 0.12 : 0.16)}`,
+      boxShadow: theme.palette.mode === 'dark'
+        ? `0 10px 28px ${varAlpha(theme.vars.palette.common.blackChannel, 0.22)}`
+        : `0 10px 28px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
       borderRadius:
         typeof theme.shape.borderRadius === 'number'
           ? theme.shape.borderRadius * 1.5
@@ -132,8 +140,56 @@ const MuiPaper: Components<Theme>['MuiPaper'] = {
     outlined: ({ theme }) => ({
       color: theme.vars.palette.text.primary,
       backgroundColor: theme.vars.palette.background.paper,
-      borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
-      boxShadow: theme.vars.customShadows.card,
+      backgroundImage: `linear-gradient(180deg, ${varAlpha(theme.vars.palette.common.whiteChannel, theme.palette.mode === 'dark' ? 0.02 : 0.7)} 0%, transparent 100%)`,
+      borderColor: varAlpha(theme.vars.palette.grey['500Channel'], theme.palette.mode === 'dark' ? 0.12 : 0.16),
+      boxShadow: theme.palette.mode === 'dark'
+        ? `0 10px 28px ${varAlpha(theme.vars.palette.common.blackChannel, 0.22)}`
+        : `0 10px 28px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
+      borderRadius:
+        typeof theme.shape.borderRadius === 'number'
+          ? theme.shape.borderRadius * 1.5
+          : `calc(${theme.shape.borderRadius} * 1.5)`,
+    }),
+  },
+};
+
+const MuiAlert: Components<Theme>['MuiAlert'] = {
+  defaultProps: {
+    variant: 'outlined',
+  },
+  styleOverrides: {
+    root: ({ theme }) => ({
+      borderRadius:
+        typeof theme.shape.borderRadius === 'number'
+          ? theme.shape.borderRadius * 1.25
+          : `calc(${theme.shape.borderRadius} * 1.25)`,
+    }),
+    outlined: ({ theme }) => ({
+      backgroundColor: varAlpha(theme.vars.palette.background.paperChannel, theme.palette.mode === 'dark' ? 0.88 : 0.96),
+      backdropFilter: 'blur(10px)',
+    }),
+  },
+};
+
+const MuiDialog: Components<Theme>['MuiDialog'] = {
+  styleOverrides: {
+    paper: ({ theme }) => ({
+      borderRadius:
+        typeof theme.shape.borderRadius === 'number'
+          ? theme.shape.borderRadius * 2
+          : `calc(${theme.shape.borderRadius} * 2)`,
+      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], theme.palette.mode === 'dark' ? 0.14 : 0.18)}`,
+      backgroundImage: `linear-gradient(180deg, ${varAlpha(theme.vars.palette.common.whiteChannel, theme.palette.mode === 'dark' ? 0.03 : 0.75)} 0%, transparent 100%)`,
+      boxShadow: theme.palette.mode === 'dark'
+        ? `0 24px 60px ${varAlpha(theme.vars.palette.common.blackChannel, 0.34)}`
+        : `0 24px 60px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.16)}`,
+    }),
+  },
+};
+
+const MuiTableContainer: Components<Theme>['MuiTableContainer'] = {
+  styleOverrides: {
+    root: ({ theme }) => ({
       borderRadius:
         typeof theme.shape.borderRadius === 'number'
           ? theme.shape.borderRadius * 1.5
@@ -237,11 +293,14 @@ const MuiRadio: Components<Theme>['MuiRadio'] = {
 // ----------------------------------------------------------------------
 
 export const components = {
+  MuiAlert,
   MuiCard,
+  MuiDialog,
   MuiLink,
   MuiPaper,
   MuiRadio,
   MuiTable,
+  MuiTableContainer,
   MuiButton,
   MuiFab,
   MuiBackdrop,

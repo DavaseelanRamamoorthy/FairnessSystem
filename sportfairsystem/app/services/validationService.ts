@@ -4,6 +4,7 @@ import { CricketRuleSeverity } from "@/app/services/cricketRulebook";
 import { evaluateParsedMatchAgainstCricketRulebook } from "@/app/services/ruleEvaluationService";
 import { getCurrentTeamId } from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
+import { normalizeTeamName } from "@/app/services/teamValidationService";
 import { ParsedMatch } from "@/app/types/match.types";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 
@@ -158,6 +159,30 @@ function buildEmptySnapshot(seasons: ValidationSeasonOption[]): ValidationSnapsh
   };
 }
 
+function isCurrentTeamContext(teamName: string | null | undefined) {
+  return normalizeTeamName(teamName) === normalizeTeamName(currentTeamName);
+}
+
+function dedupeValidationIssueItems(items: ValidationIssueItem[]) {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    const key = [
+      item.matchId,
+      cleanName(item.playerName),
+      item.source,
+      item.detail
+    ].join("|");
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function getValidationSnapshot(season?: string): Promise<ValidationSnapshot> {
   const teamId = await getCurrentTeamId();
 
@@ -256,7 +281,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
   }
 
   const matchPlayers = (matchPlayersData ?? []) as MatchPlayerRow[];
-  const currentTeamMatchPlayers = matchPlayers.filter((row) => row.team_name === currentTeamName);
+  const currentTeamMatchPlayers = matchPlayers.filter((row) => isCurrentTeamContext(row.team_name));
 
   const missingPlayerLinks: ValidationIssueItem[] = [];
 
@@ -278,7 +303,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
   battingStats
     .filter((row) => {
       const innings = inningsById.get(row.innings_id);
-      return innings?.team_name === currentTeamName && !row.player_id && Boolean(row.player_name);
+      return isCurrentTeamContext(innings?.team_name) && !row.player_id && Boolean(row.player_name);
     })
     .forEach((row) => {
       const innings = inningsById.get(row.innings_id);
@@ -299,7 +324,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
     .filter((row) => {
       const innings = inningsById.get(row.innings_id);
       return Boolean(innings?.team_name)
-        && innings?.team_name !== currentTeamName
+        && !isCurrentTeamContext(innings?.team_name)
         && !row.player_id
         && Boolean(row.player_name);
     })
@@ -318,9 +343,18 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
       });
     });
 
+  const missingPlayerLinksDeduped = dedupeValidationIssueItems(missingPlayerLinks)
+    .sort((left, right) => {
+      if (left.matchDate && right.matchDate && left.matchDate !== right.matchDate) {
+        return right.matchDate.localeCompare(left.matchDate);
+      }
+
+      return left.playerName.localeCompare(right.playerName);
+    });
+
   const duplicateNameMap = new Map<
     string,
-    { displayName: string; teams: Set<string>; appearances: number }
+    { displayName: string; teams: Set<string>; appearances: Set<string> }
   >();
 
   matchPlayers.forEach((row) => {
@@ -333,24 +367,27 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
     const existing = duplicateNameMap.get(normalizedName) ?? {
       displayName: row.player_name,
       teams: new Set<string>(),
-      appearances: 0
+      appearances: new Set<string>()
     };
 
     if (row.team_name) {
       existing.teams.add(row.team_name);
     }
 
-    existing.appearances += 1;
+    existing.appearances.add(`${row.match_id}|${normalizeTeamName(row.team_name)}|${normalizedName}`);
     duplicateNameMap.set(normalizedName, existing);
   });
 
   const duplicateNameRisks = Array.from(duplicateNameMap.entries())
-    .filter(([, entry]) => entry.teams.has(currentTeamName) && entry.teams.size > 1)
+    .filter(([, entry]) =>
+      Array.from(entry.teams).some((teamName) => isCurrentTeamContext(teamName))
+      && entry.teams.size > 1
+    )
     .map(([normalizedName, entry]) => ({
       normalizedName,
       displayName: entry.displayName,
       teams: Array.from(entry.teams).sort(),
-      appearances: entry.appearances,
+      appearances: entry.appearances.size,
       note: `Name appears for Moonwalkers and ${entry.teams.size - 1} other team context(s).`
     }))
     .sort((left, right) => right.appearances - left.appearances);
@@ -399,6 +436,11 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
       battingMatches: entry.battingMatches.size,
       bowlingMatches: entry.bowlingMatches.size
     }))
+    .filter((candidate) =>
+      candidate.matchCount >= 2
+      || candidate.battingMatches >= 2
+      || candidate.bowlingMatches >= 2
+    )
     .sort((left, right) => {
       if (right.matchCount !== left.matchCount) {
         return right.matchCount - left.matchCount;
@@ -435,7 +477,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
   battingStats.forEach((row) => {
     const innings = inningsById.get(row.innings_id);
 
-    if (innings?.team_name !== currentTeamName || !row.player_name) {
+    if (!innings || !isCurrentTeamContext(innings.team_name) || !row.player_name) {
       return;
     }
 
@@ -447,7 +489,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
   bowlingStats.forEach((row) => {
     const innings = inningsById.get(row.innings_id);
 
-    if (!innings?.team_name || innings.team_name === currentTeamName || !row.player_name) {
+    if (!innings || !innings.team_name || isCurrentTeamContext(innings.team_name) || !row.player_name) {
       return;
     }
 
@@ -495,23 +537,22 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
     .filter((item): item is XiWarningItem => Boolean(item));
 
   const totalIssues =
-    missingPlayerLinks.length
+    missingPlayerLinksDeduped.length
     + duplicateNameRisks.length
     + guestPromotionCandidates.length
-    + rulebookFindings.length
-    + xiWarnings.length;
+    + rulebookFindings.length;
 
   return {
     seasons,
     metrics: {
       totalIssues,
-      missingPlayerLinks: missingPlayerLinks.length,
+      missingPlayerLinks: missingPlayerLinksDeduped.length,
       duplicateNameRisks: duplicateNameRisks.length,
       guestPromotionCandidates: guestPromotionCandidates.length,
       rulebookFindings: rulebookFindings.length,
       xiWarnings: xiWarnings.length
     },
-    missingPlayerLinks,
+    missingPlayerLinks: missingPlayerLinksDeduped,
     duplicateNameRisks,
     guestPromotionCandidates,
     rulebookFindings,

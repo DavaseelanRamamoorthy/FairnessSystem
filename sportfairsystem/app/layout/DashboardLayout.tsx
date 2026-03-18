@@ -73,6 +73,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router
   ]);
 
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
   if (isLoading) {
     return (
       <Box
@@ -86,10 +90,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <CircularProgress />
       </Box>
     );
-  }
-
-  if (isPublicRoute) {
-    return <>{children}</>;
   }
 
   if (!isAuthenticated) {

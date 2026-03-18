@@ -21,7 +21,6 @@ import {
   Grid,
   InputLabel,
   MenuItem,
-  Pagination,
   Select,
   Stack,
   Typography
@@ -34,7 +33,9 @@ import FlashOnRoundedIcon from "@mui/icons-material/FlashOnRounded";
 import TrackChangesRoundedIcon from "@mui/icons-material/TrackChangesRounded";
 import FrontHandRoundedIcon from "@mui/icons-material/FrontHandRounded";
 
+import PaginationFooter from "@/app/components/common/PaginationFooter";
 import { currentTeamName } from "@/app/config/teamConfig";
+import { usePagination } from "@/app/hooks/usePagination";
 import { formatName } from "@/app/services/formatname";
 import {
   getPlayerProfile,
@@ -152,6 +153,15 @@ function getMetadataChipSx(kind: "role" | "captain" | "keeper" | "tag" | "style"
     backgroundColor: alpha("#DCE7FF", 0.52),
     borderColor: alpha(PLAYER_NAVY, 0.14)
   };
+}
+
+function getPlayerInitials(name: string) {
+  return formatName(name)
+    .split(/\s+/)
+    .map((token) => token[0] ?? "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 function getBestFitLabel(profile: PlayerProfile) {
@@ -388,11 +398,18 @@ export default function PlayerProfilePage() {
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
-  const [selectedSeason, setSelectedSeason] = useState("");
+  const [selectedSeason, setSelectedSeason] = useState(
+    () => readStoredSeasonFilter(PLAYER_PROFILE_SEASON_STORAGE_KEY) ?? ""
+  );
+  const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [recentMatchesPage, setRecentMatchesPage] = useState(0);
   const [expandedMatchId, setExpandedMatchId] = useState<string | false>(false);
+  const recentMatchesPagination = usePagination({
+    items: profile?.recentMatches ?? [],
+    pageSize: RECENT_MATCHES_PAGE_SIZE,
+    resetKeys: [selectedSeason, profile?.id]
+  });
 
   useEffect(() => {
     const loadSeasons = async () => {
@@ -409,6 +426,8 @@ export default function PlayerProfilePage() {
         );
       } catch {
         // Keep the player profile usable even if season options fail to load.
+      } finally {
+        setHasResolvedSeason(true);
       }
     };
 
@@ -422,41 +441,64 @@ export default function PlayerProfilePage() {
   }, [selectedSeason]);
 
   useEffect(() => {
+    if (!hasResolvedSeason && !selectedSeason) {
+      return;
+    }
+
+    let isActive = true;
+
     const loadPlayerProfile = async () => {
       if (!playerId) {
-        setErrorMessage("Player not found.");
-        setIsLoading(false);
+        if (isActive) {
+          setErrorMessage("Player not found.");
+          setIsLoading(false);
+        }
         return;
       }
 
-      setIsLoading(true);
-      setErrorMessage(null);
+      if (isActive) {
+        setIsLoading(true);
+        setErrorMessage(null);
+      }
 
       try {
         const playerProfile = await getPlayerProfile(
           playerId,
           !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason
         );
-        setProfile(playerProfile);
+        if (isActive) {
+          setProfile(playerProfile);
+        }
       } catch (error) {
         const message =
           error instanceof Error
             ? error.message
             : "Could not load player profile.";
 
-        setErrorMessage(message);
+        if (isActive) {
+          setErrorMessage(message);
+        }
       } finally {
-        setIsLoading(false);
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     };
 
     void loadPlayerProfile();
-  }, [playerId, selectedSeason]);
+
+    return () => {
+      isActive = false;
+    };
+  }, [hasResolvedSeason, playerId, selectedSeason]);
 
   useEffect(() => {
-    setRecentMatchesPage(0);
     setExpandedMatchId(false);
   }, [selectedSeason, profile?.id]);
+
+  useEffect(() => {
+    setExpandedMatchId(false);
+  }, [recentMatchesPagination.currentPage]);
 
   const usagePercent = profile && profile.totalTeamMatches > 0
     ? Math.round((profile.matchesPlayed / profile.totalTeamMatches) * 100)
@@ -467,17 +509,9 @@ export default function PlayerProfilePage() {
   const playerSummaryText = profile
     ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, isAdmin)
     : "";
+  const bestFitLabel = profile ? getBestFitLabel(profile) : "";
 
-  const recentMatchesPageCount = profile
-    ? Math.max(1, Math.ceil(profile.recentMatches.length / RECENT_MATCHES_PAGE_SIZE))
-    : 1;
-
-  const paginatedRecentMatches = profile
-    ? profile.recentMatches.slice(
-      recentMatchesPage * RECENT_MATCHES_PAGE_SIZE,
-      recentMatchesPage * RECENT_MATCHES_PAGE_SIZE + RECENT_MATCHES_PAGE_SIZE
-      )
-    : [];
+  const paginatedRecentMatches = recentMatchesPagination.paginatedItems;
 
   const involvementBars = profile
     ? [
@@ -526,106 +560,310 @@ export default function PlayerProfilePage() {
           </Button>
 
           {profile && (
-            <Stack spacing={2}>
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={2}
-                alignItems={{ xs: "flex-start", sm: "center" }}
-                justifyContent="space-between"
-              >
-                <Stack spacing={1}>
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                    <Typography variant="h3" sx={{ fontWeight: 800, color: "text.primary" }}>
-                      {formatName(profile.name)}
-                    </Typography>
-
-                    <Chip label={profile.role} size="small" sx={getMetadataChipSx("role")} />
-                    {profile.isCaptain && (
-                      <Chip label="Captain" size="small" sx={getMetadataChipSx("captain")} />
-                    )}
-                    {profile.isWicketKeeper && (
-                      <Chip
-                        label="Wicket Keeper"
-                        size="small"
-                        sx={getMetadataChipSx("keeper")}
-                      />
-                    )}
-                  </Stack>
-
-                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                    {profile.roleTags.map((roleTag) => (
-                      <Chip
-                        key={roleTag}
-                        label={roleTag}
-                        size="small"
-                        variant="outlined"
-                        sx={getMetadataChipSx("tag")}
-                      />
-                    ))}
-
-                    {profile.battingStyle && (
-                      <Chip
-                        label={profile.battingStyle}
-                        size="small"
-                        variant="outlined"
-                        sx={getMetadataChipSx("style")}
-                      />
-                    )}
-                  </Stack>
-                </Stack>
-
-                <FormControl size="small" sx={{ minWidth: 180 }}>
-                  <InputLabel id="player-profile-season-filter-label">Season</InputLabel>
-                  <Select
-                    labelId="player-profile-season-filter-label"
-                    value={selectedSeason || "all"}
-                    label="Season"
-                    onChange={(event) => setSelectedSeason(event.target.value)}
-                  >
-                    <MenuItem value="all">All Seasons</MenuItem>
-                    {seasons.map((season) => (
-                      <MenuItem key={season.value} value={season.value}>
-                        {season.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
-
-              <Typography color="text.secondary">
-                {currentTeamName} player profile with batting, bowling, and recent-match contributions.
-              </Typography>
-
-              <Card
-                variant="outlined"
+            <Card
+              variant="outlined"
+              sx={(currentTheme) => ({
+                borderRadius: 4,
+                position: "relative",
+                borderColor:
+                  currentTheme.palette.mode === "dark"
+                    ? alpha("#FFFFFF", 0.08)
+                    : alpha(PLAYER_NAVY, 0.08),
+                backgroundColor: currentTheme.palette.background.paper,
+                boxShadow: "none",
+                overflow: "hidden"
+              })}
+            >
+              <Box
                 sx={(currentTheme) => ({
-                  borderRadius: 3,
-                  borderColor:
-                    currentTheme.palette.mode === "dark"
-                      ? alpha("#FFFFFF", 0.1)
-                      : alpha(PLAYER_NAVY, 0.12),
-                  background:
-                    currentTheme.palette.mode === "dark"
-                      ? "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)"
-                      : `linear-gradient(180deg, ${alpha("#DCE7FF", 0.16)} 0%, #FFFFFF 100%)`,
-                  boxShadow: "none"
+                  position: "absolute",
+                  inset: 0,
+                  pointerEvents: "none",
+                  background: currentTheme.palette.mode === "dark"
+                    ? [
+                      `radial-gradient(circle at top left, ${alpha(PLAYER_CORAL, 0.16)} 0%, transparent 24%)`,
+                      `radial-gradient(circle at top right, ${alpha("#FFFFFF", 0.06)} 0%, transparent 22%)`
+                    ].join(", ")
+                    : "none"
                 })}
-              >
-                <CardContent sx={{ px: 2.5, py: 2.25 }}>
-                  <Stack spacing={1}>
-                    <Typography
-                      variant="overline"
-                      sx={{ color: PLAYER_CORAL, letterSpacing: 1.1, fontWeight: 800 }}
-                    >
-                      AI Summary
-                    </Typography>
-                    <Typography sx={{ color: "text.primary", lineHeight: 1.7 }}>
-                      {playerSummaryText}
-                    </Typography>
+              />
+              <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
+                <Stack spacing={3} sx={{ position: "relative", zIndex: 1 }}>
+                  <Stack
+                    direction={{ xs: "column", lg: "row" }}
+                    spacing={2.5}
+                    alignItems={{ xs: "flex-start", lg: "flex-start" }}
+                    justifyContent="space-between"
+                  >
+                    <Stack spacing={1.75} sx={{ flex: 1, minWidth: 0 }}>
+                      <Stack direction="row" spacing={2} alignItems="flex-start">
+                        <Box
+                          sx={(currentTheme) => ({
+                            width: 64,
+                            height: 64,
+                            borderRadius: 3,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            fontSize: "1.25rem",
+                            fontWeight: 800,
+                            color: "#FFFFFF",
+                            background: `linear-gradient(135deg, ${PLAYER_NAVY_DEEP} 0%, ${PLAYER_NAVY} 60%, ${PLAYER_CORAL} 100%)`,
+                            boxShadow: currentTheme.palette.mode === "dark"
+                              ? `0 16px 36px ${alpha(PLAYER_NAVY_DEEP, 0.28)}`
+                              : `0 16px 36px ${alpha(PLAYER_NAVY, 0.16)}`
+                          })}
+                        >
+                          {getPlayerInitials(profile.name)}
+                        </Box>
+
+                        <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                            <Typography
+                              variant="h3"
+                              sx={{
+                                fontWeight: 800,
+                                color: theme.palette.mode === "dark"
+                                  ? theme.palette.common.white
+                                  : theme.palette.text.primary
+                              }}
+                            >
+                              {formatName(profile.name)}
+                            </Typography>
+
+                            <Chip label={profile.role} size="small" sx={getMetadataChipSx("role")} />
+                            {profile.isCaptain && (
+                              <Chip label="Captain" size="small" sx={getMetadataChipSx("captain")} />
+                            )}
+                            {profile.isWicketKeeper && (
+                              <Chip
+                                label="Wicket Keeper"
+                                size="small"
+                                sx={getMetadataChipSx("keeper")}
+                              />
+                            )}
+                          </Stack>
+
+                          <Typography
+                            sx={{
+                              maxWidth: 760,
+                              color: theme.palette.mode === "dark"
+                                ? alpha(theme.palette.common.white, 0.72)
+                                : alpha(PLAYER_NAVY, 0.72)
+                            }}
+                          >
+                            {currentTeamName} player profile with batting, bowling, and recent-match contributions.
+                          </Typography>
+
+                          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                            {profile.roleTags.map((roleTag) => (
+                              <Chip
+                                key={roleTag}
+                                label={roleTag}
+                                size="small"
+                                variant="outlined"
+                                sx={getMetadataChipSx("tag")}
+                              />
+                            ))}
+
+                            {profile.battingStyle && (
+                              <Chip
+                                label={profile.battingStyle}
+                                size="small"
+                                variant="outlined"
+                                sx={getMetadataChipSx("style")}
+                              />
+                            )}
+
+                          </Stack>
+                          </Stack>
+                        </Stack>
+                    </Stack>
+
+                    <Box sx={{ width: { xs: "100%", lg: 180 }, flexShrink: 0 }}>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel id="player-profile-season-filter-label">Season</InputLabel>
+                        <Select
+                          labelId="player-profile-season-filter-label"
+                          value={selectedSeason || "all"}
+                          label="Season"
+                          onChange={(event) => setSelectedSeason(event.target.value)}
+                        >
+                          <MenuItem value="all">All Seasons</MenuItem>
+                          {seasons.map((season) => (
+                            <MenuItem key={season.value} value={season.value}>
+                              {season.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Box>
                   </Stack>
-                </CardContent>
-              </Card>
-            </Stack>
+
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Box
+                        sx={{
+                          p: 1.75,
+                          borderRadius: 2.5,
+                          border: "1px solid",
+                          borderColor: (currentTheme) =>
+                            currentTheme.palette.mode === "dark"
+                              ? alpha("#FFFFFF", 0.08)
+                              : alpha(PLAYER_NAVY, 0.08),
+                          backgroundColor: (currentTheme) =>
+                            currentTheme.palette.mode === "dark"
+                              ? alpha("#FFFFFF", 0.04)
+                              : "#FFFFFF"
+                        }}
+                      >
+                        <Stack spacing={0.65}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              letterSpacing: 0.8,
+                              color: theme.palette.mode === "dark"
+                                ? "text.secondary"
+                                : alpha(PLAYER_NAVY, 0.64)
+                            }}
+                          >
+                            Selection Usage
+                          </Typography>
+                          <Typography variant="h4" sx={{ fontWeight: 800, color: "text.primary", lineHeight: 1 }}>
+                            {usagePercent}%
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: theme.palette.mode === "dark" ? "text.secondary" : alpha(PLAYER_NAVY, 0.72) }}
+                          >
+                            {formatUsageFooter(profile)}
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Box
+                        sx={{
+                          p: 1.75,
+                          borderRadius: 2.5,
+                          border: "1px solid",
+                          borderColor: (currentTheme) =>
+                            currentTheme.palette.mode === "dark"
+                              ? alpha("#FFFFFF", 0.08)
+                              : alpha(PLAYER_NAVY, 0.08),
+                          backgroundColor: (currentTheme) =>
+                            currentTheme.palette.mode === "dark"
+                              ? alpha("#FFFFFF", 0.04)
+                              : "#FFFFFF"
+                        }}
+                      >
+                        <Stack spacing={0.65}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              letterSpacing: 0.8,
+                              color: theme.palette.mode === "dark"
+                                ? "text.secondary"
+                                : alpha(PLAYER_NAVY, 0.64)
+                            }}
+                          >
+                            Active Usage
+                          </Typography>
+                          <Typography variant="h4" sx={{ fontWeight: 800, color: "text.primary", lineHeight: 1 }}>
+                            {activeUsagePercent}%
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: theme.palette.mode === "dark" ? "text.secondary" : alpha(PLAYER_NAVY, 0.72) }}
+                          >
+                            {profile.activeMatches} active matches
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Box
+                        sx={{
+                          p: 1.75,
+                          borderRadius: 2.5,
+                          border: "1px solid",
+                          borderColor: (currentTheme) =>
+                            currentTheme.palette.mode === "dark"
+                              ? alpha("#FFFFFF", 0.08)
+                              : alpha(PLAYER_NAVY, 0.08),
+                          backgroundColor: (currentTheme) =>
+                            currentTheme.palette.mode === "dark"
+                              ? alpha("#FFFFFF", 0.04)
+                              : "#FFFFFF"
+                        }}
+                      >
+                        <Stack spacing={0.65}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              letterSpacing: 0.8,
+                              color: theme.palette.mode === "dark"
+                                ? "text.secondary"
+                                : alpha(PLAYER_NAVY, 0.64)
+                            }}
+                          >
+                            Role Fit
+                          </Typography>
+                          <Typography variant="h4" sx={{ fontWeight: 800, color: "text.primary", lineHeight: 1.1 }}>
+                            {bestFitLabel}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: theme.palette.mode === "dark" ? "text.secondary" : alpha(PLAYER_NAVY, 0.72) }}
+                          >
+                            Based on current batting and bowling involvement
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    </Grid>
+                  </Grid>
+
+                  <Box
+                    sx={(currentTheme) => ({
+                      px: { xs: 2, md: 2.5 },
+                      py: { xs: 2, md: 2.25 },
+                      borderRadius: 3,
+                      border: "1px solid",
+                      borderColor:
+                        currentTheme.palette.mode === "dark"
+                          ? alpha("#FFFFFF", 0.08)
+                          : alpha(PLAYER_NAVY, 0.08),
+                      backgroundColor:
+                        currentTheme.palette.mode === "dark"
+                          ? alpha("#FFFFFF", 0.03)
+                          : "#FFFFFF"
+                    })}
+                  >
+                    <Stack spacing={1.1}>
+                      <Typography
+                        variant="overline"
+                        sx={{ color: PLAYER_CORAL, letterSpacing: 1.1, fontWeight: 800 }}
+                      >
+                        AI Summary
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: theme.palette.mode === "dark"
+                            ? alpha(theme.palette.common.white, 0.88)
+                            : theme.palette.text.primary,
+                          lineHeight: 1.8
+                        }}
+                      >
+                        {playerSummaryText}
+                      </Typography>
+                    </Stack>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
           )}
         </Box>
 
@@ -982,27 +1220,21 @@ export default function PlayerProfilePage() {
                     </Stack>
 
                     {profile.recentMatches.length > RECENT_MATCHES_PAGE_SIZE && (
-                      <Box
+                      <PaginationFooter
+                        pageStart={recentMatchesPagination.pageStart}
+                        pageEnd={recentMatchesPagination.pageEnd}
+                        totalCount={recentMatchesPagination.totalCount}
+                        hasPreviousPage={recentMatchesPagination.hasPreviousPage}
+                        hasNextPage={recentMatchesPagination.hasNextPage}
+                        onPrevious={recentMatchesPagination.goToPreviousPage}
+                        onNext={recentMatchesPagination.goToNextPage}
                         sx={{
                           px: 2.5,
                           py: 2,
                           borderTop: "1px solid",
-                          borderColor: alpha(PLAYER_NAVY, 0.08),
-                          display: "flex",
-                          justifyContent: "center"
+                          borderColor: alpha(PLAYER_NAVY, 0.08)
                         }}
-                      >
-                        <Pagination
-                          count={recentMatchesPageCount}
-                          page={recentMatchesPage + 1}
-                          onChange={(_event, nextPage) => {
-                            setRecentMatchesPage(nextPage - 1);
-                            setExpandedMatchId(false);
-                          }}
-                          color="primary"
-                          shape="rounded"
-                        />
-                      </Box>
+                      />
                     )}
                   </CardContent>
                 </Card>

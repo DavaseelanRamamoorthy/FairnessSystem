@@ -30,8 +30,10 @@ import LinkOffRoundedIcon from "@mui/icons-material/LinkOffRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import GavelRoundedIcon from "@mui/icons-material/GavelRounded";
 
+import PaginationFooter from "@/app/components/common/PaginationFooter";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
+import { usePagination } from "@/app/hooks/usePagination";
 import { formatName } from "@/app/services/formatname";
 import {
   getValidationSnapshot,
@@ -49,6 +51,13 @@ type MetricCardProps = {
   helper: string;
   icon: React.ReactNode;
   accent: string;
+};
+
+type ValidationSectionCardProps = {
+  title: string;
+  countLabel: string;
+  countTone: "success" | "error" | "warning" | "info";
+  children: React.ReactNode;
 };
 
 function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
@@ -111,6 +120,28 @@ function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
   );
 }
 
+function ValidationSectionCard({
+  title,
+  countLabel,
+  countTone,
+  children
+}: ValidationSectionCardProps) {
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 3 }}>
+      <CardContent sx={{ p: 0 }}>
+        <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+          <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+            <Typography variant="h5">{title}</Typography>
+            <Chip label={countLabel} color={countTone} size="small" />
+          </Stack>
+        </Box>
+
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ValidationPage() {
   const { isAdmin } = useAuth();
   const [selectedSeason, setSelectedSeason] = useState("");
@@ -123,6 +154,13 @@ export default function ValidationPage() {
       + snapshot.metrics.guestPromotionCandidates
       + snapshot.metrics.rulebookFindings
     : 0;
+  const rulebookRowsPerPage = 5;
+  const rulebookFindings = snapshot?.rulebookFindings ?? [];
+  const rulebookPagination = usePagination({
+    items: rulebookFindings,
+    pageSize: rulebookRowsPerPage,
+    resetKeys: [selectedSeason, rulebookFindings.length]
+  });
 
   useEffect(() => {
     if (!isAdmin) {
@@ -221,7 +259,7 @@ export default function ValidationPage() {
                 <MetricCard
                   label="Total Issues"
                   value={visibleIssueCount}
-                  helper="Active validation findings in scope"
+                  helper="Visible validation findings in scope"
                   icon={<WarningAmberRoundedIcon />}
                   accent="#FF6B35"
                 />
@@ -251,7 +289,7 @@ export default function ValidationPage() {
                 <MetricCard
                   label="Guest Candidates"
                   value={snapshot.metrics.guestPromotionCandidates}
-                  helper="Guest players worth reviewing for squad promotion"
+                  helper="Repeated guest players worth reviewing for squad promotion"
                   icon={<GroupWorkRoundedIcon />}
                   accent="#0F9D58"
                 />
@@ -270,256 +308,233 @@ export default function ValidationPage() {
 
             <Alert severity="info" variant="outlined">
               XI reconstruction diagnostics are hidden for now and tracked as future scope.
+              {snapshot.metrics.xiWarnings > 0 ? ` ${snapshot.metrics.xiWarnings} hidden warning(s) remain in this scope.` : ""}
             </Alert>
 
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, lg: 7 }}>
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 0 }}>
-                    <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                      <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                        <Typography variant="h5">Missing Player Links</Typography>
-                        <Chip
-                          label={`${snapshot.missingPlayerLinks.length} issues`}
-                          color={snapshot.missingPlayerLinks.length > 0 ? "error" : "success"}
-                          size="small"
-                        />
-                      </Stack>
-                    </Box>
+            <Stack spacing={3}>
+              <ValidationSectionCard
+                title="Missing Player Links"
+                countLabel={`${snapshot.missingPlayerLinks.length} issues`}
+                countTone={snapshot.missingPlayerLinks.length > 0 ? "error" : "success"}
+              >
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: "18%" }}>Match</TableCell>
+                        <TableCell sx={{ width: "16%" }}>Opponent</TableCell>
+                        <TableCell sx={{ width: "18%" }}>Player</TableCell>
+                        <TableCell sx={{ width: "12%" }}>Source</TableCell>
+                        <TableCell>Issue</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {snapshot.missingPlayerLinks.map((item, index) => (
+                        <TableRow key={`${item.matchId}-${item.playerName}-${item.source}-${index}`}>
+                          <TableCell>
+                            <Stack spacing={0.25}>
+                              <Typography fontWeight={700}>
+                                {item.matchCode ?? "Unknown Match"}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {item.matchDate ? formatDate(item.matchDate) : "Date unavailable"}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>{item.opponentName ?? "Unknown Opponent"}</TableCell>
+                          <TableCell>{formatName(item.playerName)}</TableCell>
+                          <TableCell>{item.source}</TableCell>
+                          <TableCell>{item.detail}</TableCell>
+                        </TableRow>
+                      ))}
 
-                    <TableContainer>
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Match</TableCell>
-                            <TableCell>Opponent</TableCell>
-                            <TableCell>Player</TableCell>
-                            <TableCell>Source</TableCell>
-                            <TableCell>Issue</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {snapshot.missingPlayerLinks.map((item, index) => (
-                            <TableRow key={`${item.matchId}-${item.playerName}-${item.source}-${index}`}>
-                              <TableCell>
-                                <Stack spacing={0.25}>
-                                  <Typography fontWeight={700}>
-                                    {item.matchCode ?? "Unknown Match"}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {item.matchDate ? formatDate(item.matchDate) : "Date unavailable"}
-                                  </Typography>
-                                </Stack>
-                              </TableCell>
-                              <TableCell>{item.opponentName ?? "Unknown Opponent"}</TableCell>
-                              <TableCell>{formatName(item.playerName)}</TableCell>
-                              <TableCell>{item.source}</TableCell>
-                              <TableCell>{item.detail}</TableCell>
-                            </TableRow>
-                          ))}
+                      {snapshot.missingPlayerLinks.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5}>
+                            <Typography color="text.secondary">
+                              No missing current-team player_id links found in this scope.
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </ValidationSectionCard>
 
-                          {snapshot.missingPlayerLinks.length === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={5}>
-                                <Typography color="text.secondary">
-                                  No missing current-team player_id links found in this scope.
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </CardContent>
-                </Card>
-              </Grid>
+              <ValidationSectionCard
+                title="Cricket Rulebook Findings"
+                countLabel={`${snapshot.rulebookFindings.length} findings`}
+                countTone={snapshot.rulebookFindings.length > 0 ? "info" : "success"}
+              >
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: "18%" }}>Match</TableCell>
+                        <TableCell sx={{ width: "12%" }}>Severity</TableCell>
+                        <TableCell>Finding</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rulebookPagination.paginatedItems.map((item, index) => (
+                        <TableRow key={`${item.matchId}-${item.title}-${index}`}>
+                          <TableCell>
+                            <Stack spacing={0.25}>
+                              <Typography fontWeight={700}>
+                                {item.matchCode ?? "Unknown Match"}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {item.matchDate ? formatDate(item.matchDate) : "Date unavailable"}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {item.opponentName ?? "Unknown Opponent"}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={item.severity.toUpperCase()}
+                              color={item.severity === "error" ? "error" : item.severity === "warning" ? "warning" : "info"}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Stack spacing={0.35}>
+                              <Typography fontWeight={700}>
+                                {item.title}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {item.rulebookName}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {item.detail}
+                              </Typography>
+                              <Typography variant="body2">
+                                Suggested action: {item.recommendation}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      ))}
 
-              <Grid size={{ xs: 12, lg: 5 }}>
-                <Stack spacing={3}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ p: 0 }}>
-                      <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                          <Typography variant="h5">Cricket Rulebook Findings</Typography>
-                          <Chip
-                            label={`${snapshot.rulebookFindings.length} findings`}
-                            color={snapshot.rulebookFindings.length > 0 ? "info" : "success"}
-                            size="small"
-                          />
-                        </Stack>
-                      </Box>
+                      {rulebookFindings.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3}>
+                            <Typography color="text.secondary">
+                              No saved-match rulebook findings are currently flagged in this scope.
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
 
-                      <TableContainer>
-                        <Table>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Match</TableCell>
-                              <TableCell>Severity</TableCell>
-                              <TableCell>Finding</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {snapshot.rulebookFindings.map((item, index) => (
-                              <TableRow key={`${item.matchId}-${item.title}-${index}`}>
-                                <TableCell>
-                                  <Stack spacing={0.25}>
-                                    <Typography fontWeight={700}>
-                                      {item.matchCode ?? "Unknown Match"}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {item.matchDate ? formatDate(item.matchDate) : "Date unavailable"}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {item.opponentName ?? "Unknown Opponent"}
-                                    </Typography>
-                                  </Stack>
-                                </TableCell>
-                                <TableCell>
-                                  <Chip
-                                    label={item.severity.toUpperCase()}
-                                    color={item.severity === "error" ? "error" : item.severity === "warning" ? "warning" : "info"}
-                                    size="small"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Stack spacing={0.35}>
-                                    <Typography fontWeight={700}>
-                                      {item.title}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {item.rulebookName}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                      {item.detail}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      Suggested action: {item.recommendation}
-                                    </Typography>
-                                  </Stack>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                {rulebookFindings.length > 0 && (
+                  <PaginationFooter
+                    pageStart={rulebookPagination.pageStart}
+                    pageEnd={rulebookPagination.pageEnd}
+                    totalCount={rulebookPagination.totalCount}
+                    hasPreviousPage={rulebookPagination.hasPreviousPage}
+                    hasNextPage={rulebookPagination.hasNextPage}
+                    onPrevious={rulebookPagination.goToPreviousPage}
+                    onNext={rulebookPagination.goToNextPage}
+                    sx={{ px: 3, py: 2 }}
+                  />
+                )}
+              </ValidationSectionCard>
 
-                            {snapshot.rulebookFindings.length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={3}>
-                                  <Typography color="text.secondary">
-                                    No saved-match rulebook findings are currently flagged in this scope.
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </CardContent>
-                  </Card>
+              <ValidationSectionCard
+                title="Duplicate-Name Risks"
+                countLabel={`${snapshot.duplicateNameRisks.length} risks`}
+                countTone={snapshot.duplicateNameRisks.length > 0 ? "warning" : "success"}
+              >
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: "30%" }}>Name</TableCell>
+                        <TableCell sx={{ width: "38%" }}>Teams</TableCell>
+                        <TableCell>Appearances</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {snapshot.duplicateNameRisks.map((item) => (
+                        <TableRow key={item.normalizedName}>
+                          <TableCell>
+                            <Stack spacing={0.25}>
+                              <Typography fontWeight={700}>
+                                {formatName(item.displayName)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {item.note}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>{item.teams.map(formatName).join(", ")}</TableCell>
+                          <TableCell>{item.appearances}</TableCell>
+                        </TableRow>
+                      ))}
 
-                  <Card variant="outlined">
-                    <CardContent sx={{ p: 0 }}>
-                      <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                          <Typography variant="h5">Duplicate-Name Risks</Typography>
-                          <Chip
-                            label={`${snapshot.duplicateNameRisks.length} risks`}
-                            color={snapshot.duplicateNameRisks.length > 0 ? "warning" : "success"}
-                            size="small"
-                          />
-                        </Stack>
-                      </Box>
+                      {snapshot.duplicateNameRisks.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3}>
+                            <Typography color="text.secondary">
+                              No cross-team name collisions found for Moonwalkers players.
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </ValidationSectionCard>
 
-                      <TableContainer>
-                        <Table>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Name</TableCell>
-                              <TableCell>Teams</TableCell>
-                              <TableCell>Appearances</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {snapshot.duplicateNameRisks.map((item) => (
-                              <TableRow key={item.normalizedName}>
-                                <TableCell>
-                                  <Stack spacing={0.25}>
-                                    <Typography fontWeight={700}>
-                                      {formatName(item.displayName)}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {item.note}
-                                    </Typography>
-                                  </Stack>
-                                </TableCell>
-                                <TableCell>{item.teams.map(formatName).join(", ")}</TableCell>
-                                <TableCell>{item.appearances}</TableCell>
-                              </TableRow>
-                            ))}
+              <ValidationSectionCard
+                title="Guest Promotion Candidates"
+                countLabel={`${snapshot.guestPromotionCandidates.length} players`}
+                countTone={snapshot.guestPromotionCandidates.length > 0 ? "info" : "success"}
+              >
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ width: "34%" }}>Player</TableCell>
+                        <TableCell sx={{ width: "14%" }}>Matches</TableCell>
+                        <TableCell sx={{ width: "14%" }}>Bat</TableCell>
+                        <TableCell>Bowl</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {snapshot.guestPromotionCandidates.map((item) => (
+                        <TableRow key={item.playerId}>
+                          <TableCell>{formatName(item.playerName)}</TableCell>
+                          <TableCell>{item.matchCount}</TableCell>
+                          <TableCell>{item.battingMatches}</TableCell>
+                          <TableCell>{item.bowlingMatches}</TableCell>
+                        </TableRow>
+                      ))}
 
-                            {snapshot.duplicateNameRisks.length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={3}>
-                                  <Typography color="text.secondary">
-                                    No cross-team name collisions found for Moonwalkers players.
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </CardContent>
-                  </Card>
-
-                  <Card variant="outlined">
-                    <CardContent sx={{ p: 0 }}>
-                      <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                          <Typography variant="h5">Guest Promotion Candidates</Typography>
-                          <Chip
-                            label={`${snapshot.guestPromotionCandidates.length} players`}
-                            color={snapshot.guestPromotionCandidates.length > 0 ? "info" : "success"}
-                            size="small"
-                          />
-                        </Stack>
-                      </Box>
-
-                      <TableContainer>
-                        <Table>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Player</TableCell>
-                              <TableCell>Matches</TableCell>
-                              <TableCell>Bat</TableCell>
-                              <TableCell>Bowl</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {snapshot.guestPromotionCandidates.map((item) => (
-                              <TableRow key={item.playerId}>
-                                <TableCell>{formatName(item.playerName)}</TableCell>
-                                <TableCell>{item.matchCount}</TableCell>
-                                <TableCell>{item.battingMatches}</TableCell>
-                                <TableCell>{item.bowlingMatches}</TableCell>
-                              </TableRow>
-                            ))}
-
-                            {snapshot.guestPromotionCandidates.length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={4}>
-                                  <Typography color="text.secondary">
-                                    No guest players currently stand out as promotion candidates.
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </CardContent>
-                  </Card>
-                </Stack>
-              </Grid>
-            </Grid>
+                      {snapshot.guestPromotionCandidates.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4}>
+                            <Stack spacing={0.35}>
+                              <Typography color="text.secondary">
+                                No guest players currently stand out as promotion candidates.
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Candidates appear here after repeated match involvement, not from one-off guest appearances.
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </ValidationSectionCard>
+            </Stack>
           </>
         ) : null}
       </Stack>

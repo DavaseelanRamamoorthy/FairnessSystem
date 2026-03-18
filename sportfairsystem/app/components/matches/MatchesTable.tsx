@@ -7,7 +7,6 @@ import {
   Chip,
   Divider,
   FormControl,
-  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -15,9 +14,9 @@ import {
   Stack,
   Typography
 } from "@mui/material";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
+import PaginationFooter from "@/app/components/common/PaginationFooter";
+import { usePagination } from "@/app/hooks/usePagination";
 import { formatDate } from "@/app/utils/formatDate";
 import { sortSeasonLabelsDescending } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
@@ -107,9 +106,10 @@ export default function MatchesTable<T extends MatchRow>({
 }: Props<T>) {
 
   const [resultFilter, setResultFilter] = useState("All");
-  const [seasonFilter, setSeasonFilter] = useState("");
+  const [seasonFilter, setSeasonFilter] = useState(
+    () => readStoredSeasonFilter(MATCHES_SEASON_STORAGE_KEY) ?? ""
+  );
   const [groupBy, setGroupBy] = useState<GroupOption>("none");
-  const [page, setPage] = useState(0);
   const rowsPerPage = 10;
 
   const availableSeasonLabels = useMemo(
@@ -121,19 +121,9 @@ export default function MatchesTable<T extends MatchRow>({
   );
 
   const seasonOptions = ["All Seasons", ...availableSeasonLabels];
-  const effectiveSeasonFilter = seasonFilter || availableSeasonLabels[0] || "All Seasons";
-
-  useEffect(() => {
-    const storedSeason = readStoredSeasonFilter(MATCHES_SEASON_STORAGE_KEY);
-
-    if (!storedSeason) {
-      return;
-    }
-
-    if (storedSeason === "All Seasons" || availableSeasonLabels.includes(storedSeason)) {
-      setSeasonFilter(storedSeason);
-    }
-  }, [availableSeasonLabels]);
+  const effectiveSeasonFilter = seasonFilter === "All Seasons" || availableSeasonLabels.includes(seasonFilter)
+    ? seasonFilter
+    : availableSeasonLabels[0] || "All Seasons";
 
   useEffect(() => {
     if (seasonFilter) {
@@ -154,14 +144,12 @@ export default function MatchesTable<T extends MatchRow>({
     return matchesResult && matchesSeason;
   });
 
-  const maxPage = Math.max(0, Math.ceil(filteredRows.length / rowsPerPage) - 1);
-  const currentPage = Math.min(page, maxPage);
-  const paginatedRows = filteredRows.slice(
-    currentPage * rowsPerPage,
-    currentPage * rowsPerPage + rowsPerPage
-  );
-  const pageStart = filteredRows.length === 0 ? 0 : currentPage * rowsPerPage + 1;
-  const pageEnd = Math.min((currentPage + 1) * rowsPerPage, filteredRows.length);
+  const pagination = usePagination({
+    items: filteredRows,
+    pageSize: rowsPerPage,
+    resetKeys: [resultFilter, effectiveSeasonFilter, groupBy]
+  });
+  const paginatedRows = pagination.paginatedItems;
 
   useEffect(() => {
     if (paginatedRows.length === 0) {
@@ -201,7 +189,6 @@ export default function MatchesTable<T extends MatchRow>({
             value={resultFilter}
             onChange={(event) => {
               setResultFilter(event.target.value);
-              setPage(0);
             }}
           >
             {resultOptions.map((option) => (
@@ -220,7 +207,6 @@ export default function MatchesTable<T extends MatchRow>({
             value={effectiveSeasonFilter}
             onChange={(event) => {
               setSeasonFilter(event.target.value);
-              setPage(0);
             }}
           >
             {seasonOptions.map((option) => (
@@ -239,7 +225,6 @@ export default function MatchesTable<T extends MatchRow>({
             value={groupBy}
             onChange={(event) => {
               setGroupBy(event.target.value as GroupOption);
-              setPage(0);
             }}
           >
             {groupOptions.map((option) => (
@@ -394,39 +379,20 @@ export default function MatchesTable<T extends MatchRow>({
 
       <Divider />
 
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="flex-end"
-        spacing={1}
+      <PaginationFooter
+        pageStart={pagination.pageStart}
+        pageEnd={pagination.pageEnd}
+        totalCount={pagination.totalCount}
+        hasPreviousPage={pagination.hasPreviousPage}
+        hasNextPage={pagination.hasNextPage}
+        onPrevious={pagination.goToPreviousPage}
+        onNext={pagination.goToNextPage}
         sx={{
           minHeight: 48,
           px: 2,
           py: 0.5
         }}
-      >
-
-        <Typography variant="body2" color="text.secondary">
-          {pageStart}-{pageEnd} of {filteredRows.length}
-        </Typography>
-
-        <IconButton
-          size="small"
-          onClick={() => setPage((current) => Math.max(0, current - 1))}
-          disabled={currentPage === 0}
-        >
-          <ChevronLeftIcon fontSize="small" />
-        </IconButton>
-
-        <IconButton
-          size="small"
-          onClick={() => setPage((current) => Math.min(maxPage, current + 1))}
-          disabled={currentPage >= maxPage}
-        >
-          <ChevronRightIcon fontSize="small" />
-        </IconButton>
-
-      </Stack>
+      />
 
     </Paper>
   );

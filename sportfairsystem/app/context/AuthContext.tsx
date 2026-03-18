@@ -94,6 +94,22 @@ function mapUserProfile(row: UserProfileRow, fallbackEmail: string | undefined):
   };
 }
 
+function getProfileLoadErrorMessage(error: { code?: string | null; message?: string | null } | null) {
+  if (!error) {
+    return "Signed in, but the app user profile could not be loaded.";
+  }
+
+  if (error.code === "PGRST116") {
+    return "Signed in, but no matching app user profile row exists yet. Run database/v1_auth_access_control.sql and confirm the auth-to-public.users sync trigger is installed.";
+  }
+
+  if (error.code === "42P01") {
+    return "Signed in, but the public.users table is not available yet. Run database/v1_auth_access_control.sql before testing auth.";
+  }
+
+  return "Signed in, but the app user profile could not be loaded. Run database/v1_auth_access_control.sql and confirm a users row exists for this account.";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
@@ -115,9 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       setProfile(null);
-      setProfileError(
-        "Signed in, but the app user profile could not be loaded. Run database/v1_auth_access_control.sql and confirm a users row exists for this account."
-      );
+      setProfileError(getProfileLoadErrorMessage(error));
       return;
     }
 

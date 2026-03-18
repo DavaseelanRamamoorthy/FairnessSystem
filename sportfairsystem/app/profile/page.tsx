@@ -46,6 +46,10 @@ function normalizeProfileInput(value: string) {
   return value.trim();
 }
 
+function normalizePhoneNumber(value: string) {
+  return value.replace(/\s+/g, "").trim();
+}
+
 function buildProfileFormState(profile: ReturnType<typeof useAuth>["profile"]): ProfileFormState {
   return {
     firstName: profile?.firstName ?? "",
@@ -77,6 +81,8 @@ export default function ProfilePage() {
   }, [profile]);
 
   useEffect(() => {
+    let isActive = true;
+
     const loadProfileSchemaSupport = async () => {
       if (!profile?.id) {
         setProfileColumnsReady(null);
@@ -89,16 +95,25 @@ export default function ProfilePage() {
         .eq("id", profile.id)
         .single();
 
-      setProfileColumnsReady(!error);
+      if (isActive) {
+        setProfileColumnsReady(!error);
+      }
     };
 
     void loadProfileSchemaSupport();
+
+    return () => {
+      isActive = false;
+    };
   }, [profile?.id]);
 
   useEffect(() => {
+    let isActive = true;
+
     const loadTeamName = async () => {
       if (!profile?.teamId) {
         setTeamName(null);
+        setIsTeamLoading(false);
         return;
       }
 
@@ -110,11 +125,17 @@ export default function ProfilePage() {
         .eq("id", profile.teamId)
         .maybeSingle();
 
-      setTeamName(data?.name ?? null);
-      setIsTeamLoading(false);
+      if (isActive) {
+        setTeamName(data?.name ?? null);
+        setIsTeamLoading(false);
+      }
     };
 
     void loadTeamName();
+
+    return () => {
+      isActive = false;
+    };
   }, [profile?.teamId]);
 
   if (isLoading || !profile) {
@@ -168,7 +189,7 @@ export default function ProfilePage() {
       last_name: normalizeProfileInput(formValues.lastName),
       username: normalizeProfileInput(formValues.username),
       phone_country_code: normalizeProfileInput(formValues.phoneCountryCode),
-      phone_number: normalizeProfileInput(formValues.phoneNumber)
+      phone_number: normalizePhoneNumber(formValues.phoneNumber)
     };
 
     if (
@@ -206,9 +227,14 @@ export default function ProfilePage() {
       return;
     }
 
-    await refreshProfile();
-    setSuccessMessage("Profile details updated successfully.");
-    setIsSaving(false);
+    try {
+      await refreshProfile();
+      setSuccessMessage("Profile details updated successfully.");
+    } catch {
+      setErrorMessage("Profile details were saved, but the latest profile view could not be refreshed.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

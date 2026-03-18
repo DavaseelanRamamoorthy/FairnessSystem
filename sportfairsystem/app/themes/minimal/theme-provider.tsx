@@ -20,10 +20,11 @@ export type ThemeProviderProps = Partial<MuiThemeProviderProps> & {
 };
 
 export function ThemeProvider({ themeOverrides, children, ...other }: ThemeProviderProps) {
-  const { resolvedThemeMode, appearancePreset } = useSettings();
+  const { themeMode, resolvedThemeMode, appearancePreset } = useSettings();
   const preset = getAppearancePreset(appearancePreset);
+  const activeThemeMode = themeMode === "system" ? resolvedThemeMode : themeMode;
   const theme = createTheme({
-    defaultColorScheme: resolvedThemeMode,
+    defaultColorScheme: activeThemeMode,
     themeOverrides: {
       ...getAppearanceThemeOverrides(appearancePreset),
       ...themeOverrides,

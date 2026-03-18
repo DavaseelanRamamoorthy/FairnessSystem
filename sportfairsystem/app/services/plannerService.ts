@@ -28,6 +28,11 @@ export type MatchPlan = {
   matchNumber: number;
   playingXi: PlannerPlayer[];
   twelfthMan: PlannerPlayer | null;
+  benchPlayers: PlannerPlayer[];
+  hasCaptain: boolean;
+  hasWicketKeeper: boolean;
+  bowlingOptions: number;
+  xiShortfall: number;
 };
 
 export type BenchAssignment = {
@@ -137,7 +142,7 @@ export async function parseAttendanceWorkbook(file: File): Promise<PlannerWorkbo
       id: `${sheetName}-${columnIndex}`,
       label: formatWeekendLabel(headerValue),
       sourceColumn: getColumnLetter(columnIndex),
-      availableNames
+      availableNames: dedupeAvailabilityNames(availableNames)
     });
   }
 
@@ -211,6 +216,43 @@ function getPlannerInitial(tokens: string[]) {
   return lastToken.length === 1 ? lastToken : null;
 }
 
+function arePlannerTokensCompatible(attendanceToken: string, playerToken: string) {
+  if (!attendanceToken || !playerToken) {
+    return false;
+  }
+
+  if (attendanceToken === playerToken) {
+    return true;
+  }
+
+  if (attendanceToken.length === 1 || playerToken.length === 1) {
+    return attendanceToken.startsWith(playerToken) || playerToken.startsWith(attendanceToken);
+  }
+
+  return (
+    (attendanceToken.length >= 3 && playerToken.startsWith(attendanceToken))
+    || (playerToken.length >= 3 && attendanceToken.startsWith(playerToken))
+  );
+}
+
+function dedupeAvailabilityNames(names: string[]) {
+  const seenNames = new Set<string>();
+  const dedupedNames: string[] = [];
+
+  names.forEach((name) => {
+    const normalizedName = cleanName(name);
+
+    if (!normalizedName || seenNames.has(normalizedName)) {
+      return;
+    }
+
+    seenNames.add(normalizedName);
+    dedupedNames.push(name.trim());
+  });
+
+  return dedupedNames;
+}
+
 function findPlannerPlayerMatch(players: PlannerPlayer[], attendanceName: string) {
   const normalizedAttendanceName = cleanName(attendanceName);
   const attendanceTokens = tokenizePlannerName(attendanceName);
@@ -223,9 +265,14 @@ function findPlannerPlayerMatch(players: PlannerPlayer[], attendanceName: string
   }
 
   const sameFirstTokenPlayers = players.filter((player) => player.normalizedTokens[0] === attendanceFirstToken);
+  const singleSameFirstTokenPlayer = sameFirstTokenPlayers[0] ?? null;
 
-  if (sameFirstTokenPlayers.length === 1) {
-    return sameFirstTokenPlayers[0];
+  if (
+    sameFirstTokenPlayers.length === 1
+    && singleSameFirstTokenPlayer
+    && (attendanceTokens.length === 1 || singleSameFirstTokenPlayer.normalizedTokens.length === 1)
+  ) {
+    return singleSameFirstTokenPlayer;
   }
 
   if (attendanceInitial) {
@@ -244,6 +291,24 @@ function findPlannerPlayerMatch(players: PlannerPlayer[], attendanceName: string
     return prefixMatch;
   }
 
+  const tokenSetMatchCandidates = players.filter((player) => {
+    if (attendanceTokens.length === 0 || attendanceTokens.length > player.normalizedTokens.length) {
+      return false;
+    }
+
+    if (!arePlannerTokensCompatible(attendanceFirstToken, player.normalizedTokens[0] ?? "")) {
+      return false;
+    }
+
+    return attendanceTokens.slice(1).every((attendanceToken) =>
+      player.normalizedTokens.slice(1).some((playerToken) => arePlannerTokensCompatible(attendanceToken, playerToken))
+    );
+  });
+
+  if (tokenSetMatchCandidates.length === 1) {
+    return tokenSetMatchCandidates[0];
+  }
+
   const firstTokenPrefixCandidates = players.filter((player) => {
     const playerFirstToken = player.normalizedTokens[0] ?? "";
 
@@ -251,8 +316,11 @@ function findPlannerPlayerMatch(players: PlannerPlayer[], attendanceName: string
       return false;
     }
 
-    return attendanceFirstToken.startsWith(playerFirstToken)
-      || playerFirstToken.startsWith(attendanceFirstToken);
+    return attendanceFirstToken !== playerFirstToken
+      && (
+        attendanceFirstToken.startsWith(playerFirstToken)
+        || playerFirstToken.startsWith(attendanceFirstToken)
+      );
   });
 
   if (firstTokenPrefixCandidates.length === 1) {
@@ -333,11 +401,23 @@ function buildSingleMatchPlan(
   const playingXi = Array.from(selected.values()).slice(0, 11);
   const selectedIds = new Set(playingXi.map((player) => player.id));
   const twelfthMan = players.find((player) => !selectedIds.has(player.id)) ?? null;
+  const benchPlayers = players.filter((player) => !selectedIds.has(player.id));
+  const hasCaptain = playingXi.some((player) => player.isCaptain);
+  const hasWicketKeeper = playingXi.some((player) => player.isWicketKeeper);
+  const bowlingOptions = playingXi.filter((player) =>
+    player.plannerRole === "bowler" || player.plannerRole === "all-rounder"
+  ).length;
+  const xiShortfall = Math.max(0, 11 - playingXi.length);
 
   return {
     matchNumber,
     playingXi,
-    twelfthMan
+    twelfthMan,
+    benchPlayers,
+    hasCaptain,
+    hasWicketKeeper,
+    bowlingOptions,
+    xiShortfall
   };
 }
 
@@ -368,8 +448,9 @@ export function buildPlannerSuggestion(
 
   const matchedPlayerIds = new Set<string>();
   const unmatchedAvailabilityNames: string[] = [];
+  const uniqueAvailableNames = dedupeAvailabilityNames(availableNames);
 
-  availableNames.forEach((attendanceName) => {
+  uniqueAvailableNames.forEach((attendanceName) => {
     const matchedPlayer = findPlannerPlayerMatch(enhancedPlayers, attendanceName);
 
     if (matchedPlayer) {
@@ -441,6 +522,22 @@ export function buildPlannerSuggestion(
 
   if (unmatchedAvailabilityNames.length > 0) {
     notes.push(`${unmatchedAvailabilityNames.length} attendance names did not match the current squad automatically and should be reviewed.`);
+  }
+
+  if (!availablePlayers.some((player) => player.isCaptain)) {
+    notes.push("No captain was matched in the available squad. Review leadership coverage before using the generated plan.");
+  }
+
+  if (!availablePlayers.some((player) => player.isWicketKeeper)) {
+    notes.push("No wicket keeper was matched in the available squad. Review the attendance list or assign one manually before the matchday.");
+  }
+
+  const bowlingCoverage = availablePlayers.filter((player) =>
+    player.plannerRole === "bowler" || player.plannerRole === "all-rounder"
+  ).length;
+
+  if (availablePlayers.length >= 11 && bowlingCoverage < 3) {
+    notes.push(`Only ${bowlingCoverage} bowling option${bowlingCoverage === 1 ? "" : "s"} were matched. The generated XI may be light on bowling coverage.`);
   }
 
   return {

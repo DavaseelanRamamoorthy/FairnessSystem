@@ -17,6 +17,7 @@ import TableCell from "@mui/material/TableCell";
 import TableBody from "@mui/material/TableBody";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
+import { alpha, useTheme } from "@mui/material/styles";
 
 import SportsCricketIcon from "@mui/icons-material/SportsCricket";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
@@ -79,6 +80,7 @@ function getDashboardResult(match: Match) {
 }
 
 export default function DashboardPage() {
+  const theme = useTheme();
   const [matchesPlayed, setMatchesPlayed] = useState(0);
   const [winRate, setWinRate] = useState(0);
   const [topRunScorer, setTopRunScorer] = useState<any>(null);
@@ -143,6 +145,26 @@ export default function DashboardPage() {
   }, []);
 
   const recentMatches = matches.slice(0, 5);
+  const sectionCardSx = {
+    borderRadius: 3,
+    backgroundColor: "background.paper"
+  } as const;
+
+  const getLeaderboardAccent = (index: number) => {
+    if (index === 0) {
+      return theme.palette.warning.main;
+    }
+
+    if (index === 1) {
+      return alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.72 : 0.56);
+    }
+
+    if (index === 2) {
+      return theme.palette.secondary.main;
+    }
+
+    return null;
+  };
 
   return (
     <Container maxWidth="xl">
@@ -193,7 +215,7 @@ export default function DashboardPage() {
 
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card>
+            <Card variant="outlined" sx={sectionCardSx}>
               <CardContent sx={{ p: 0 }}>
                 <Box sx={{ px: 3, pt: 3, pb: 2 }}>
                   <SectionHeader title="Top Run Leaders" />
@@ -213,9 +235,9 @@ export default function DashboardPage() {
                       {runLeaders.map((player, index) => (
                         <TableRow key={player.player}>
                           <TableCell>
-                            {index === 0 && <EmojiEventsIcon sx={{ color: "#FFD700" }} />}
-                            {index === 1 && <EmojiEventsIcon sx={{ color: "#C0C0C0" }} />}
-                            {index === 2 && <EmojiEventsIcon sx={{ color: "#CD7F32" }} />}
+                            {index < 3 && (
+                              <EmojiEventsIcon sx={{ color: getLeaderboardAccent(index) ?? "text.secondary" }} />
+                            )}
                             {index > 2 && index + 1}
                           </TableCell>
 
@@ -240,7 +262,7 @@ export default function DashboardPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card>
+            <Card variant="outlined" sx={sectionCardSx}>
               <CardContent sx={{ p: 0 }}>
                 <Box sx={{ px: 3, pt: 3, pb: 2 }}>
                   <SectionHeader title="Top Wicket Leaders" />
@@ -260,9 +282,9 @@ export default function DashboardPage() {
                       {wicketLeaders.map((player, index) => (
                         <TableRow key={player.player}>
                           <TableCell>
-                            {index === 0 && <EmojiEventsIcon sx={{ color: "#FFD700" }} />}
-                            {index === 1 && <EmojiEventsIcon sx={{ color: "#C0C0C0" }} />}
-                            {index === 2 && <EmojiEventsIcon sx={{ color: "#CD7F32" }} />}
+                            {index < 3 && (
+                              <EmojiEventsIcon sx={{ color: getLeaderboardAccent(index) ?? "text.secondary" }} />
+                            )}
                             {index > 2 && index + 1}
                           </TableCell>
 
@@ -289,7 +311,7 @@ export default function DashboardPage() {
 
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card>
+            <Card variant="outlined" sx={sectionCardSx}>
               <CardContent>
                 <SectionHeader title="Runs Trend" />
                 <RunsTrendChart data={runsTrend} />
@@ -298,7 +320,7 @@ export default function DashboardPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <Card>
+            <Card variant="outlined" sx={sectionCardSx}>
               <CardContent>
                 <SectionHeader title="Wickets Trend" />
                 <WicketsTrendChart data={wicketsTrend} />
@@ -307,7 +329,7 @@ export default function DashboardPage() {
           </Grid>
         </Grid>
 
-        <Card>
+        <Card variant="outlined" sx={sectionCardSx}>
           <CardContent sx={{ p: 0 }}>
             <Box sx={{ px: 3, pt: 3, pb: 2 }}>
               <SectionHeader title="Recent Matches" />

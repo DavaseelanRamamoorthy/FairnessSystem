@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Card, Stack, Typography } from "@mui/material";
-import { alpha } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 
 import KpiSparkline from "./kpiSparkline";
 
@@ -14,43 +14,11 @@ interface Props {
   layout?: "metric" | "leader";
 }
 
-const cardStyles = {
-  primary: {
-    topGradient: "linear-gradient(135deg, #2F6FED 0%, #5B5FEF 100%)",
-    topTint: "rgba(255,255,255,0.1)",
-    iconBg: "rgba(255,255,255,0.18)",
-    valueColor: "#FFFFFF",
-    footerBg: "#F6F8FF",
-    footerText: "#3E4CC9",
-    footerLabel: "Official team fixtures"
-  },
-  success: {
-    topGradient: "linear-gradient(135deg, #16A34A 0%, #22C55E 100%)",
-    topTint: "rgba(255,255,255,0.1)",
-    iconBg: "rgba(255,255,255,0.18)",
-    valueColor: "#FFFFFF",
-    footerBg: "#EFFBF3",
-    footerText: "#15803D",
-    footerLabel: "Current team success rate"
-  },
-  warning: {
-    topGradient: "linear-gradient(135deg, #F59E0B 0%, #FF7A00 100%)",
-    topTint: "rgba(255,255,255,0.12)",
-    iconBg: "rgba(255,255,255,0.2)",
-    valueColor: "#FFFFFF",
-    footerBg: "#FFF6E8",
-    footerText: "#C56A00",
-    footerLabel: "Current leading batter"
-  },
-  secondary: {
-    topGradient: "linear-gradient(135deg, #7C3AED 0%, #A855F7 100%)",
-    topTint: "rgba(255,255,255,0.1)",
-    iconBg: "rgba(255,255,255,0.18)",
-    valueColor: "#FFFFFF",
-    footerBg: "#F5EEFF",
-    footerText: "#7C3AED",
-    footerLabel: "Current leading bowler"
-  }
+const footerLabels = {
+  primary: "Official team fixtures",
+  success: "Current team success rate",
+  warning: "Current leading batter",
+  secondary: "Current leading bowler"
 };
 
 function getDisplayValue(value: string | number) {
@@ -69,7 +37,10 @@ export default function DashboardCard({
   trend = [],
   layout = "metric"
 }: Props) {
-  const style = cardStyles[color];
+  const theme = useTheme();
+  const paletteColor = theme.palette[color];
+  const isDarkMode = theme.palette.mode === "dark";
+  const iconColor = alpha(theme.palette.common.white, isDarkMode ? 0.96 : 0.98);
   const displayValue = getDisplayValue(value);
   const isMetric = layout === "metric";
 
@@ -82,7 +53,9 @@ export default function DashboardCard({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        borderColor: "transparent"
+        borderRadius: 3,
+        borderColor: alpha(paletteColor.main, isDarkMode ? 0.24 : 0.14),
+        backgroundColor: "background.paper"
       }}
     >
       <Box
@@ -91,8 +64,8 @@ export default function DashboardCard({
           flex: 1,
           px: 2.5,
           py: 2.25,
-          color: "#FFFFFF",
-          background: style.topGradient,
+          color: "common.white",
+          background: `linear-gradient(135deg, ${paletteColor.dark} 0%, ${paletteColor.main} 55%, ${alpha(paletteColor.light, isDarkMode ? 0.92 : 1)} 100%)`,
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -103,8 +76,8 @@ export default function DashboardCard({
             position: "absolute",
             inset: 0,
             background: [
-              `radial-gradient(circle at top right, ${style.topTint}, transparent 28%)`,
-              `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 100%)`
+              `radial-gradient(circle at top right, ${alpha(theme.palette.common.white, isDarkMode ? 0.12 : 0.18)}, transparent 28%)`,
+              `linear-gradient(90deg, transparent 0%, ${alpha(theme.palette.common.white, 0.06)} 100%)`
             ].join(", ")
           }
         }}
@@ -132,17 +105,30 @@ export default function DashboardCard({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  bgcolor: style.iconBg,
+                  bgcolor: alpha(theme.palette.common.white, isDarkMode ? 0.16 : 0.2),
                   flexShrink: 0
                 }}
               >
-                {icon}
+                <Box
+                  sx={{
+                    color: iconColor,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    "& .MuiSvgIcon-root": {
+                      color: `${iconColor} !important`,
+                      fontSize: 22
+                    }
+                  }}
+                >
+                  {icon}
+                </Box>
               </Box>
 
               <Typography
                 variant="overline"
                 sx={{
-                  color: alpha("#FFFFFF", 0.82),
+                  color: alpha(theme.palette.common.white, 0.82),
                   letterSpacing: 1.2,
                   lineHeight: 1.2
                 }}
@@ -171,7 +157,7 @@ export default function DashboardCard({
               sx={{
                 fontWeight: 800,
                 lineHeight: 1,
-                color: style.valueColor,
+                color: "common.white",
                 textAlign: "center",
                 width: "100%",
                 whiteSpace: "nowrap",
@@ -193,9 +179,13 @@ export default function DashboardCard({
         sx={{
           px: 2.5,
           py: 1.25,
-          bgcolor: style.footerBg,
+          bgcolor: isDarkMode
+            ? alpha(theme.palette.background.paper, 0.92)
+            : theme.palette.common.white,
           borderTop: "1px solid",
-          borderColor: alpha(style.footerText, 0.12)
+          borderColor: isDarkMode
+            ? alpha(theme.palette.common.white, 0.08)
+            : alpha(theme.palette.text.primary, 0.08)
         }}
       >
         <Typography
@@ -204,10 +194,12 @@ export default function DashboardCard({
             fontWeight: 700,
             letterSpacing: 0.8,
             textTransform: "uppercase",
-            color: style.footerText
+            color: isDarkMode
+              ? theme.palette.text.secondary
+              : theme.palette.text.primary
           }}
         >
-          {style.footerLabel}
+          {footerLabels[color]}
         </Typography>
       </Box>
     </Card>

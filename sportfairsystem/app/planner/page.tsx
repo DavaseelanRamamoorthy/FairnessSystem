@@ -101,7 +101,8 @@ export default function PlannerPage() {
   const { isAdmin } = useAuth();
   const [plannerMode, setPlannerMode] = useState<PlannerMode>("friendly");
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
-  const [selectedSeason, setSelectedSeason] = useState("");
+  const [selectedSeason, setSelectedSeason] = useState(() => readStoredSeasonFilter(PLANNER_SEASON_STORAGE_KEY) ?? "");
+  const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
   const [players, setPlayers] = useState<PlayerSummary[]>([]);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
   const [plannerWorkbook, setPlannerWorkbook] = useState<PlannerWorkbook | null>(null);
@@ -116,24 +117,40 @@ export default function PlannerPage() {
   const [generatedMode, setGeneratedMode] = useState<PlannerMode | null>(null);
 
   useEffect(() => {
+    let isActive = true;
+
     const loadSeasons = async () => {
       try {
         const nextSeasons = await getPlayerSeasons();
+        if (!isActive) {
+          return;
+        }
+
         setSeasons(nextSeasons);
         const storedSeason = readStoredSeasonFilter(PLANNER_SEASON_STORAGE_KEY);
         const nextSeasonValues = new Set(nextSeasons.map((season) => season.value));
-        const resolvedSeason = storedSeason && nextSeasonValues.has(storedSeason)
+        const resolvedSeason = storedSeason && (storedSeason === "all" || nextSeasonValues.has(storedSeason))
           ? storedSeason
           : getLatestSeasonValue(nextSeasons);
         setSelectedSeason((currentSeason) =>
-          currentSeason || resolvedSeason
+          currentSeason && (currentSeason === "all" || nextSeasonValues.has(currentSeason))
+            ? currentSeason
+            : resolvedSeason
         );
       } catch {
         // Keep planner usable even if seasons fail to load.
+      } finally {
+        if (isActive) {
+          setHasResolvedSeason(true);
+        }
       }
     };
 
     void loadSeasons();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -143,6 +160,18 @@ export default function PlannerPage() {
   }, [selectedSeason]);
 
   useEffect(() => {
+    if (!hasResolvedSeason && !selectedSeason) {
+      return;
+    }
+
+    if (!isAdmin) {
+      setPlayers([]);
+      setIsLoadingPlayers(false);
+      return;
+    }
+
+    let isActive = true;
+
     const loadPlayers = async () => {
       setIsLoadingPlayers(true);
       setErrorMessage(null);
@@ -152,22 +181,33 @@ export default function PlannerPage() {
           !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason,
           { includeInactiveForSeason: true }
         );
+        if (!isActive) {
+          return;
+        }
+
         setPlayers(nextPlayers);
       } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setPlayers([]);
         setErrorMessage(
           error instanceof Error ? error.message : "Could not load squad players for planning."
         );
       } finally {
-        setIsLoadingPlayers(false);
+        if (isActive) {
+          setIsLoadingPlayers(false);
+        }
       }
     };
 
-    if (isAdmin) {
-      void loadPlayers();
-    } else {
-      setIsLoadingPlayers(false);
-    }
-  }, [isAdmin, selectedSeason]);
+    void loadPlayers();
+
+    return () => {
+      isActive = false;
+    };
+  }, [hasResolvedSeason, isAdmin, selectedSeason]);
 
   useEffect(() => {
     if (players.length === 0) {
@@ -411,6 +451,33 @@ export default function PlannerPage() {
                       />
                     </Stack>
 
+                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                      <Chip
+                        label={plan.xiShortfall > 0 ? `${plan.playingXi.length}/11 selected` : "Full XI"}
+                        color={plan.xiShortfall > 0 ? "error" : "success"}
+                        size="small"
+                        variant={plan.xiShortfall > 0 ? "filled" : "outlined"}
+                      />
+                      <Chip
+                        label={plan.hasWicketKeeper ? "WK covered" : "WK missing"}
+                        color={plan.hasWicketKeeper ? "success" : "warning"}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={plan.hasCaptain ? "Captain covered" : "Captain missing"}
+                        color={plan.hasCaptain ? "success" : "warning"}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={`${plan.bowlingOptions} bowling option${plan.bowlingOptions === 1 ? "" : "s"}`}
+                        color={plan.bowlingOptions >= 3 ? "success" : "warning"}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Stack>
+
                     <Stack spacing={1}>
                       {plan.playingXi.map((player, index) => (
                         <Box
@@ -435,7 +502,7 @@ export default function PlannerPage() {
           ))}
         </Grid>
 
-        {plannerSuggestion.benchAssignments.length > 0 && (
+        {plannerSuggestion.matchPlans.some((plan) => plan.benchPlayers.length > 0) && (
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Stack spacing={1.75}>
@@ -450,20 +517,22 @@ export default function PlannerPage() {
                       Bench Report
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Players assigned as the 12th man across the generated matchday plans.
+                      Players outside the Playing XI for each generated match. The highlighted chip marks the suggested 12th man.
                     </Typography>
                   </Stack>
 
                   <Chip
-                    label={`${plannerSuggestion.benchAssignments.reduce((sum, item) => sum + item.benchMatches, 0)} bench assignments`}
+                    label={`${plannerSuggestion.matchPlans.reduce((sum, plan) => sum + plan.benchPlayers.length, 0)} bench spots shown`}
                     color="warning"
                     variant="outlined"
                   />
                 </Stack>
 
                 <Grid container spacing={1.5}>
-                  {plannerSuggestion.benchAssignments.map((assignment) => (
-                    <Grid key={assignment.player.id} size={{ xs: 12, md: 6, xl: 4 }}>
+                  {plannerSuggestion.matchPlans
+                    .filter((plan) => plan.benchPlayers.length > 0)
+                    .map((plan) => (
+                    <Grid key={`bench-${plan.matchNumber}`} size={{ xs: 12, md: 6, xl: 4 }}>
                       <Box
                         sx={{
                           p: 2,
@@ -474,20 +543,26 @@ export default function PlannerPage() {
                         }}
                       >
                         <Stack spacing={1}>
-                          <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                            {buildPlayerLabel(assignment.player)}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Bench in {assignment.benchMatches} match{assignment.benchMatches > 1 ? "es" : ""}
-                          </Typography>
+                          <Stack spacing={0.5}>
+                            <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                              Match {plan.matchNumber}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {plan.benchPlayers.length} player{plan.benchPlayers.length === 1 ? "" : "s"} outside the Playing XI
+                            </Typography>
+                          </Stack>
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                            {assignment.matchNumbers.map((matchNumber) => (
+                            {plan.benchPlayers.map((player) => (
                               <Chip
-                                key={`${assignment.player.id}-${matchNumber}`}
-                                label={`Match ${matchNumber}`}
-                                color="warning"
+                                key={`${plan.matchNumber}-${player.id}`}
+                                label={
+                                  plan.twelfthMan?.id === player.id
+                                    ? `${buildPlayerLabel(player)} - 12th man`
+                                    : buildPlayerLabel(player)
+                                }
+                                color={plan.twelfthMan?.id === player.id ? "warning" : "default"}
                                 size="small"
-                                variant="outlined"
+                                variant={plan.twelfthMan?.id === player.id ? "filled" : "outlined"}
                               />
                             ))}
                           </Stack>
@@ -850,13 +925,19 @@ export default function PlannerPage() {
                         <Button
                           variant="contained"
                           onClick={handleTournamentGenerate}
-                          disabled={manualTournamentSelectedCount === 0}
+                          disabled={manualTournamentSelectedCount < 11}
                           startIcon={<Groups2RoundedIcon />}
                           sx={{ width: { xs: "100%", md: "fit-content" } }}
                         >
                           Generate Tournament Squad
                         </Button>
                       </Stack>
+
+                      {manualTournamentSelectedCount < 11 && (
+                        <Alert severity="info" variant="outlined">
+                          Select at least 11 players before generating the tournament XI.
+                        </Alert>
+                      )}
 
                       <Box
                         sx={{

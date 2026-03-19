@@ -1,0 +1,100 @@
+"use client";
+
+import {
+  Box,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TableContainer
+} from "@mui/material";
+
+import {
+  numericTableCellSx,
+  numericTableHeadCellSx
+} from "@/app/components/common/tableCellStyles";
+import { formatName } from "@/app/services/formatname";
+
+interface BowlingStat {
+  player_name: string;
+  overs: number;
+  maidens: number;
+  runs: number;
+  wickets: number;
+  economy: number;
+}
+
+interface Props {
+  bowlingStats: BowlingStat[];
+}
+
+export default function BowlingTable({ bowlingStats }: Props) {
+
+  return (
+
+    <Card sx={{ flex: 1 }}>
+
+      <CardContent sx={{ p: 0 }}>
+
+        <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+          <Box
+            component="h6"
+            sx={{
+              m: 0,
+              typography: "h6"
+            }}
+          >
+            Bowling
+          </Box>
+        </Box>
+
+        <TableContainer>
+
+          <Table size="small">
+
+            <TableHead>
+              <TableRow>
+                <TableCell>Bowler</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>Overs</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>M</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>Runs</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>Wkts</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>Eco</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+
+              {bowlingStats.map((bowler, index) => (
+
+                <TableRow key={index}>
+
+                  <TableCell>
+                    {formatName(bowler.player_name)}
+                  </TableCell>
+
+                  <TableCell sx={numericTableCellSx}>{bowler.overs}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.maidens}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.runs}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.wickets}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.economy}</TableCell>
+
+                </TableRow>
+
+              ))}
+
+            </TableBody>
+
+          </Table>
+
+        </TableContainer>
+
+      </CardContent>
+
+    </Card>
+
+  );
+}

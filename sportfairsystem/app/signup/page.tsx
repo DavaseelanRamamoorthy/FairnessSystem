@@ -20,6 +20,11 @@ import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 
 import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
+import {
+  normalizeAuthEmail,
+  validateAuthEmail,
+  validatePasswordForAuth
+} from "@/app/services/authValidation";
 
 const SIGNUP_NAVY = "#061230";
 const SIGNUP_NAVY_MID = "#0A1A49";
@@ -41,8 +46,18 @@ export default function SignupPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (password.length < 8) {
-      setErrorMessage("Use at least 8 characters for the password.");
+    const emailError = validateAuthEmail(email);
+
+    if (emailError) {
+      setErrorMessage(emailError);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const passwordError = validatePasswordForAuth(password);
+
+    if (passwordError) {
+      setErrorMessage(passwordError);
       setIsSubmitting(false);
       return;
     }
@@ -53,7 +68,7 @@ export default function SignupPage() {
       return;
     }
 
-    const result = await signUp(email, password);
+    const result = await signUp(normalizeAuthEmail(email), password);
 
     if (result.error) {
       setErrorMessage(result.error);

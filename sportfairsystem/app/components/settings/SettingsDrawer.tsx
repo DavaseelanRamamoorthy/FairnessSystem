@@ -28,8 +28,6 @@ import { ThemeModePreference, useSettings } from "@/app/context/SettingsContext"
 import { currentTeamName } from "@/app/config/teamConfig";
 import { appearancePresetList } from "@/app/themes/minimal/appearance-presets";
 
-const PANEL_RED = "#E53935";
-
 type SettingsDrawerProps = {
   open: boolean;
   onClose: () => void;
@@ -39,7 +37,6 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
   const { profile, signOut } = useAuth();
   const {
     themeMode,
-    resolvedThemeMode,
     setThemeMode,
     appearancePreset,
     setAppearancePreset,

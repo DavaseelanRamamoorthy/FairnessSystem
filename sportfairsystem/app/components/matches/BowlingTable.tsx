@@ -12,6 +12,10 @@ import {
   TableContainer
 } from "@mui/material";
 
+import {
+  numericTableCellSx,
+  numericTableHeadCellSx
+} from "@/app/components/common/tableCellStyles";
 import { formatName } from "@/app/services/formatname";
 
 interface BowlingStat {
@@ -54,11 +58,11 @@ export default function BowlingTable({ bowlingStats }: Props) {
             <TableHead>
               <TableRow>
                 <TableCell>Bowler</TableCell>
-                <TableCell>Overs</TableCell>
-                <TableCell>M</TableCell>
-                <TableCell>Runs</TableCell>
-                <TableCell>Wkts</TableCell>
-                <TableCell>Eco</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>Overs</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>M</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>Runs</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>Wkts</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>Eco</TableCell>
               </TableRow>
             </TableHead>
 
@@ -72,11 +76,11 @@ export default function BowlingTable({ bowlingStats }: Props) {
                     {formatName(bowler.player_name)}
                   </TableCell>
 
-                  <TableCell>{bowler.overs}</TableCell>
-                  <TableCell>{bowler.maidens}</TableCell>
-                  <TableCell>{bowler.runs}</TableCell>
-                  <TableCell>{bowler.wickets}</TableCell>
-                  <TableCell>{bowler.economy}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.overs}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.maidens}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.runs}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.wickets}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{bowler.economy}</TableCell>
 
                 </TableRow>
 

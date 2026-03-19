@@ -62,6 +62,13 @@ function getPageHeader(pathname: string) {
     };
   }
 
+  if (pathname === "/configure") {
+    return {
+      title: `${currentTeamName} Configure`,
+      subtitle: "Admin mapping for team users, squad identity links, and release-ready access setup."
+    };
+  }
+
   if (pathname === "/validation") {
     return {
       title: `${currentTeamName} Validation`,

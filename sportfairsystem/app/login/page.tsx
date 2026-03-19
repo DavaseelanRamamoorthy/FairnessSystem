@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, ReactNode, Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   Alert,
@@ -20,35 +20,13 @@ import LoginRoundedIcon from "@mui/icons-material/LoginRounded";
 
 import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
+import { normalizeAuthEmail, validateAuthEmail } from "@/app/services/authValidation";
 
 const LOGIN_NAVY = "#061230";
 const LOGIN_NAVY_MID = "#0A1A49";
 const LOGIN_RED = "#E53935";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const { signIn } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setErrorMessage(null);
-
-    const error = await signIn(email, password);
-
-    if (error) {
-      setErrorMessage(error);
-      setIsSubmitting(false);
-      return;
-    }
-
-    router.replace("/dashboard");
-  };
-
+function LoginPageShell({ children }: { children: ReactNode }) {
   return (
     <Box
       sx={{
@@ -94,73 +72,138 @@ export default function LoginPage() {
         </Box>
 
         <CardContent sx={{ p: 3 }}>
-          <Stack spacing={2.5} component="form" onSubmit={handleSubmit}>
-            {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-
-            <TextField
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              fullWidth
-              autoComplete="email"
-            />
-
-            <TextField
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              fullWidth
-              autoComplete="current-password"
-            />
-
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              disabled={isSubmitting}
-              startIcon={isSubmitting ? <CircularProgress size={18} color="inherit" /> : <LoginRoundedIcon />}
-              sx={{
-                mt: 1,
-                py: 1.2,
-                fontWeight: 800
-              }}
-            >
-              {isSubmitting ? "Signing In..." : "Sign In"}
-            </Button>
-
-            <MuiLink
-              href="/signup"
-              underline="hover"
-              sx={{
-                alignSelf: "flex-start",
-                fontWeight: 600
-              }}
-            >
-              Need an account? Sign up
-            </MuiLink>
-
-            <MuiLink
-              href="/reset-password"
-              underline="hover"
-              sx={{
-                alignSelf: "flex-start",
-                fontWeight: 600
-              }}
-            >
-              Forgot your password?
-            </MuiLink>
-
-            <Alert severity="info" variant="outlined">
-              After sign-in, your access is controlled by your `public.users` role and team
-              mapping. Run `database/v1_auth_access_control.sql` before testing this flow.
-            </Alert>
-          </Stack>
+          {children}
         </CardContent>
       </Card>
     </Box>
+  );
+}
+
+function LoginPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordResetSuccess = searchParams.get("passwordReset") === "success";
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    const emailError = validateAuthEmail(email);
+
+    if (emailError) {
+      setErrorMessage(emailError);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const error = await signIn(normalizeAuthEmail(email), password);
+
+    if (error) {
+      setErrorMessage(error);
+      setIsSubmitting(false);
+      return;
+    }
+
+    router.replace("/dashboard");
+  };
+
+  return (
+    <LoginPageShell>
+      <Stack spacing={2.5} component="form" onSubmit={handleSubmit}>
+        {passwordResetSuccess && (
+          <Alert severity="success">
+            Password updated successfully. Sign in with your new password.
+          </Alert>
+        )}
+        {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+
+        <TextField
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+          fullWidth
+          autoComplete="email"
+        />
+
+        <TextField
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          required
+          fullWidth
+          autoComplete="current-password"
+        />
+
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          disabled={isSubmitting}
+          startIcon={isSubmitting ? <CircularProgress size={18} color="inherit" /> : <LoginRoundedIcon />}
+          sx={{
+            mt: 1,
+            py: 1.2,
+            fontWeight: 800
+          }}
+        >
+          {isSubmitting ? "Signing In..." : "Sign In"}
+        </Button>
+
+        <MuiLink
+          href="/signup"
+          underline="hover"
+          sx={{
+            alignSelf: "flex-start",
+            fontWeight: 600
+          }}
+        >
+          Need an account? Sign up
+        </MuiLink>
+
+        <MuiLink
+          href="/reset-password"
+          underline="hover"
+          sx={{
+            alignSelf: "flex-start",
+            fontWeight: 600
+          }}
+        >
+          Forgot your password?
+        </MuiLink>
+
+        <Alert severity="info" variant="outlined">
+          After sign-in, your access is controlled by your `public.users` role and team
+          mapping. Run `database/v1_auth_access_control.sql` before testing this flow.
+        </Alert>
+      </Stack>
+    </LoginPageShell>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <LoginPageShell>
+      <Stack spacing={2.5} alignItems="center" sx={{ py: 4 }}>
+        <CircularProgress size={28} />
+        <Typography color="text.secondary">Loading sign-in form...</Typography>
+      </Stack>
+    </LoginPageShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

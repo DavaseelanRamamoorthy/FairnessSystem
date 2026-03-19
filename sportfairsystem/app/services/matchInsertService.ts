@@ -10,6 +10,7 @@ import {
 } from "./matchTextNormalization";
 import { requireAdminAccess } from "./accessControlService";
 import {
+  bridgeCurrentTeamPlayerIdentities,
   hasSquadMetadataColumns,
   mapSquadPlayerRecord
 } from "./squadService";
@@ -411,6 +412,18 @@ export async function saveMatchToDatabase(
 
       const mappedPlayer = mapSquadPlayerRecord(updatedPlayer as Record<string, unknown>);
       existingPlayerMap.set(normalizeNameKey(mappedPlayer.name), mappedPlayer);
+    }
+  }
+
+  const touchedPlayerIds = parsedCurrentTeamPlayers
+    .map((player) => existingPlayerMap.get(player.name)?.id ?? null)
+    .filter((playerId): playerId is string => Boolean(playerId));
+
+  if (touchedPlayerIds.length > 0) {
+    try {
+      await bridgeCurrentTeamPlayerIdentities({ playerIds: touchedPlayerIds });
+    } catch (error) {
+      console.warn("Could not repair historical player identity links.", error);
     }
   }
 

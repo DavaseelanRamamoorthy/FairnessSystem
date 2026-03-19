@@ -51,10 +51,17 @@ import {
   AnalyticsSnapshot,
   getAnalyticsSnapshot
 } from "@/app/services/analyticsService";
+import PaginationFooter from "@/app/components/common/PaginationFooter";
+import {
+  numericTableCellSx,
+  numericTableHeadCellSx
+} from "@/app/components/common/tableCellStyles";
+import { usePagination } from "@/app/hooks/usePagination";
 import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
 
 const ANALYTICS_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:analytics";
+const BENCH_STATS_PAGE_SIZE = 5;
 
 const ICON_TILE_BG = "#F4F1FF";
 const ICON_TILE_COLOR = "#5B5FEF";
@@ -72,6 +79,7 @@ function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
     <Card
       variant="outlined"
       sx={{
+        width: "100%",
         height: "100%",
         borderRadius: 3,
         borderColor: "divider",
@@ -133,6 +141,15 @@ export default function AnalyticsPage() {
   const [selectedSeason, setSelectedSeason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const benchStatsPagination = usePagination({
+    items: snapshot?.benchStats.topBenchPlayers ?? [],
+    pageSize: BENCH_STATS_PAGE_SIZE,
+    resetKeys: [
+      selectedSeason,
+      snapshot?.benchStats.totalBenchSelections,
+      snapshot?.benchStats.uniquePlayers
+    ]
+  });
 
   useEffect(() => {
     if (!isAdmin) {
@@ -164,6 +181,7 @@ export default function AnalyticsPage() {
             ? error.message
             : "Could not load analytics.";
 
+        setSnapshot(null);
         setErrorMessage(message);
       } finally {
         setIsLoading(false);
@@ -178,6 +196,8 @@ export default function AnalyticsPage() {
       storeSeasonFilter(ANALYTICS_SEASON_STORAGE_KEY, selectedSeason);
     }
   }, [selectedSeason]);
+
+  const paginatedBenchPlayers = benchStatsPagination.paginatedItems;
 
   return (
     <Container maxWidth="xl">
@@ -302,23 +322,23 @@ export default function AnalyticsPage() {
                         <TableHead>
                           <TableRow>
                             <TableCell>Player</TableCell>
-                            <TableCell>Unused Matches</TableCell>
-                            <TableCell>XI Matches</TableCell>
-                            <TableCell>Unused Rate</TableCell>
+                            <TableCell sx={numericTableHeadCellSx}>Unused Matches</TableCell>
+                            <TableCell sx={numericTableHeadCellSx}>XI Matches</TableCell>
+                            <TableCell sx={numericTableHeadCellSx}>Unused Rate</TableCell>
                           </TableRow>
                         </TableHead>
 
                         <TableBody>
-                          {snapshot.benchStats.topBenchPlayers.map((player) => (
+                          {paginatedBenchPlayers.map((player) => (
                             <TableRow key={player.player}>
                               <TableCell>
                                 <Typography fontWeight={700}>
                                   {formatName(player.player)}
                                 </Typography>
                               </TableCell>
-                              <TableCell>{player.benchMatches}</TableCell>
-                              <TableCell>{player.totalSquadMatches}</TableCell>
-                              <TableCell>{player.benchRate}%</TableCell>
+                              <TableCell sx={numericTableCellSx}>{player.benchMatches}</TableCell>
+                              <TableCell sx={numericTableCellSx}>{player.totalSquadMatches}</TableCell>
+                              <TableCell sx={numericTableCellSx}>{player.benchRate}%</TableCell>
                             </TableRow>
                           ))}
 
@@ -334,6 +354,24 @@ export default function AnalyticsPage() {
                         </TableBody>
                       </Table>
                     </TableContainer>
+
+                    {snapshot.benchStats.topBenchPlayers.length > BENCH_STATS_PAGE_SIZE && (
+                      <PaginationFooter
+                        pageStart={benchStatsPagination.pageStart}
+                        pageEnd={benchStatsPagination.pageEnd}
+                        totalCount={benchStatsPagination.totalCount}
+                        hasPreviousPage={benchStatsPagination.hasPreviousPage}
+                        hasNextPage={benchStatsPagination.hasNextPage}
+                        onPrevious={benchStatsPagination.goToPreviousPage}
+                        onNext={benchStatsPagination.goToNextPage}
+                        sx={{
+                          px: 2.5,
+                          py: 2,
+                          borderTop: "1px solid",
+                          borderColor: "divider"
+                        }}
+                      />
+                    )}
                   </CardContent>
                 </Card>
               </Grid>
@@ -413,6 +451,10 @@ export default function AnalyticsPage() {
                                         ? "#15A05C"
                                         : entry.label === "Lost"
                                           ? "#FF5C35"
+                                          : entry.label === "Draw"
+                                            ? "#F59E0B"
+                                            : entry.label === "Tie"
+                                              ? "#2E6FF2"
                                           : "#94A3B8"
                                     }
                                   />
@@ -439,9 +481,9 @@ export default function AnalyticsPage() {
                             <TableHead>
                               <TableRow>
                                 <TableCell>Player</TableCell>
-                                <TableCell>Runs</TableCell>
-                                <TableCell>Matches</TableCell>
-                                <TableCell>Strike Rate</TableCell>
+                                <TableCell sx={numericTableHeadCellSx}>Runs</TableCell>
+                                <TableCell sx={numericTableHeadCellSx}>Matches</TableCell>
+                                <TableCell sx={numericTableHeadCellSx}>Strike Rate</TableCell>
                               </TableRow>
                             </TableHead>
 
@@ -453,10 +495,10 @@ export default function AnalyticsPage() {
                                       {formatName(player.player)}
                                     </Typography>
                                   </TableCell>
-                                  <TableCell>{player.runs}</TableCell>
-                                  <TableCell>{player.matches}</TableCell>
-                                  <TableCell>
-                                    {player.strikeRate ? player.strikeRate.toFixed(2) : "-"}
+                                  <TableCell sx={numericTableCellSx}>{player.runs}</TableCell>
+                                  <TableCell sx={numericTableCellSx}>{player.matches}</TableCell>
+                                  <TableCell sx={numericTableCellSx}>
+                                    {player.strikeRate !== null ? player.strikeRate.toFixed(2) : "-"}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -489,9 +531,9 @@ export default function AnalyticsPage() {
                             <TableHead>
                               <TableRow>
                                 <TableCell>Player</TableCell>
-                                <TableCell>Wickets</TableCell>
-                                <TableCell>Matches</TableCell>
-                                <TableCell>Economy</TableCell>
+                                <TableCell sx={numericTableHeadCellSx}>Wickets</TableCell>
+                                <TableCell sx={numericTableHeadCellSx}>Matches</TableCell>
+                                <TableCell sx={numericTableHeadCellSx}>Economy</TableCell>
                               </TableRow>
                             </TableHead>
 
@@ -503,10 +545,10 @@ export default function AnalyticsPage() {
                                       {formatName(player.player)}
                                     </Typography>
                                   </TableCell>
-                                  <TableCell>{player.wickets}</TableCell>
-                                  <TableCell>{player.matches}</TableCell>
-                                  <TableCell>
-                                    {player.economy ? player.economy.toFixed(2) : "-"}
+                                  <TableCell sx={numericTableCellSx}>{player.wickets}</TableCell>
+                                  <TableCell sx={numericTableCellSx}>{player.matches}</TableCell>
+                                  <TableCell sx={numericTableCellSx}>
+                                    {player.economy !== null ? player.economy.toFixed(2) : "-"}
                                   </TableCell>
                                 </TableRow>
                               ))}

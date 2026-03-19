@@ -450,6 +450,7 @@ export default function PlayerProfilePage() {
     const loadPlayerProfile = async () => {
       if (!playerId) {
         if (isActive) {
+          setProfile(null);
           setErrorMessage("Player not found.");
           setIsLoading(false);
         }
@@ -457,6 +458,7 @@ export default function PlayerProfilePage() {
       }
 
       if (isActive) {
+        setProfile(null);
         setIsLoading(true);
         setErrorMessage(null);
       }
@@ -476,6 +478,7 @@ export default function PlayerProfilePage() {
             : "Could not load player profile.";
 
         if (isActive) {
+          setProfile(null);
           setErrorMessage(message);
         }
       } finally {
@@ -559,7 +562,7 @@ export default function PlayerProfilePage() {
             Back to Squad
           </Button>
 
-          {profile && (
+          {!isLoading && profile && (
             <Card
               variant="outlined"
               sx={(currentTheme) => ({
@@ -847,7 +850,7 @@ export default function PlayerProfilePage() {
                         variant="overline"
                         sx={{ color: PLAYER_CORAL, letterSpacing: 1.1, fontWeight: 800 }}
                       >
-                        AI Summary
+                        Profile Summary
                       </Typography>
                       <Typography
                         sx={{
@@ -1020,7 +1023,7 @@ export default function PlayerProfilePage() {
                         <Stack direction="row" justifyContent="space-between" spacing={2}>
                           <Typography color="text.secondary">Strike Rate</Typography>
                           <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                            {profile.strikeRate ? profile.strikeRate.toFixed(2) : "-"}
+                            {profile.strikeRate !== null ? profile.strikeRate.toFixed(2) : "-"}
                           </Typography>
                         </Stack>
 

@@ -1,9 +1,9 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 import {
+  Alert,
   Box,
   Typography,
   Paper,
@@ -38,6 +38,24 @@ import { ParsedMatch, Innings } from "@/app/types/match.types";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 import { deleteMatchFromDatabase } from "@/app/services/deleteMatchService";
 
+type MatchPlayerRow = {
+  id?: string;
+  team_name: string | null;
+  player_name: string;
+};
+
+type MatchInningsRow = {
+  id?: string;
+  team_name: string | null;
+  runs: number | null;
+  wickets: number | null;
+  overs: number | null;
+  extras?: number | null;
+  batting_stats?: NonNullable<Innings["battingStats"]>;
+  bowling_stats?: NonNullable<Innings["bowlingStats"]>;
+  fall_of_wickets?: NonNullable<Innings["fallOfWickets"]>;
+};
+
 type Match = {
   id: string;
   team_a: string | null;
@@ -47,7 +65,8 @@ type Match = {
   result: string | null;
   winner?: string | null;
   match_code?: string | null;
-  [key: string]: any;
+  innings?: MatchInningsRow[];
+  match_players?: MatchPlayerRow[];
 };
 
 type PreviewPlayer = {
@@ -63,11 +82,22 @@ type PreviewItem = {
   players: PreviewPlayer[];
 };
 
+type TeamPlayerRow = {
+  name: string;
+  is_guest: boolean | null;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function MatchesPage() {
   const { isAdmin } = useAuth();
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(true);
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null);
 
   const [previewQueue, setPreviewQueue] = useState<PreviewItem[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -80,37 +110,55 @@ export default function MatchesPage() {
   -------------------------------- */
 
   const loadMatchesFromDB = async () => {
+    try {
+      setIsLoadingMatches(true);
+      setLoadErrorMessage(null);
 
-    const { data, error } = await supabase
-      .from("matches")
-      .select(`
-        *,
-        innings (
+      const teamId = await getCurrentTeamId();
+      const { data, error } = await supabase
+        .from("matches")
+        .select(`
           *,
-          batting_stats (*),
-          bowling_stats (*),
-          fall_of_wickets (*)
-        ),
-        match_players (*)
-      `)
-      .order("match_date", { ascending: false });
+          innings (
+            *,
+            batting_stats (*),
+            bowling_stats (*),
+            fall_of_wickets (*)
+          ),
+          match_players (*)
+        `)
+        .eq("team_id", teamId)
+        .order("match_date", { ascending: false });
 
-    if (error) {
-      console.error(error);
-      return;
-    }
+      if (error) {
+        throw new Error("Could not load matches.");
+      }
 
-    setMatches(
-      (data || []).map((match) => ({
+      const nextMatches = ((data ?? []) as Match[]).map((match) => ({
         ...match,
         opponent_name: getOpponentName(match.team_a, match.team_b, currentTeamName)
-      }))
-    );
+      }));
+
+      setMatches(nextMatches);
+      setSelectedMatch((currentMatch) =>
+        currentMatch
+          ? nextMatches.find((match) => match.id === currentMatch.id) ?? null
+          : null
+      );
+    } catch (error) {
+      const message = getErrorMessage(error, "Could not load matches.");
+
+      setMatches([]);
+      setSelectedMatch(null);
+      setLoadErrorMessage(message);
+    } finally {
+      setIsLoadingMatches(false);
+    }
 
   };
 
   useEffect(() => {
-    loadMatchesFromDB();
+    void loadMatchesFromDB();
   }, []);
 
   /* --------------------------------
@@ -132,18 +180,18 @@ export default function MatchesPage() {
     });
 
     const ourInnings = parsedMatch.innings?.find(
-      (inn: any) => inn.teamName === currentTeamName
+      (inn) => inn.teamName === currentTeamName
     );
 
     const opponentInnings = parsedMatch.innings?.find(
-      (inn: any) => inn.teamName !== currentTeamName
+      (inn) => inn.teamName !== currentTeamName
     );
 
-      if (ourInnings) {
+    if (ourInnings) {
 
-      ourInnings.battingStats?.forEach((b: any) => {
-        if (b.player_name) {
-          playerSet.add(cleanName(b.player_name));
+      ourInnings.battingStats?.forEach((batter) => {
+        if (batter.player_name) {
+          playerSet.add(cleanName(batter.player_name));
         }
       });
 
@@ -155,9 +203,9 @@ export default function MatchesPage() {
 
     if (opponentInnings) {
 
-      opponentInnings.bowlingStats?.forEach((b: any) => {
-        if (b.player_name) {
-          playerSet.add(cleanName(b.player_name));
+      opponentInnings.bowlingStats?.forEach((bowler) => {
+        if (bowler.player_name) {
+          playerSet.add(cleanName(bowler.player_name));
         }
       });
 
@@ -172,7 +220,7 @@ export default function MatchesPage() {
       .eq("team_id", teamId);
 
     const dbPlayerMap = new Map(
-      (dbPlayers || []).map((player: any) => [cleanName(player.name), player.is_guest === true])
+      ((dbPlayers ?? []) as TeamPlayerRow[]).map((player) => [cleanName(player.name), player.is_guest === true])
     );
 
     const result: PreviewPlayer[] = players.map((name) => ({
@@ -316,8 +364,8 @@ export default function MatchesPage() {
 
         setToastMessage(rejectionMessage);
       }
-    } catch (error: any) {
-      setToastMessage(error.message || "Could not process the selected scorecards.");
+    } catch (error) {
+      setToastMessage(getErrorMessage(error, "Could not process the selected scorecards."));
     } finally {
       setIsProcessing(false);
     }
@@ -352,9 +400,8 @@ export default function MatchesPage() {
       await loadMatchesFromDB();
       closeCurrentPreview();
 
-    } catch (error: any) {
-
-      setToastMessage(error.message);
+    } catch (error) {
+      setToastMessage(getErrorMessage(error, "Could not save the selected match."));
 
     } finally {
 
@@ -374,8 +421,8 @@ export default function MatchesPage() {
     if (innings.teamName !== currentTeamName) return [];
 
     const battingNames =
-      innings?.battingStats?.map((p: any) =>
-        cleanName(p.player_name)
+      innings?.battingStats?.map((player) =>
+        cleanName(player.player_name)
       ) || [];
 
     return (currentPreview?.players ?? [])
@@ -408,8 +455,8 @@ export default function MatchesPage() {
       setSelectedMatch(null);
       closeDeleteDialog();
       await loadMatchesFromDB();
-    } catch (error: any) {
-      setToastMessage(error.message || "Could not delete the selected match.");
+    } catch (error) {
+      setToastMessage(getErrorMessage(error, "Could not delete the selected match."));
     } finally {
       setIsProcessing(false);
     }
@@ -448,6 +495,11 @@ export default function MatchesPage() {
         minHeight: 0
       }}
     >
+      {loadErrorMessage && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {loadErrorMessage}
+        </Alert>
+      )}
 
       <Box
         sx={{
@@ -502,11 +554,34 @@ export default function MatchesPage() {
             }}
           >
 
-            {!selectedMatch ? (
+            {isLoadingMatches ? (
 
-              <Typography color="text.secondary" sx={{ p: 4 }}>
-                Click a match to view full scorecard
-              </Typography>
+              <Box
+                sx={{
+                  minHeight: 320,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                <CircularProgress />
+              </Box>
+
+            ) : !selectedMatch ? (
+
+              loadErrorMessage ? (
+                <Typography color="text.secondary" sx={{ p: 4 }}>
+                  Match list is unavailable right now.
+                </Typography>
+              ) : matches.length === 0 ? (
+                <Typography color="text.secondary" sx={{ p: 4 }}>
+                  No matches found yet. Upload scorecards to get started.
+                </Typography>
+              ) : (
+                <Typography color="text.secondary" sx={{ p: 4 }}>
+                  Click a match to view full scorecard.
+                </Typography>
+              )
 
             ) : (
 

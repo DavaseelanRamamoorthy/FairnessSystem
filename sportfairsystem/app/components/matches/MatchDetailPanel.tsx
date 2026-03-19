@@ -232,7 +232,7 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
 
             <Box>
               <Typography variant="h4">
-                {match.team_a} vs {match.team_b}
+                {getDisplayName(match.team_a)} vs {getDisplayName(match.team_b)}
               </Typography>
 
               <Typography

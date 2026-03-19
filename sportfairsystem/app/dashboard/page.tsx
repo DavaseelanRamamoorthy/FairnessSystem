@@ -1,14 +1,15 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
+import Alert from "@mui/material/Alert";
 import Container from "@mui/material/Container";
 import Stack from "@mui/material/Stack";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import CircularProgress from "@mui/material/CircularProgress";
 import Table from "@mui/material/Table";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
@@ -28,6 +29,10 @@ import DashboardCard from "@/app/components/dashboard/dashboardCard";
 import SectionHeader from "@/app/components/dashboard/SectionHeader";
 import RunsTrendChart from "@/app/components/dashboard/RunsTrendChart";
 import WicketsTrendChart from "@/app/components/dashboard/WicketsTrendChart";
+import {
+  numericTableCellSx,
+  numericTableHeadCellSx
+} from "@/app/components/common/tableCellStyles";
 import { formatName } from "@/app/services/formatname";
 import { formatDate } from "@/app/utils/formatDate";
 import {
@@ -40,10 +45,41 @@ import {
   getRunsPerMatch,
   getWicketsPerMatch
 } from "@/app/services/statsService";
+import { getCurrentTeamId } from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 
-type Match = Record<string, any>;
+type Match = {
+  id: string;
+  match_date: string | null;
+  team_a: string | null;
+  team_b: string | null;
+  result: string | null;
+  result_summary: string | null;
+  opponent_name: string | null;
+};
+
+type RunLeader = {
+  player: string;
+  runs: number;
+};
+
+type WicketLeader = {
+  player: string;
+  wickets: number;
+};
+
+type RunsTrendPoint = {
+  match: string;
+  matchLabel: string;
+  runs: number;
+};
+
+type WicketsTrendPoint = {
+  match: string;
+  matchLabel: string;
+  wickets: number;
+};
 
 function getDashboardResult(match: Match) {
   const rawResult = typeof match.result === "string" ? match.result.trim() : "";
@@ -83,14 +119,16 @@ export default function DashboardPage() {
   const theme = useTheme();
   const [matchesPlayed, setMatchesPlayed] = useState(0);
   const [winRate, setWinRate] = useState(0);
-  const [topRunScorer, setTopRunScorer] = useState<any>(null);
-  const [topWicketTaker, setTopWicketTaker] = useState<any>(null);
+  const [topRunScorer, setTopRunScorer] = useState<RunLeader | null>(null);
+  const [topWicketTaker, setTopWicketTaker] = useState<WicketLeader | null>(null);
 
   const [matches, setMatches] = useState<Match[]>([]);
-  const [runLeaders, setRunLeaders] = useState<any[]>([]);
-  const [wicketLeaders, setWicketLeaders] = useState<any[]>([]);
-  const [runsTrend, setRunsTrend] = useState<any[]>([]);
-  const [wicketsTrend, setWicketsTrend] = useState<any[]>([]);
+  const [runLeaders, setRunLeaders] = useState<RunLeader[]>([]);
+  const [wicketLeaders, setWicketLeaders] = useState<WicketLeader[]>([]);
+  const [runsTrend, setRunsTrend] = useState<RunsTrendPoint[]>([]);
+  const [wicketsTrend, setWicketsTrend] = useState<WicketsTrendPoint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadDashboardStats = async () => {
     const matchesPlayedValue = await getMatchesPlayed();
@@ -115,14 +153,15 @@ export default function DashboardPage() {
   };
 
   const loadMatches = async () => {
+    const teamId = await getCurrentTeamId();
     const { data, error } = await supabase
       .from("matches")
       .select("*")
+      .eq("team_id", teamId)
       .order("match_date", { ascending: false });
 
     if (error) {
-      console.error(error);
-      return;
+      throw new Error("Could not load recent matches.");
     }
 
     setMatches(
@@ -135,10 +174,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const initializeDashboard = async () => {
-      await Promise.all([
-        loadDashboardStats(),
-        loadMatches()
-      ]);
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      try {
+        await Promise.all([
+          loadDashboardStats(),
+          loadMatches()
+        ]);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Could not load the dashboard.";
+
+        setErrorMessage(message);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     void initializeDashboard();
@@ -169,6 +222,21 @@ export default function DashboardPage() {
   return (
     <Container maxWidth="xl">
       <Stack spacing={4}>
+        {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+
+        {isLoading ? (
+          <Box
+            sx={{
+              minHeight: 320,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
         <Grid container spacing={3} alignItems="stretch">
           <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
             <DashboardCard
@@ -176,7 +244,6 @@ export default function DashboardPage() {
               value={matchesPlayed}
               icon={<SportsCricketIcon color="primary" />}
               color="primary"
-              trend={[2, 3, 4, 3, 5, 6, 4]}
               layout="metric"
             />
           </Grid>
@@ -187,7 +254,6 @@ export default function DashboardPage() {
               value={`${winRate}%`}
               icon={<TrendingUpIcon color="success" />}
               color="success"
-              trend={[40, 45, 50, 55, 60, 65, 70]}
               layout="metric"
             />
           </Grid>
@@ -225,16 +291,16 @@ export default function DashboardPage() {
                   <Table>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Rank</TableCell>
+                        <TableCell sx={numericTableHeadCellSx}>Rank</TableCell>
                         <TableCell>Player</TableCell>
-                        <TableCell>Runs</TableCell>
+                        <TableCell sx={numericTableHeadCellSx}>Runs</TableCell>
                       </TableRow>
                     </TableHead>
 
                     <TableBody>
                       {runLeaders.map((player, index) => (
                         <TableRow key={player.player}>
-                          <TableCell>
+                          <TableCell sx={numericTableCellSx}>
                             {index < 3 && (
                               <EmojiEventsIcon sx={{ color: getLeaderboardAccent(index) ?? "text.secondary" }} />
                             )}
@@ -247,13 +313,23 @@ export default function DashboardPage() {
                             </Typography>
                           </TableCell>
 
-                          <TableCell>
+                          <TableCell sx={numericTableCellSx}>
                             <Typography fontWeight={600}>
                               {player.runs}
                             </Typography>
                           </TableCell>
                         </TableRow>
                       ))}
+
+                      {runLeaders.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3}>
+                            <Typography color="text.secondary">
+                              No batting leaders available yet.
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -272,16 +348,16 @@ export default function DashboardPage() {
                   <Table>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Rank</TableCell>
+                        <TableCell sx={numericTableHeadCellSx}>Rank</TableCell>
                         <TableCell>Player</TableCell>
-                        <TableCell>Wickets</TableCell>
+                        <TableCell sx={numericTableHeadCellSx}>Wickets</TableCell>
                       </TableRow>
                     </TableHead>
 
                     <TableBody>
                       {wicketLeaders.map((player, index) => (
                         <TableRow key={player.player}>
-                          <TableCell>
+                          <TableCell sx={numericTableCellSx}>
                             {index < 3 && (
                               <EmojiEventsIcon sx={{ color: getLeaderboardAccent(index) ?? "text.secondary" }} />
                             )}
@@ -294,13 +370,23 @@ export default function DashboardPage() {
                             </Typography>
                           </TableCell>
 
-                          <TableCell>
+                          <TableCell sx={numericTableCellSx}>
                             <Typography fontWeight={600}>
                               {player.wickets}
                             </Typography>
                           </TableCell>
                         </TableRow>
                       ))}
+
+                      {wicketLeaders.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3}>
+                            <Typography color="text.secondary">
+                              No bowling leaders available yet.
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -352,7 +438,7 @@ export default function DashboardPage() {
                     return (
                       <TableRow key={match.id}>
                         <TableCell>
-                          {formatDate(match.match_date)}
+                          {match.match_date ? formatDate(match.match_date) : "-"}
                         </TableCell>
 
                         <TableCell>
@@ -373,11 +459,23 @@ export default function DashboardPage() {
                       </TableRow>
                     );
                   })}
+
+                  {recentMatches.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3}>
+                        <Typography color="text.secondary">
+                          No recent matches found for {currentTeamName}.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
           </CardContent>
         </Card>
+          </>
+        )}
       </Stack>
     </Container>
   );

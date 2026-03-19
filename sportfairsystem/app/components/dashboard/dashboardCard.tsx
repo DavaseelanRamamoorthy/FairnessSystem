@@ -191,9 +191,11 @@ export default function DashboardCard({
         <Typography
           variant="caption"
           sx={{
+            display: "block",
             fontWeight: 700,
             letterSpacing: 0.8,
             textTransform: "uppercase",
+            textAlign: "center",
             color: isDarkMode
               ? theme.palette.text.secondary
               : theme.palette.text.primary

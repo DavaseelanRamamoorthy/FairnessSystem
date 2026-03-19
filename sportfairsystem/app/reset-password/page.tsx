@@ -21,6 +21,12 @@ import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
 import { supabase } from "@/app/services/supabaseClient";
+import {
+  getFriendlyAuthErrorMessage,
+  normalizeAuthEmail,
+  validateAuthEmail,
+  validatePasswordForAuth
+} from "@/app/services/authValidation";
 
 const RESET_NAVY = "#061230";
 const RESET_NAVY_MID = "#0A1A49";
@@ -46,17 +52,25 @@ export default function ResetPasswordPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`
-    });
+    const emailError = validateAuthEmail(email);
 
-    if (error) {
-      setErrorMessage(error.message);
+    if (emailError) {
+      setErrorMessage(emailError);
       setIsSubmitting(false);
       return;
     }
 
-    setSuccessMessage("Password reset email sent. Open the link in your inbox to continue.");
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizeAuthEmail(email), {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+
+    if (error) {
+      setErrorMessage(getFriendlyAuthErrorMessage("reset", error.message));
+      setIsSubmitting(false);
+      return;
+    }
+
+    setSuccessMessage("If an account exists for that email, a password reset link has been sent.");
     setIsSubmitting(false);
   };
 
@@ -66,8 +80,10 @@ export default function ResetPasswordPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (password.length < 8) {
-      setErrorMessage("Use at least 8 characters for the new password.");
+    const passwordError = validatePasswordForAuth(password);
+
+    if (passwordError) {
+      setErrorMessage(passwordError.replace("the password", "the new password"));
       setIsSubmitting(false);
       return;
     }
@@ -81,15 +97,14 @@ export default function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(getFriendlyAuthErrorMessage("updatePassword", error.message));
       setIsSubmitting(false);
       return;
     }
 
-    setSuccessMessage("Password updated successfully. Sign in again with your new password.");
     await signOut();
     setIsSubmitting(false);
-    router.replace("/login");
+    router.replace("/login?passwordReset=success");
   };
 
   return (

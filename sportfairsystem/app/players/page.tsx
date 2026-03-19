@@ -166,6 +166,7 @@ export default function PlayersPage() {
   useEffect(() => {
     const loadSquad = async () => {
       setIsLoading(true);
+      setPlayers([]);
       setErrorMessage(null);
 
       try {
@@ -179,6 +180,7 @@ export default function PlayersPage() {
             ? error.message
             : "Could not load squad players.";
 
+        setPlayers([]);
         setErrorMessage(message);
       } finally {
         setIsLoading(false);
@@ -344,7 +346,7 @@ export default function PlayersPage() {
           >
             <CircularProgress />
           </Box>
-        ) : visiblePlayers.length === 0 ? (
+        ) : errorMessage ? null : visiblePlayers.length === 0 ? (
           <Alert severity="info">
             {!selectedSeason || selectedSeason === "all"
               ? "No squad players found yet. Add players from the match preview flow."

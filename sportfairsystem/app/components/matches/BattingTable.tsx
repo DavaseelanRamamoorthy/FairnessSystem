@@ -12,6 +12,10 @@ import {
   TableContainer
 } from "@mui/material";
 
+import {
+  numericTableCellSx,
+  numericTableHeadCellSx
+} from "@/app/components/common/tableCellStyles";
 import { formatName } from "@/app/services/formatname";
 
 interface BattingStat {
@@ -56,11 +60,11 @@ export default function BattingTable({ battingStats }: Props) {
               <TableRow>
                 <TableCell>Batsman</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>R</TableCell>
-                <TableCell>B</TableCell>
-                <TableCell>4s</TableCell>
-                <TableCell>6s</TableCell>
-                <TableCell>SR</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>R</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>B</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>4s</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>6s</TableCell>
+                <TableCell sx={numericTableHeadCellSx}>SR</TableCell>
               </TableRow>
             </TableHead>
 
@@ -78,11 +82,11 @@ export default function BattingTable({ battingStats }: Props) {
                     {batsman.dismissal ?? "not out"}
                   </TableCell>
 
-                  <TableCell>{batsman.runs}</TableCell>
-                  <TableCell>{batsman.balls}</TableCell>
-                  <TableCell>{batsman.fours}</TableCell>
-                  <TableCell>{batsman.sixes}</TableCell>
-                  <TableCell>{batsman.strike_rate}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{batsman.runs}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{batsman.balls}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{batsman.fours}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{batsman.sixes}</TableCell>
+                  <TableCell sx={numericTableCellSx}>{batsman.strike_rate}</TableCell>
 
                 </TableRow>
 

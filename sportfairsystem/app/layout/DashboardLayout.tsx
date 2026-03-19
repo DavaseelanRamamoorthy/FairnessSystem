@@ -10,7 +10,7 @@ import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
 const PUBLIC_ROUTES = ["/login", "/signup", "/reset-password"];
-const ADMIN_ONLY_ROUTES = ["/planner", "/analytics", "/validation", "/upload"];
+const ADMIN_ONLY_ROUTES = ["/configure", "/planner", "/analytics", "/validation", "/upload"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
 
@@ -49,11 +49,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     if (isAuthenticated && isEntryAuthRoute) {
-      router.replace(isProfileComplete ? "/dashboard" : "/profile");
+      router.replace(isProfileComplete && profile?.teamId ? "/dashboard" : "/profile");
       return;
     }
 
-    if (isAuthenticated && !isProfileComplete && !isProfileRoute) {
+    if (isAuthenticated && (!isProfileComplete || !profile?.teamId) && !isProfileRoute) {
       router.replace("/profile");
       return;
     }
@@ -70,6 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     isProfileComplete,
     isProfileRoute,
     isPublicRoute,
+    profile?.teamId,
     router
   ]);
 

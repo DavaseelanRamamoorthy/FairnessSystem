@@ -12,7 +12,6 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 import { varAlpha } from "minimal-shared/utils";
 
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -21,6 +20,7 @@ import GroupIcon from "@mui/icons-material/Group";
 import QueryStatsIcon from "@mui/icons-material/QueryStats";
 import RuleRoundedIcon from "@mui/icons-material/RuleRounded";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
+import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import { useAuth } from "@/app/context/AuthContext";
 import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 
@@ -35,6 +35,7 @@ const baseNavItems = [
 ];
 
 const adminNavItems = [
+  { title: "Configure", path: "/configure", icon: <ManageAccountsRoundedIcon /> },
   { title: "Planner", path: "/planner", icon: <EventAvailableRoundedIcon /> },
   { title: "Analytics", path: "/analytics", icon: <QueryStatsIcon /> },
   { title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> }
@@ -142,7 +143,7 @@ export default function Sidebar({ collapsed }: Props) {
                   ? {}
                   : {
                     "&:hover": {
-                      background: (theme: any) =>
+                      background: (theme) =>
                         `linear-gradient(135deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.08)} 0%, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.03)} 100%)`,
                       transform: collapsed ? "translateY(-1px)" : "translateX(3px)"
                     }

@@ -63,8 +63,10 @@ function buildProfileFormState(profile: ReturnType<typeof useAuth>["profile"]): 
 export default function ProfilePage() {
   const { profile, isLoading, isProfileComplete, refreshProfile } = useAuth();
   const [teamName, setTeamName] = useState<string | null>(null);
+  const [mappedPlayerName, setMappedPlayerName] = useState<string | null>(null);
   const [isTeamLoading, setIsTeamLoading] = useState(false);
   const [profileColumnsReady, setProfileColumnsReady] = useState<boolean | null>(null);
+  const [mappingColumnsReady, setMappingColumnsReady] = useState<boolean | null>(null);
   const [formValues, setFormValues] = useState<ProfileFormState>({
     firstName: "",
     lastName: "",
@@ -110,6 +112,33 @@ export default function ProfilePage() {
   useEffect(() => {
     let isActive = true;
 
+    const loadMappingSupport = async () => {
+      if (!profile?.id) {
+        setMappingColumnsReady(null);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("users")
+        .select("id, player_id")
+        .eq("id", profile.id)
+        .single();
+
+      if (isActive) {
+        setMappingColumnsReady(!error);
+      }
+    };
+
+    void loadMappingSupport();
+
+    return () => {
+      isActive = false;
+    };
+  }, [profile?.id]);
+
+  useEffect(() => {
+    let isActive = true;
+
     const loadTeamName = async () => {
       if (!profile?.teamId) {
         setTeamName(null);
@@ -138,6 +167,33 @@ export default function ProfilePage() {
     };
   }, [profile?.teamId]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadMappedPlayerName = async () => {
+      if (!profile?.playerId) {
+        setMappedPlayerName(null);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("players")
+        .select("name")
+        .eq("id", profile.playerId)
+        .maybeSingle();
+
+      if (isActive) {
+        setMappedPlayerName(data?.name ?? null);
+      }
+    };
+
+    void loadMappedPlayerName();
+
+    return () => {
+      isActive = false;
+    };
+  }, [profile?.playerId]);
+
   if (isLoading || !profile) {
     return (
       <Box
@@ -157,6 +213,12 @@ export default function ProfilePage() {
   const profileHeading = displayName || "Complete Your Profile";
   const profileLetter = (profile.firstName ?? profile.email).charAt(0).toUpperCase();
   const resolvedTeamName = teamName ?? (profile.teamId ? currentTeamName : "Not Assigned");
+  const resolvedPlayerName = mappedPlayerName ?? (profile.playerId ? "Loading..." : "Pending assignment");
+  const playerMappingSummary = mappingColumnsReady === null
+    ? "Checking..."
+    : mappingColumnsReady
+      ? resolvedPlayerName
+      : "Mapping not installed";
   const formattedPhone = [profile.phoneCountryCode, profile.phoneNumber].filter(Boolean).join(" ");
   const accountSummary = [
     { label: "Email", value: profile.email },
@@ -164,6 +226,7 @@ export default function ProfilePage() {
     { label: "Contact", value: formattedPhone || "Not set" },
     { label: "Role", value: profile.role === "admin" ? "Admin" : "Member" },
     { label: "Team", value: isTeamLoading ? "Loading..." : resolvedTeamName },
+    { label: "Squad Player", value: playerMappingSummary },
     { label: "Team ID", value: profile.teamId ?? "Not assigned" }
   ];
 
@@ -254,8 +317,16 @@ export default function ProfilePage() {
 
         {!profile.teamId && (
           <Alert severity="warning" variant="outlined">
-            This account does not have a team assignment yet. Set `team_id` in `public.users` to
-            unlock team-scoped access.
+            This account is still pending team assignment. An admin needs to set `team_id` in
+            `public.users` before team-scoped pages will unlock.
+          </Alert>
+        )}
+
+        {profile.teamId && mappingColumnsReady && !profile.playerId && (
+          <Alert severity="info" variant="outlined">
+            {profile.role === "admin"
+              ? "Your account is on the team, but it is still waiting for a squad-player mapping. Use Configure to finish the assignment."
+              : "Your account is on the team, but it is still waiting for an admin to map it to the matching squad player record."}
           </Alert>
         )}
 
@@ -430,6 +501,12 @@ export default function ProfilePage() {
                     {isProfileComplete && (
                       <Button component={Link} href="/dashboard" variant="outlined">
                         Back to Dashboard
+                      </Button>
+                    )}
+
+                    {profile.role === "admin" && profile.teamId && mappingColumnsReady && !profile.playerId && (
+                      <Button component={Link} href="/configure" variant="outlined">
+                        Open Configure
                       </Button>
                     )}
                   </Stack>

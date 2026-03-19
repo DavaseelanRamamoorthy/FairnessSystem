@@ -1,6 +1,7 @@
 import { currentTeamName } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
 import {
+  buildSquadIdentityBridge,
   getCurrentTeamId,
   mapSquadPlayerRecord,
   SquadPlayerRecord
@@ -413,13 +414,12 @@ function aggregatePlayerStats(
   bowlingStats: BowlingStatRow[]
 ) {
   const statsByPlayer = new Map<string, AggregatedPlayerStats>();
-  const fallbackNameToId = new Map<string, string>();
   const squadPlayerIds = new Set<string>();
+  const { uniquePlayerIdByName } = buildSquadIdentityBridge(squadPlayers);
 
   squadPlayers.forEach((player) => {
     statsByPlayer.set(player.id, createEmptyStats());
     squadPlayerIds.add(player.id);
-    fallbackNameToId.set(cleanName(player.name), player.id);
   });
 
   const inningsToMatchId = new Map(
@@ -434,7 +434,7 @@ function aggregatePlayerStats(
       row.player_id,
       row.player_name,
       squadPlayerIds,
-      fallbackNameToId
+      uniquePlayerIdByName
     );
     const playerStats = playerId ? statsByPlayer.get(playerId) : null;
 
@@ -457,7 +457,7 @@ function aggregatePlayerStats(
     const innings = inningsById.get(row.innings_id);
     const fallbackPlayerId =
       innings?.team_name === currentTeamName
-        ? fallbackNameToId.get(cleanName(row.player_name ?? ""))
+        ? uniquePlayerIdByName.get(cleanName(row.player_name ?? ""))
         : null;
     const playerId = row.player_id && squadPlayerIds.has(row.player_id)
       ? row.player_id
@@ -483,7 +483,7 @@ function aggregatePlayerStats(
     const innings = inningsById.get(row.innings_id);
     const fallbackPlayerId =
       innings?.team_name && innings.team_name !== currentTeamName
-        ? fallbackNameToId.get(cleanName(row.player_name ?? ""))
+        ? uniquePlayerIdByName.get(cleanName(row.player_name ?? ""))
         : null;
     const playerId = row.player_id && squadPlayerIds.has(row.player_id)
       ? row.player_id

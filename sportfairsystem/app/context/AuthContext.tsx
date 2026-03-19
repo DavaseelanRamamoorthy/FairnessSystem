@@ -13,6 +13,10 @@ import {
 import { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "@/app/services/supabaseClient";
+import {
+  getFriendlyAuthErrorMessage,
+  normalizeAuthEmail
+} from "@/app/services/authValidation";
 
 export type AuthRole = "admin" | "member";
 
@@ -21,6 +25,7 @@ export type AuthProfile = {
   email: string;
   role: AuthRole;
   teamId: string | null;
+  playerId: string | null;
   firstName: string | null;
   lastName: string | null;
   username: string | null;
@@ -52,6 +57,7 @@ type UserProfileRow = {
   email: string | null;
   role: string | null;
   team_id: string | null;
+  player_id?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   username?: string | null;
@@ -86,6 +92,7 @@ function mapUserProfile(row: UserProfileRow, fallbackEmail: string | undefined):
     email: row.email?.trim() || fallbackEmail || "",
     role: normalizeRole(row.role),
     teamId: row.team_id,
+    playerId: row.player_id ?? null,
     firstName: normalizeProfileText(row.first_name),
     lastName: normalizeProfileText(row.last_name),
     username: normalizeProfileText(row.username),
@@ -191,16 +198,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizeAuthEmail(email),
       password
     });
 
-    return error?.message ?? null;
+    return error ? getFriendlyAuthErrorMessage("signIn", error.message) : null;
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: normalizeAuthEmail(email),
       password,
       options: {
         emailRedirectTo: typeof window !== "undefined"
@@ -210,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return {
-      error: error?.message ?? null,
+      error: error ? getFriendlyAuthErrorMessage("signUp", error.message) : null,
       requiresEmailConfirmation: !data.session
     };
   }, []);

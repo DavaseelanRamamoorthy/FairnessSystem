@@ -13,7 +13,8 @@ type MatchRow = {
   match_date: string | null;
   team_a: string | null;
   team_b: string | null;
-  result: "Won" | "Lost" | "Unknown" | null;
+  result: string | null;
+  result_summary: string | null;
   match_code: string | null;
 };
 
@@ -135,6 +136,29 @@ function getFallbackKey(name: string | null | undefined) {
   return normalizedName ? `name:${normalizedName}` : null;
 }
 
+function getResultBucket(match: Pick<MatchRow, "result" | "result_summary">) {
+  const normalizedResult = (match.result ?? "").trim().toLowerCase();
+  const normalizedSummary = (match.result_summary ?? "").trim().toLowerCase();
+
+  if (normalizedResult === "won") {
+    return "Won";
+  }
+
+  if (normalizedResult === "lost") {
+    return "Lost";
+  }
+
+  if (normalizedResult === "draw" || normalizedSummary.includes("draw")) {
+    return "Draw";
+  }
+
+  if (normalizedResult === "tie" || normalizedSummary.includes("tie")) {
+    return "Tie";
+  }
+
+  return "Unknown";
+}
+
 async function getCurrentTeamId() {
   const { data: teamData, error: teamError } = await supabase
     .from("teams")
@@ -158,7 +182,7 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
   ] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, match_date, team_a, team_b, result, match_code")
+      .select("id, match_date, team_a, team_b, result, result_summary, match_code")
       .eq("team_id", teamId)
       .order("match_date", { ascending: false }),
     supabase
@@ -276,9 +300,16 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
     matchPlayers = (matchPlayersData ?? []) as MatchPlayerRow[];
   }
 
-  const wins = matches.filter((match) => match.result === "Won").length;
-  const losses = matches.filter((match) => match.result === "Lost").length;
-  const unknown = matches.filter((match) => match.result !== "Won" && match.result !== "Lost").length;
+  const resultCounts = matches.reduce((counts, match) => {
+    const bucket = getResultBucket(match);
+    counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  const wins = resultCounts.get("Won") ?? 0;
+  const losses = resultCounts.get("Lost") ?? 0;
+  const draws = resultCounts.get("Draw") ?? 0;
+  const ties = resultCounts.get("Tie") ?? 0;
+  const unknown = resultCounts.get("Unknown") ?? 0;
 
   const totalRuns = battingInningsRows.reduce((sum, innings) => sum + (innings.runs ?? 0), 0);
   const averageScore =
@@ -427,8 +458,7 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
       return right.benchRate - left.benchRate;
     });
 
-  const topBenchPlayers = benchPlayers
-    .slice(0, 5);
+  const topBenchPlayers = benchPlayers;
 
   return {
     seasons,
@@ -444,6 +474,8 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
     resultBreakdown: [
       { label: "Won", value: wins },
       { label: "Lost", value: losses },
+      { label: "Draw", value: draws },
+      { label: "Tie", value: ties },
       { label: "Unknown", value: unknown }
     ],
     matchTrend,

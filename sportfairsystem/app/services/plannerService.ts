@@ -18,6 +18,7 @@ export type PlannerWorkbook = {
 
 export type PlannerPlayer = PlayerSummary & {
   normalizedName: string;
+  normalizedMatchKeys: string[];
   normalizedTokens: string[];
   normalizedInitial: string | null;
   plannerRole: "batter" | "bowler" | "all-rounder";
@@ -200,11 +201,51 @@ function getPlannerScore(player: PlayerSummary) {
   return score;
 }
 
-function tokenizePlannerName(name: string) {
-  return cleanName(name)
-    .split(/\s+/)
-    .map((token) => token.trim())
+function normalizePlannerToken(token: string) {
+  return token.replace(/[^A-Z0-9]/g, "").trim();
+}
+
+function buildPlannerTokenVariants(name: string) {
+  const cleanedName = cleanName(name);
+  const tokenVariants = new Map<string, string[]>();
+  const defaultTokens = cleanedName
+    .split(/[\s,]+/)
+    .map((token) => normalizePlannerToken(token))
     .filter(Boolean);
+
+  if (defaultTokens.length > 0) {
+    tokenVariants.set(defaultTokens.join(" "), defaultTokens);
+  }
+
+  if (cleanedName.includes(",")) {
+    const commaParts = cleanedName
+      .split(",")
+      .map((part) =>
+        part
+          .split(/\s+/)
+          .map((token) => normalizePlannerToken(token))
+          .filter(Boolean)
+      )
+      .filter((tokens) => tokens.length > 0);
+
+    if (commaParts.length > 1) {
+      const reorderedTokens = [...commaParts.slice(1).flat(), ...commaParts[0]];
+
+      if (reorderedTokens.length > 0) {
+        tokenVariants.set(reorderedTokens.join(" "), reorderedTokens);
+      }
+    }
+  }
+
+  return Array.from(tokenVariants.values());
+}
+
+function tokenizePlannerName(name: string) {
+  return buildPlannerTokenVariants(name)[0] ?? [];
+}
+
+function getNormalizedPlannerName(name: string) {
+  return tokenizePlannerName(name).join(" ");
 }
 
 function getPlannerInitial(tokens: string[]) {
@@ -253,13 +294,21 @@ function dedupeAvailabilityNames(names: string[]) {
   return dedupedNames;
 }
 
-function findPlannerPlayerMatch(players: PlannerPlayer[], attendanceName: string) {
-  const normalizedAttendanceName = cleanName(attendanceName);
-  const attendanceTokens = tokenizePlannerName(attendanceName);
+function getUniquePlannerPlayer(candidates: PlannerPlayer[]) {
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function findPlannerPlayerMatchForTokens(players: PlannerPlayer[], attendanceTokens: string[]) {
+  if (attendanceTokens.length === 0) {
+    return null;
+  }
+
+  const normalizedAttendanceName = attendanceTokens.join(" ");
   const attendanceFirstToken = attendanceTokens[0] ?? "";
   const attendanceInitial = getPlannerInitial(attendanceTokens);
+  const exactMatches = players.filter((player) => player.normalizedMatchKeys.includes(normalizedAttendanceName));
+  const exactMatch = getUniquePlannerPlayer(exactMatches);
 
-  const exactMatch = players.find((player) => player.normalizedName === normalizedAttendanceName);
   if (exactMatch) {
     return exactMatch;
   }
@@ -276,16 +325,19 @@ function findPlannerPlayerMatch(players: PlannerPlayer[], attendanceName: string
   }
 
   if (attendanceInitial) {
-    const initialMatch = sameFirstTokenPlayers.find((player) => player.normalizedInitial === attendanceInitial);
+    const initialMatches = sameFirstTokenPlayers.filter((player) => player.normalizedInitial === attendanceInitial);
+    const initialMatch = getUniquePlannerPlayer(initialMatches);
+
     if (initialMatch) {
       return initialMatch;
     }
   }
 
-  const prefixMatch = sameFirstTokenPlayers.find((player) =>
+  const prefixMatches = sameFirstTokenPlayers.filter((player) =>
     normalizedAttendanceName.startsWith(player.normalizedName)
     || player.normalizedName.startsWith(normalizedAttendanceName)
   );
+  const prefixMatch = getUniquePlannerPlayer(prefixMatches);
 
   if (prefixMatch) {
     return prefixMatch;
@@ -328,12 +380,27 @@ function findPlannerPlayerMatch(players: PlannerPlayer[], attendanceName: string
   }
 
   if (attendanceInitial) {
-    const prefixedInitialMatch = firstTokenPrefixCandidates.find((player) => {
+    const prefixedInitialMatches = firstTokenPrefixCandidates.filter((player) => {
       return player.normalizedInitial === attendanceInitial || player.normalizedInitial === null;
     });
+    const prefixedInitialMatch = getUniquePlannerPlayer(prefixedInitialMatches);
 
     if (prefixedInitialMatch) {
       return prefixedInitialMatch;
+    }
+  }
+
+  return null;
+}
+
+function findPlannerPlayerMatch(players: PlannerPlayer[], attendanceName: string) {
+  const attendanceTokenVariants = buildPlannerTokenVariants(attendanceName);
+
+  for (const attendanceTokens of attendanceTokenVariants) {
+    const matchedPlayer = findPlannerPlayerMatchForTokens(players, attendanceTokens);
+
+    if (matchedPlayer) {
+      return matchedPlayer;
     }
   }
 
@@ -432,7 +499,8 @@ export function buildPlannerSuggestion(
   const enhancedPlayers: PlannerPlayer[] = players
     .map((player) => ({
       ...player,
-      normalizedName: cleanName(player.name),
+      normalizedName: getNormalizedPlannerName(player.name),
+      normalizedMatchKeys: buildPlannerTokenVariants(player.name).map((tokens) => tokens.join(" ")),
       normalizedTokens: tokenizePlannerName(player.name),
       normalizedInitial: getPlannerInitial(tokenizePlannerName(player.name)),
       plannerRole: getPlannerRole(player),

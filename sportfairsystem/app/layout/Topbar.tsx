@@ -74,6 +74,13 @@ function getPageHeader(pathname: string) {
     };
   }
 
+  if (pathname === "/feedback") {
+    return {
+      title: `${currentTeamName} Feedback`,
+      subtitle: "Structured product feedback from real team usage, with admin review and status tracking."
+    };
+  }
+
   if (pathname.startsWith("/players/")) {
     return {
       title: "Player Profile",

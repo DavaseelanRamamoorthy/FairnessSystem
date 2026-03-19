@@ -25,6 +25,7 @@ import RuleRoundedIcon from "@mui/icons-material/RuleRounded";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
+import FeedbackRoundedIcon from "@mui/icons-material/FeedbackRounded";
 import { useAuth } from "@/app/context/AuthContext";
 import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 import SettingsDrawer from "@/app/components/settings/SettingsDrawer";
@@ -36,7 +37,8 @@ interface Props {
 const baseNavItems = [
   { title: "Dashboard", path: "/dashboard", icon: <DashboardIcon /> },
   { title: "Matches", path: "/matches", icon: <SportsCricketIcon /> },
-  { title: "Players", path: "/players", icon: <GroupIcon /> }
+  { title: "Players", path: "/players", icon: <GroupIcon /> },
+  { title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> }
 ];
 
 const adminNavItems = [

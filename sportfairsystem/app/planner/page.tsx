@@ -27,6 +27,7 @@ import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
 import AutorenewRoundedIcon from "@mui/icons-material/AutorenewRounded";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
 import { formatName } from "@/app/services/formatname";
@@ -652,9 +653,9 @@ export default function PlannerPage() {
         />
 
         {!isAdmin && (
-          <Alert severity="info" variant="outlined">
+          <AutoHideAlert severity="info" variant="outlined">
             Planner is available to admin users only.
-          </Alert>
+          </AutoHideAlert>
         )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}

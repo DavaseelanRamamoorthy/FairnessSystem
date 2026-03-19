@@ -29,6 +29,7 @@ import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import PersonOffRoundedIcon from "@mui/icons-material/PersonOffRounded";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
 import { formatName } from "@/app/services/formatname";
@@ -211,20 +212,23 @@ export default function ConfigurePage() {
         />
 
         {!isAdmin && (
-          <Alert severity="info" variant="outlined">
+          <AutoHideAlert severity="info" variant="outlined">
             Player mapping is available to admin users only.
-          </Alert>
+          </AutoHideAlert>
         )}
 
         {mappingColumnsReady === false && (
-          <Alert severity="warning" variant="outlined">
-            Player-user mapping is not installed yet. Run `database/v1_admin_player_mapping.sql`
-            in Supabase before assigning users to squad players.
-          </Alert>
+          <AutoHideAlert severity="warning" variant="outlined">
+            Player-user mapping is not available in this environment yet.
+          </AutoHideAlert>
         )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-        {successMessage && <Alert severity="success">{successMessage}</Alert>}
+        {successMessage && (
+          <AutoHideAlert severity="success" resetKey={successMessage}>
+            {successMessage}
+          </AutoHideAlert>
+        )}
 
         {isAdmin && isLoading ? (
           <Box
@@ -263,9 +267,9 @@ export default function ConfigurePage() {
               </Grid>
             </Grid>
 
-            <Alert severity="info" variant="outlined">
+            <AutoHideAlert severity="info" variant="outlined">
               Admin-only workspace. This page shows team-assigned users whose `team_id` already matches the current team.
-            </Alert>
+            </AutoHideAlert>
 
             <Card variant="outlined" sx={{ borderRadius: 3 }}>
               <CardContent sx={{ p: 0 }}>
@@ -283,119 +287,212 @@ export default function ConfigurePage() {
                   </Stack>
                 </Box>
 
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ width: "24%" }}>User</TableCell>
-                        <TableCell sx={{ width: "12%" }}>Access</TableCell>
-                        <TableCell sx={{ width: "20%" }}>Current Status</TableCell>
-                        <TableCell sx={{ width: "28%" }}>Mapped Player</TableCell>
-                        <TableCell>Action</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {users.map((user) => {
-                        const draftPlayerId = draftMappings[user.id] ?? "";
-                        const currentPlayerId = user.playerId ?? "";
-                        const hasChanges = draftPlayerId !== currentPlayerId;
+                {users.length === 0 ? (
+                  <Box sx={{ px: 3, pb: 3 }}>
+                    <Typography color="text.secondary">
+                      No team-assigned users were found yet for this workspace.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    <Box sx={{ display: { xs: "block", md: "none" }, px: 2, pb: 2 }}>
+                      <Stack spacing={2}>
+                        {users.map((user) => {
+                          const draftPlayerId = draftMappings[user.id] ?? "";
+                          const currentPlayerId = user.playerId ?? "";
+                          const hasChanges = draftPlayerId !== currentPlayerId;
 
-                        return (
-                          <TableRow key={user.id}>
-                            <TableCell>
-                              <Stack spacing={0.35}>
-                                <Typography fontWeight={700}>
-                                  {user.displayName}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {user.email}
-                                </Typography>
-                                {user.username && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    @{user.username}
-                                  </Typography>
-                                )}
-                              </Stack>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={user.role === "admin" ? "Admin" : "Member"}
-                                color={user.role === "admin" ? "primary" : "default"}
-                                size="small"
-                                variant={user.role === "admin" ? "filled" : "outlined"}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              {user.playerId ? (
-                                <Chip
-                                  icon={<LinkRoundedIcon />}
-                                  label="Mapped"
-                                  color="success"
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              ) : (
-                                <Chip
-                                  icon={<PersonOffRoundedIcon />}
-                                  label="Pending"
-                                  color="warning"
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <FormControl size="small" fullWidth>
-                                <InputLabel id={`player-mapping-${user.id}`}>Player</InputLabel>
-                                <Select
-                                  labelId={`player-mapping-${user.id}`}
-                                  value={draftPlayerId}
-                                  label="Player"
-                                  onChange={(event) => handleDraftChange(user.id, event.target.value)}
-                                >
-                                  <MenuItem value="">Not Assigned</MenuItem>
-                                  {players.map((player) => {
-                                    const isTakenElsewhere = assignedPlayerIds.has(player.id)
-                                      && player.id !== draftPlayerId;
+                          return (
+                            <Card key={user.id} variant="outlined" sx={{ borderRadius: 2.5 }}>
+                              <CardContent sx={{ p: 2 }}>
+                                <Stack spacing={1.5}>
+                                  <Stack spacing={0.35}>
+                                    <Typography fontWeight={700}>
+                                      {user.displayName}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {user.email}
+                                    </Typography>
+                                    {user.username && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        @{user.username}
+                                      </Typography>
+                                    )}
+                                  </Stack>
 
-                                    return (
-                                      <MenuItem
-                                        key={player.id}
-                                        value={player.id}
-                                        disabled={isTakenElsewhere}
-                                      >
-                                        {formatName(player.name)}
-                                      </MenuItem>
-                                    );
-                                  })}
-                                </Select>
-                              </FormControl>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="contained"
-                                onClick={() => void handleSaveMapping(user.id)}
-                                disabled={!hasChanges || savingUserId === user.id}
-                              >
-                                {savingUserId === user.id ? "Saving..." : "Save"}
-                              </Button>
-                            </TableCell>
+                                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                    <Chip
+                                      label={user.role === "admin" ? "Admin" : "Member"}
+                                      color={user.role === "admin" ? "primary" : "default"}
+                                      size="small"
+                                      variant={user.role === "admin" ? "filled" : "outlined"}
+                                    />
+                                    {user.playerId ? (
+                                      <Chip
+                                        icon={<LinkRoundedIcon />}
+                                        label="Mapped"
+                                        color="success"
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    ) : (
+                                      <Chip
+                                        icon={<PersonOffRoundedIcon />}
+                                        label="Pending"
+                                        color="warning"
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+
+                                  <FormControl size="small" fullWidth>
+                                    <InputLabel id={`player-mapping-mobile-${user.id}`}>Player</InputLabel>
+                                    <Select
+                                      labelId={`player-mapping-mobile-${user.id}`}
+                                      value={draftPlayerId}
+                                      label="Player"
+                                      onChange={(event) => handleDraftChange(user.id, event.target.value)}
+                                    >
+                                      <MenuItem value="">Not Assigned</MenuItem>
+                                      {players.map((player) => {
+                                        const isTakenElsewhere = assignedPlayerIds.has(player.id)
+                                          && player.id !== draftPlayerId;
+
+                                        return (
+                                          <MenuItem
+                                            key={player.id}
+                                            value={player.id}
+                                            disabled={isTakenElsewhere}
+                                          >
+                                            {formatName(player.name)}
+                                          </MenuItem>
+                                        );
+                                      })}
+                                    </Select>
+                                  </FormControl>
+
+                                  <Button
+                                    fullWidth
+                                    variant="contained"
+                                    onClick={() => void handleSaveMapping(user.id)}
+                                    disabled={!hasChanges || savingUserId === user.id}
+                                  >
+                                    {savingUserId === user.id ? "Saving..." : "Save Mapping"}
+                                  </Button>
+                                </Stack>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </Stack>
+                    </Box>
+
+                    <TableContainer sx={{ display: { xs: "none", md: "block" } }}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ width: "24%" }}>User</TableCell>
+                            <TableCell sx={{ width: "12%" }}>Access</TableCell>
+                            <TableCell sx={{ width: "20%" }}>Current Status</TableCell>
+                            <TableCell sx={{ width: "28%" }}>Mapped Player</TableCell>
+                            <TableCell>Action</TableCell>
                           </TableRow>
-                        );
-                      })}
+                        </TableHead>
+                        <TableBody>
+                          {users.map((user) => {
+                            const draftPlayerId = draftMappings[user.id] ?? "";
+                            const currentPlayerId = user.playerId ?? "";
+                            const hasChanges = draftPlayerId !== currentPlayerId;
 
-                      {users.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5}>
-                            <Typography color="text.secondary">
-                              No team-assigned users were found yet for this workspace.
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                            return (
+                              <TableRow key={user.id}>
+                                <TableCell>
+                                  <Stack spacing={0.35}>
+                                    <Typography fontWeight={700}>
+                                      {user.displayName}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {user.email}
+                                    </Typography>
+                                    {user.username && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        @{user.username}
+                                      </Typography>
+                                    )}
+                                  </Stack>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={user.role === "admin" ? "Admin" : "Member"}
+                                    color={user.role === "admin" ? "primary" : "default"}
+                                    size="small"
+                                    variant={user.role === "admin" ? "filled" : "outlined"}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  {user.playerId ? (
+                                    <Chip
+                                      icon={<LinkRoundedIcon />}
+                                      label="Mapped"
+                                      color="success"
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                  ) : (
+                                    <Chip
+                                      icon={<PersonOffRoundedIcon />}
+                                      label="Pending"
+                                      color="warning"
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <FormControl size="small" fullWidth>
+                                    <InputLabel id={`player-mapping-${user.id}`}>Player</InputLabel>
+                                    <Select
+                                      labelId={`player-mapping-${user.id}`}
+                                      value={draftPlayerId}
+                                      label="Player"
+                                      onChange={(event) => handleDraftChange(user.id, event.target.value)}
+                                    >
+                                      <MenuItem value="">Not Assigned</MenuItem>
+                                      {players.map((player) => {
+                                        const isTakenElsewhere = assignedPlayerIds.has(player.id)
+                                          && player.id !== draftPlayerId;
+
+                                        return (
+                                          <MenuItem
+                                            key={player.id}
+                                            value={player.id}
+                                            disabled={isTakenElsewhere}
+                                          >
+                                            {formatName(player.name)}
+                                          </MenuItem>
+                                        );
+                                      })}
+                                    </Select>
+                                  </FormControl>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="contained"
+                                    onClick={() => void handleSaveMapping(user.id)}
+                                    disabled={!hasChanges || savingUserId === user.id}
+                                  >
+                                    {savingUserId === user.id ? "Saving..." : "Save"}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </>
+                )}
               </CardContent>
             </Card>
           </>

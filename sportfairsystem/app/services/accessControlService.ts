@@ -24,7 +24,7 @@ export async function getCurrentUserAccess() {
 
   if (error || !data) {
     throw new Error(
-      "Your user access profile is not ready yet. Run database/v1_auth_access_control.sql and confirm your public.users row exists."
+      "Your user access profile is not ready yet."
     );
   }
 

@@ -18,6 +18,7 @@ import {
 import { alpha } from "@mui/material/styles";
 import LoginRoundedIcon from "@mui/icons-material/LoginRounded";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
 import { normalizeAuthEmail, validateAuthEmail } from "@/app/services/authValidation";
@@ -117,9 +118,9 @@ function LoginPageContent() {
     <LoginPageShell>
       <Stack spacing={2.5} component="form" onSubmit={handleSubmit}>
         {passwordResetSuccess && (
-          <Alert severity="success">
+          <AutoHideAlert severity="success" resetKey="password-reset-success">
             Password updated successfully. Sign in with your new password.
-          </Alert>
+          </AutoHideAlert>
         )}
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
@@ -179,11 +180,6 @@ function LoginPageContent() {
         >
           Forgot your password?
         </MuiLink>
-
-        <Alert severity="info" variant="outlined">
-          After sign-in, your access is controlled by your `public.users` role and team
-          mapping. Run `database/v1_auth_access_control.sql` before testing this flow.
-        </Alert>
       </Stack>
     </LoginPageShell>
   );

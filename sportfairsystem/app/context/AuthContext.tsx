@@ -107,14 +107,14 @@ function getProfileLoadErrorMessage(error: { code?: string | null; message?: str
   }
 
   if (error.code === "PGRST116") {
-    return "Signed in, but no matching app user profile row exists yet. Run database/v1_auth_access_control.sql and confirm the auth-to-public.users sync trigger is installed.";
+    return "Signed in, but no matching app user profile is available for this account yet.";
   }
 
   if (error.code === "42P01") {
-    return "Signed in, but the public.users table is not available yet. Run database/v1_auth_access_control.sql before testing auth.";
+    return "Signed in, but the workspace user profile source is not available yet.";
   }
 
-  return "Signed in, but the app user profile could not be loaded. Run database/v1_auth_access_control.sql and confirm a users row exists for this account.";
+  return "Signed in, but the app user profile could not be loaded for this account.";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

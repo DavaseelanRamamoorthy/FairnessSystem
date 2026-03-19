@@ -18,6 +18,7 @@ import {
 import { alpha } from "@mui/material/styles";
 import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -135,7 +136,11 @@ export default function SignupPage() {
         <CardContent sx={{ p: 3 }}>
           <Stack spacing={2.5} component="form" onSubmit={handleSubmit}>
             {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-            {successMessage && <Alert severity="success">{successMessage}</Alert>}
+            {successMessage && (
+              <AutoHideAlert severity="success" resetKey={successMessage}>
+                {successMessage}
+              </AutoHideAlert>
+            )}
 
             <TextField
               label="Email"

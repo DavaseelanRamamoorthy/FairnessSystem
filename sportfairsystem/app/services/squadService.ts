@@ -194,7 +194,7 @@ export async function updateSquadPlayerMetadata(
 
   if (!(await hasSquadMetadataColumns())) {
     throw new Error(
-      "Squad metadata columns are not installed yet. Run database/phase4_squad_metadata.sql first."
+      "Squad metadata editing is not available in this environment yet."
     );
   }
 

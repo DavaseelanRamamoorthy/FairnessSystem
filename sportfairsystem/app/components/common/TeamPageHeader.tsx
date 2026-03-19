@@ -140,10 +140,24 @@ export default function TeamPageHeader({
             <Typography variant="overline" sx={{ color: alpha("#FFFFFF", 0.72) }}>
               {eyebrow}
             </Typography>
-            <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: 1 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 800,
+                letterSpacing: { xs: 0.4, md: 1 },
+                fontSize: { xs: "1.9rem", sm: "2.3rem", md: "3rem" },
+                lineHeight: { xs: 1.1, md: 1.167 }
+              }}
+            >
               {title}
             </Typography>
-            <Typography variant="body2" sx={{ color: alpha("#FFFFFF", 0.76) }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: alpha("#FFFFFF", 0.76),
+                maxWidth: { xs: "100%", md: 760 }
+              }}
+            >
               {description}
             </Typography>
           </Stack>

@@ -190,6 +190,9 @@ const MuiDialog: Components<Theme>['MuiDialog'] = {
 const MuiTableContainer: Components<Theme>['MuiTableContainer'] = {
   styleOverrides: {
     root: ({ theme }) => ({
+      width: '100%',
+      overflowX: 'auto',
+      WebkitOverflowScrolling: 'touch',
       borderRadius:
         typeof theme.shape.borderRadius === 'number'
           ? theme.shape.borderRadius * 1.5
@@ -210,6 +213,9 @@ const MuiTableCell: Components<Theme>['MuiTableCell'] = {
       padding: theme.spacing(1.75, 2),
       borderBottomColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.12),
       verticalAlign: 'top',
+      [theme.breakpoints.down('sm')]: {
+        padding: theme.spacing(1.25, 1.25),
+      },
     }),
     head: ({ theme }) => ({
       fontSize: theme.typography.pxToRem(13),

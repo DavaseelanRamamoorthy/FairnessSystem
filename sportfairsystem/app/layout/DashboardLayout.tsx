@@ -2,19 +2,32 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { varAlpha } from "minimal-shared/utils";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
+import ReleaseIntroDialog from "@/app/components/common/ReleaseIntroDialog";
 import { useAuth } from "@/app/context/AuthContext";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
 const PUBLIC_ROUTES = ["/login", "/signup", "/reset-password"];
 const ADMIN_ONLY_ROUTES = ["/configure", "/planner", "/analytics", "/validation", "/upload"];
+const RELEASE_INTRO_VERSION = "v1.0";
+
+function getReleaseIntroStorageKey(userId: string) {
+  return `sportfairsystem:intro:${RELEASE_INTRO_VERSION}:dismissed:${userId}`;
+}
+
+function getReleaseIntroSessionKey(userId: string) {
+  return `sportfairsystem:intro:${RELEASE_INTRO_VERSION}:seen:${userId}`;
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   const [collapsed, setCollapsed] = useState(false);
+  const [dontShowReleaseIntroAgain, setDontShowReleaseIntroAgain] = useState(false);
+  const [, setReleaseIntroVisibilityVersion] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
   const {
@@ -74,6 +87,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router
   ]);
 
+  const isReleaseIntroOpen = (() => {
+    if (typeof window === "undefined" || !profile?.id || isPublicRoute) {
+      return false;
+    }
+
+    const persistentKey = getReleaseIntroStorageKey(profile.id);
+    const sessionKey = getReleaseIntroSessionKey(profile.id);
+    const isDismissedPermanently = window.localStorage.getItem(persistentKey) === "true";
+    const isSeenThisSession = window.sessionStorage.getItem(sessionKey) === "true";
+
+    return !isDismissedPermanently && !isSeenThisSession;
+  })();
+
+  const handleCloseReleaseIntro = () => {
+    if (!profile?.id || typeof window === "undefined") {
+      setReleaseIntroVisibilityVersion((current) => current + 1);
+      setDontShowReleaseIntroAgain(false);
+      return;
+    }
+
+    const persistentKey = getReleaseIntroStorageKey(profile.id);
+    const sessionKey = getReleaseIntroSessionKey(profile.id);
+
+    if (dontShowReleaseIntroAgain) {
+      window.localStorage.setItem(persistentKey, "true");
+    }
+
+    window.sessionStorage.setItem(sessionKey, "true");
+    setDontShowReleaseIntroAgain(false);
+    setReleaseIntroVisibilityVersion((current) => current + 1);
+  };
+
   if (isPublicRoute) {
     return <>{children}</>;
   }
@@ -109,12 +154,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       >
         <Stack spacing={2.5} sx={{ width: "100%", maxWidth: 560 }}>
-          <Alert severity="warning" variant="outlined">
+          <AutoHideAlert severity="warning" variant="outlined">
             {profileError ?? "Signed in, but the application profile is not ready yet."}
-          </Alert>
+          </AutoHideAlert>
           <Typography color="text.secondary">
-            This usually means the auth migration has not been applied yet, or the signed-in user
-            does not have a mapped row in `public.users`.
+            This usually means the signed-in account is missing required workspace access or profile data.
           </Typography>
           <Stack direction="row" spacing={1.5}>
             <Button variant="contained" onClick={() => router.replace("/login")}>
@@ -130,44 +174,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        minHeight: "100vh",
-        height: isMatchesPage ? "100vh" : "auto",
-        overflow: isMatchesPage ? "hidden" : "visible"
-      }}
-    >
-      <Sidebar collapsed={collapsed} />
+    <>
+      <ReleaseIntroDialog
+        open={isReleaseIntroOpen}
+        dontShowAgain={dontShowReleaseIntroAgain}
+        onDontShowAgainChange={setDontShowReleaseIntroAgain}
+        onContinue={handleCloseReleaseIntro}
+      />
+
       <Box
         sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          minHeight: 0,
           display: "flex",
-          flexDirection: "column",
-          ml: collapsed ? "80px" : "260px",
-          transition: "margin-left .2s"
+          minHeight: "100vh",
+          height: isMatchesPage ? "100vh" : "auto",
+          overflow: isMatchesPage ? "hidden" : "visible"
         }}
       >
-        <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
-
+        <Sidebar collapsed={collapsed} />
         <Box
           sx={{
-            flex: 1,
+            flexGrow: 1,
+            minWidth: 0,
             minHeight: 0,
-            p: 4,
-            overflow: isMatchesPage ? "hidden" : "auto",
-            bgcolor: "background.default",
-            backgroundImage: (theme) => [
-              `linear-gradient(180deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.12)} 0%, transparent 28%)`,
-              `radial-gradient(circle at top right, ${varAlpha(theme.vars.palette.secondary.mainChannel, 0.08)}, transparent 24%)`
-            ].join(", ")
+            display: "flex",
+            flexDirection: "column",
+            ml: collapsed ? "80px" : "260px",
+            transition: "margin-left .2s"
           }}
         >
-          {children}
+          <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
+
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              p: 4,
+              overflow: isMatchesPage ? "hidden" : "auto",
+              bgcolor: "background.default",
+              backgroundImage: (theme) => [
+                `linear-gradient(180deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.12)} 0%, transparent 28%)`,
+                `radial-gradient(circle at top right, ${varAlpha(theme.vars.palette.secondary.mainChannel, 0.08)}, transparent 24%)`
+              ].join(", ")
+            }}
+          >
+            {children}
+          </Box>
         </Box>
       </Box>
-    </Box>
+    </>
   );
 }

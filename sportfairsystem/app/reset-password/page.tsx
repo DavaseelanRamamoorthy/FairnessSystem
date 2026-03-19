@@ -18,6 +18,7 @@ import {
 import { alpha } from "@mui/material/styles";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
 import { supabase } from "@/app/services/supabaseClient";
@@ -160,7 +161,11 @@ export default function ResetPasswordPage() {
             onSubmit={isPasswordUpdateMode ? handlePasswordUpdate : handleEmailResetRequest}
           >
             {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-            {successMessage && <Alert severity="success">{successMessage}</Alert>}
+            {successMessage && (
+              <AutoHideAlert severity="success" resetKey={successMessage}>
+                {successMessage}
+              </AutoHideAlert>
+            )}
 
             {isPasswordUpdateMode ? (
               <>

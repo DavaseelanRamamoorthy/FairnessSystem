@@ -25,6 +25,7 @@ import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
 import { currentTeamName } from "@/app/config/teamConfig";
@@ -242,7 +243,7 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     if (profileColumnsReady !== true) {
       setErrorMessage(
-        "Profile fields are not installed yet. Run database/v1_user_profile_fields.sql first."
+        "Profile editing is not available in this environment yet."
       );
       return;
     }
@@ -310,35 +311,38 @@ export default function ProfilePage() {
         />
 
         {!isProfileComplete && (
-          <Alert severity="info" variant="outlined">
+          <AutoHideAlert severity="info" variant="outlined">
             Complete your profile details before continuing to the rest of the workspace.
-          </Alert>
+          </AutoHideAlert>
         )}
 
         {!profile.teamId && (
-          <Alert severity="warning" variant="outlined">
+          <AutoHideAlert severity="warning" variant="outlined">
             This account is still pending team assignment. An admin needs to set `team_id` in
             `public.users` before team-scoped pages will unlock.
-          </Alert>
+          </AutoHideAlert>
         )}
 
         {profile.teamId && mappingColumnsReady && !profile.playerId && (
-          <Alert severity="info" variant="outlined">
+          <AutoHideAlert severity="info" variant="outlined">
             {profile.role === "admin"
               ? "Your account is on the team, but it is still waiting for a squad-player mapping. Use Configure to finish the assignment."
               : "Your account is on the team, but it is still waiting for an admin to map it to the matching squad player record."}
-          </Alert>
+          </AutoHideAlert>
         )}
 
         {profileColumnsReady === false && (
-          <Alert severity="warning" variant="outlined">
-            The new profile fields are not installed yet. Run `database/v1_user_profile_fields.sql`
-            in Supabase before saving first name, last name, username, or contact details.
-          </Alert>
+          <AutoHideAlert severity="warning" variant="outlined">
+            Profile editing is not available in this environment yet.
+          </AutoHideAlert>
         )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-        {successMessage && <Alert severity="success">{successMessage}</Alert>}
+        {successMessage && (
+          <AutoHideAlert severity="success" resetKey={successMessage}>
+            {successMessage}
+          </AutoHideAlert>
+        )}
 
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 4.5 }}>

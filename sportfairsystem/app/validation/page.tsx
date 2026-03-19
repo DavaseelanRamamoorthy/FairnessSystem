@@ -31,6 +31,7 @@ import LinkOffRoundedIcon from "@mui/icons-material/LinkOffRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import GavelRoundedIcon from "@mui/icons-material/GavelRounded";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import PaginationFooter from "@/app/components/common/PaginationFooter";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import {
@@ -88,8 +89,8 @@ const RELEASE_LOCK_CHECKS: ReleaseLockItem[] = [
   },
   {
     key: "database-migrations",
-    title: "V1 database migrations are applied",
-    detail: "Confirm v1_team_rls.sql, v1_auth_access_control.sql, v1_user_profile_fields.sql, and v1_admin_player_mapping.sql are already applied in Supabase."
+    title: "Core workspace data setup is ready",
+    detail: "Confirm the release environment already has the required access, profile, and mapping support in place."
   },
   {
     key: "validation-scope",
@@ -381,13 +382,17 @@ export default function ValidationPage() {
         />
 
         {!isAdmin && (
-          <Alert severity="info" variant="outlined">
+          <AutoHideAlert severity="info" variant="outlined">
             Validation workspace is available to admin users only.
-          </Alert>
+          </AutoHideAlert>
         )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-        {successMessage && <Alert severity="success">{successMessage}</Alert>}
+        {successMessage && (
+          <AutoHideAlert severity="success" resetKey={successMessage}>
+            {successMessage}
+          </AutoHideAlert>
+        )}
 
         {isAdmin && isLoading ? (
           <Box
@@ -461,10 +466,10 @@ export default function ValidationPage() {
               </Box>
             </Box>
 
-            <Alert severity="info" variant="outlined">
+            <AutoHideAlert severity="info" variant="outlined">
               XI reconstruction diagnostics are hidden for now and tracked as future scope.
               {snapshot.metrics.xiWarnings > 0 ? ` ${snapshot.metrics.xiWarnings} hidden warning(s) remain in this scope.` : ""}
-            </Alert>
+            </AutoHideAlert>
 
             <Stack spacing={3}>
               <ValidationSectionCard

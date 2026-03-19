@@ -51,6 +51,7 @@ import {
   AnalyticsSnapshot,
   getAnalyticsSnapshot
 } from "@/app/services/analyticsService";
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import PaginationFooter from "@/app/components/common/PaginationFooter";
 import {
   numericTableCellSx,
@@ -203,9 +204,9 @@ export default function AnalyticsPage() {
     <Container maxWidth="xl">
       <Stack spacing={4}>
         {!isAdmin && (
-          <Alert severity="info" variant="outlined">
+          <AutoHideAlert severity="info" variant="outlined">
             Analytics is available to admin users only.
-          </Alert>
+          </AutoHideAlert>
         )}
 
         {isAdmin && (

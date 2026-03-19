@@ -28,6 +28,7 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import FlashOnRoundedIcon from "@mui/icons-material/FlashOnRounded";
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 
+import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import SquadMetadataDialog from "@/app/components/players/SquadMetadataDialog";
 import { useAuth } from "@/app/context/AuthContext";
 import { squadAdminEnabled } from "@/app/config/teamConfig";
@@ -319,20 +320,22 @@ export default function PlayersPage() {
         </Stack>
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-        {successMessage && <Alert severity="success">{successMessage}</Alert>}
+        {successMessage && (
+          <AutoHideAlert severity="success" resetKey={successMessage}>
+            {successMessage}
+          </AutoHideAlert>
+        )}
 
         {squadAdminEnabled && metadataColumnsReady === false && (
-          <Alert severity="warning" variant="outlined">
-            Squad admin UI is enabled, but the database columns are not ready yet. Run
-            `database/phase4_squad_metadata.sql` before editing captain, wicket keeper, or role
-            tags.
-          </Alert>
+          <AutoHideAlert severity="warning" variant="outlined">
+            Squad metadata editing is not available in this environment yet.
+          </AutoHideAlert>
         )}
 
         {showAdminControls && (
-          <Alert severity="info" variant="outlined">
+          <AutoHideAlert severity="info" variant="outlined">
             Squad metadata is editable here for the current team.
-          </Alert>
+          </AutoHideAlert>
         )}
 
         {isLoading ? (

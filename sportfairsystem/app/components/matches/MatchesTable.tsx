@@ -252,7 +252,7 @@ export default function MatchesTable<T extends MatchRow>({
 
         <Box
           sx={{
-            display: "grid",
+            display: { xs: "none", sm: "grid" },
             gridTemplateColumns: "1.1fr 1.4fr 0.8fr",
             gap: 1.5,
             px: 1.5,
@@ -320,7 +320,7 @@ export default function MatchesTable<T extends MatchRow>({
                   onClick={() => onSelectMatch(match)}
                   sx={{
                     display: "grid",
-                    gridTemplateColumns: "1.1fr 1.4fr 0.8fr",
+                    gridTemplateColumns: { xs: "minmax(0, 1fr) auto", sm: "1.1fr 1.4fr 0.8fr" },
                     gap: 1.5,
                     alignItems: "center",
                     px: 1.5,
@@ -335,9 +335,27 @@ export default function MatchesTable<T extends MatchRow>({
                   }}
                 >
 
-                  <Typography variant="body2" color="text.secondary">
-                    {match.match_date ? formatDate(match.match_date) : "-"}
-                  </Typography>
+                  <Stack
+                    spacing={0.15}
+                    sx={{
+                      gridColumn: { xs: "1 / 2", sm: "auto" },
+                      gridRow: { xs: "2 / 3", sm: "auto" }
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      {match.match_date ? formatDate(match.match_date) : "-"}
+                    </Typography>
+
+                    {match.match_code && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: { xs: "block", sm: "none" } }}
+                      >
+                        {match.match_code}
+                      </Typography>
+                    )}
+                  </Stack>
 
                   <Stack spacing={0.25} sx={{ minWidth: 0 }}>
                     <Typography
@@ -353,13 +371,23 @@ export default function MatchesTable<T extends MatchRow>({
                     </Typography>
 
                     {match.match_code && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: { xs: "none", sm: "block" } }}
+                      >
                         {match.match_code}
                       </Typography>
                     )}
                   </Stack>
 
-                  <Box>
+                  <Box
+                    sx={{
+                      gridColumn: { xs: "2 / 3", sm: "auto" },
+                      gridRow: { xs: "1 / span 2", sm: "auto" },
+                      alignSelf: { xs: "center", sm: "auto" }
+                    }}
+                  >
                     <Chip
                       label={displayResult.label}
                       color={displayResult.color}

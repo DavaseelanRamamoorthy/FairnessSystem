@@ -126,7 +126,7 @@ export async function getTeamUserMappings() {
 
   if (!(await hasPlayerUserMappingSupport())) {
     throw new Error(
-      "Player-user mapping is not installed yet. Run database/v1_admin_player_mapping.sql first."
+      "Player-user mapping is not available in this environment yet."
     );
   }
 
@@ -178,7 +178,7 @@ export async function updateTeamUserPlayerMapping(userId: string, playerId: stri
 
   if (!(await hasPlayerUserMappingSupport())) {
     throw new Error(
-      "Player-user mapping is not installed yet. Run database/v1_admin_player_mapping.sql first."
+      "Player-user mapping is not available in this environment yet."
     );
   }
 

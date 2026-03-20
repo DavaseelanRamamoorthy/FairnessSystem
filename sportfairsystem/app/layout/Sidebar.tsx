@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 
 import {
   Avatar,
@@ -17,45 +16,21 @@ import {
 import { alpha } from "@mui/material/styles";
 import { varAlpha } from "minimal-shared/utils";
 
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import SportsCricketIcon from "@mui/icons-material/SportsCricket";
-import GroupIcon from "@mui/icons-material/Group";
-import QueryStatsIcon from "@mui/icons-material/QueryStats";
-import RuleRoundedIcon from "@mui/icons-material/RuleRounded";
-import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
-import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
-import FeedbackRoundedIcon from "@mui/icons-material/FeedbackRounded";
 import { useAuth } from "@/app/context/AuthContext";
 import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
-import SettingsDrawer from "@/app/components/settings/SettingsDrawer";
+import { getDesktopNavItems, isNavPathActive } from "@/app/layout/navigationConfig";
 
 interface Props {
   collapsed?: boolean;
+  onOpenSettings: () => void;
 }
 
-const baseNavItems = [
-  { title: "Dashboard", path: "/dashboard", icon: <DashboardIcon /> },
-  { title: "Matches", path: "/matches", icon: <SportsCricketIcon /> },
-  { title: "Players", path: "/players", icon: <GroupIcon /> },
-  { title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> }
-];
-
-const adminNavItems = [
-  { title: "Configure", path: "/configure", icon: <ManageAccountsRoundedIcon /> },
-  { title: "Planner", path: "/planner", icon: <EventAvailableRoundedIcon /> },
-  { title: "Analytics", path: "/analytics", icon: <QueryStatsIcon /> },
-  { title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> }
-];
-
-export default function Sidebar({ collapsed }: Props) {
+export default function Sidebar({ collapsed, onOpenSettings }: Props) {
 
   const pathname = usePathname();
   const { isAdmin, profile } = useAuth();
-  const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
-  const navItems = isAdmin
-    ? [...baseNavItems, ...adminNavItems]
-    : baseNavItems;
+  const navItems = getDesktopNavItems(isAdmin);
   const profileLetter = (profile?.firstName ?? profile?.email ?? "P").charAt(0).toUpperCase();
   const profileDisplayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim()
     || profile?.username
@@ -129,7 +104,7 @@ export default function Sidebar({ collapsed }: Props) {
 
         {navItems.map((item) => {
 
-          const active = pathname === item.path;
+          const active = isNavPathActive(pathname, item.path);
 
           const listItem = (
             <ListItemButton
@@ -247,7 +222,7 @@ export default function Sidebar({ collapsed }: Props) {
             disableHoverListener={!collapsed}
           >
             <ListItemButton
-              onClick={() => setIsSettingsDrawerOpen(true)}
+              onClick={onOpenSettings}
               sx={{
                 borderRadius: collapsed ? 3 : 2.5,
                 justifyContent: collapsed ? "center" : "flex-start",
@@ -302,11 +277,6 @@ export default function Sidebar({ collapsed }: Props) {
           </Tooltip>
         </Box>
       </Box>
-
-      <SettingsDrawer
-        open={isSettingsDrawerOpen}
-        onClose={() => setIsSettingsDrawerOpen(false)}
-      />
     </>
 
   );

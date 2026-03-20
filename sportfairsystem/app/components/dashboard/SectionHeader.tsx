@@ -8,8 +8,8 @@ interface Props {
 
 export default function SectionHeader({ title }: Props) {
   return (
-    <Stack sx={{ mb: 2 }}>
-      <Typography variant="h6">
+    <Stack sx={{ mb: { xs: 1.5, sm: 2 } }}>
+      <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
         {title}
       </Typography>
     </Stack>

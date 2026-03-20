@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, Stack, Typography, useMediaQuery, useTheme } from "@mui/material";
 import { varAlpha } from "minimal-shared/utils";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import ReleaseIntroDialog from "@/app/components/common/ReleaseIntroDialog";
+import SettingsDrawer from "@/app/components/settings/SettingsDrawer";
 import { useAuth } from "@/app/context/AuthContext";
+import MobileBottomNav from "./MobileBottomNav";
+import MobileMoreSheet from "./MobileMoreSheet";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
@@ -26,10 +29,14 @@ function getReleaseIntroSessionKey(userId: string) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
+  const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
   const [dontShowReleaseIntroAgain, setDontShowReleaseIntroAgain] = useState(false);
   const [, setReleaseIntroVisibilityVersion] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
+  const theme = useTheme();
+  const isMobileShell = useMediaQuery(theme.breakpoints.down("md"), { noSsr: true });
   const {
     isLoading,
     isAuthenticated,
@@ -40,6 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     signOut
   } = useAuth();
   const isMatchesPage = pathname === "/matches";
+  const useDesktopMatchesLayout = !isMobileShell && isMatchesPage;
   const isEntryAuthRoute = pathname === "/login" || pathname === "/signup";
   const isProfileRoute = pathname === "/profile";
   const isPublicRoute = useMemo(
@@ -186,11 +194,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         sx={{
           display: "flex",
           minHeight: "100vh",
-          height: isMatchesPage ? "100vh" : "auto",
-          overflow: isMatchesPage ? "hidden" : "visible"
+          height: useDesktopMatchesLayout ? "100vh" : "auto",
+          overflow: useDesktopMatchesLayout ? "hidden" : "visible"
         }}
       >
-        <Sidebar collapsed={collapsed} />
+        {!isMobileShell && (
+          <Sidebar
+            collapsed={collapsed}
+            onOpenSettings={() => setIsSettingsDrawerOpen(true)}
+          />
+        )}
         <Box
           sx={{
             flexGrow: 1,
@@ -198,18 +211,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             minHeight: 0,
             display: "flex",
             flexDirection: "column",
-            ml: collapsed ? "80px" : "260px",
-            transition: "margin-left .2s"
+            ml: !isMobileShell ? (collapsed ? "80px" : "260px") : 0,
+            transition: !isMobileShell ? "margin-left .2s" : undefined
           }}
         >
-          <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
+          {!isMobileShell && (
+            <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
+          )}
 
           <Box
             sx={{
               flex: 1,
               minHeight: 0,
-              p: 4,
-              overflow: isMatchesPage ? "hidden" : "auto",
+              px: { xs: 2, sm: 2.5, md: 4 },
+              pt: { xs: 2, sm: 2.5, md: 4 },
+              pb: isMobileShell
+                ? "calc(88px + env(safe-area-inset-bottom))"
+                : 4,
+              overflow: useDesktopMatchesLayout ? "hidden" : "auto",
               bgcolor: "background.default",
               backgroundImage: (theme) => [
                 `linear-gradient(180deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.12)} 0%, transparent 28%)`,
@@ -221,6 +240,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Box>
         </Box>
       </Box>
+
+      {isMobileShell && (
+        <>
+          {!isMobileMoreOpen && (
+            <MobileBottomNav
+              isAdmin={isAdmin}
+              onOpenMore={() => setIsMobileMoreOpen(true)}
+            />
+          )}
+
+          <MobileMoreSheet
+            open={isMobileMoreOpen}
+            isAdmin={isAdmin}
+            onClose={() => setIsMobileMoreOpen(false)}
+            onOpenSettings={() => setIsSettingsDrawerOpen(true)}
+          />
+        </>
+      )}
+
+      <SettingsDrawer
+        open={isSettingsDrawerOpen}
+        onClose={() => setIsSettingsDrawerOpen(false)}
+      />
     </>
   );
 }

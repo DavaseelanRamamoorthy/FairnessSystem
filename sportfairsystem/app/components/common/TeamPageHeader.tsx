@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 
-import { Card, CardContent, Stack, Typography } from "@mui/material";
+import { Box, Card, CardContent, Stack, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { varAlpha } from "minimal-shared/utils";
 
@@ -26,6 +26,7 @@ export default function TeamPageHeader({
       variant="outlined"
       sx={{
         borderRadius: 4,
+        minWidth: 0,
         color: "common.white",
         background: "linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 58%, var(--app-header-end) 100%)",
         borderColor: (theme) => varAlpha(theme.vars.palette.error.mainChannel, 0.18),
@@ -124,8 +125,8 @@ export default function TeamPageHeader({
     >
       <CardContent
         sx={{
-          px: { xs: 3, md: 4 },
-          py: 3.5,
+          px: { xs: 2.25, sm: 3, md: 4 },
+          py: { xs: 2.5, sm: 3, md: 3.5 },
           position: "relative",
           zIndex: 1
         }}
@@ -134,9 +135,9 @@ export default function TeamPageHeader({
           direction={{ xs: "column", md: "row" }}
           justifyContent="space-between"
           alignItems={{ xs: "flex-start", md: "center" }}
-          spacing={2}
+          spacing={{ xs: 2, md: 2.5 }}
         >
-          <Stack spacing={1}>
+          <Stack spacing={0.85} sx={{ minWidth: 0 }}>
             <Typography variant="overline" sx={{ color: alpha("#FFFFFF", 0.72) }}>
               {eyebrow}
             </Typography>
@@ -145,8 +146,9 @@ export default function TeamPageHeader({
               sx={{
                 fontWeight: 800,
                 letterSpacing: { xs: 0.4, md: 1 },
-                fontSize: { xs: "1.9rem", sm: "2.3rem", md: "3rem" },
-                lineHeight: { xs: 1.1, md: 1.167 }
+                fontSize: { xs: "1.55rem", sm: "2.1rem", md: "3rem" },
+                lineHeight: { xs: 1.08, md: 1.167 },
+                wordBreak: "break-word"
               }}
             >
               {title}
@@ -155,14 +157,19 @@ export default function TeamPageHeader({
               variant="body2"
               sx={{
                 color: alpha("#FFFFFF", 0.76),
-                maxWidth: { xs: "100%", md: 760 }
+                maxWidth: { xs: "100%", md: 760 },
+                lineHeight: 1.45
               }}
             >
               {description}
             </Typography>
           </Stack>
 
-          {action}
+          {action && (
+            <Box sx={{ width: { xs: "100%", md: "auto" } }}>
+              {action}
+            </Box>
+          )}
         </Stack>
       </CardContent>
     </Card>

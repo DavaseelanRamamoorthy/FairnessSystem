@@ -81,6 +81,18 @@ type ReleaseLockItem = {
   detail: string;
 };
 
+type ScopeDetailItem = {
+  key: string;
+  title: string;
+  detail: string;
+};
+
+type ProjectSummaryItem = {
+  key: string;
+  title: string;
+  detail: string;
+};
+
 const RELEASE_LOCK_CHECKS: ReleaseLockItem[] = [
   {
     key: "quality-gates",
@@ -104,17 +116,79 @@ const RELEASE_LOCK_CHECKS: ReleaseLockItem[] = [
   }
 ];
 
-const FUTURE_SCOPE_ITEMS = [
-  "team creation flow",
-  "invite flow",
-  "join request flow",
-  "full membership model refactor",
-  "multi-team support",
-  "expanded ownership hierarchy",
-  "major auth product redesign",
-  "new major modules",
-  "non-blocking feature ideas"
-] as const;
+const PROJECT_SUMMARY_ITEMS: ProjectSummaryItem[] = [
+  {
+    key: "platform-state",
+    title: "SportFairSystem is live as a stable internal V1.0 platform",
+    detail: "The current release is a production-facing internal cricket operations system that connects scorecards, squad identity, planning, validation, analytics, and role-aware workflows in one place."
+  },
+  {
+    key: "workflow-coverage",
+    title: "The core team workflow is now connected end to end",
+    detail: "V1.0 covers scorecard ingestion, squad management, planner support, player profiles, matches, dashboard, analytics, validation, and admin configuration within the current single-team operating model."
+  },
+  {
+    key: "hardening-state",
+    title: "The release moved from feature build-out to hardening and lock",
+    detail: "This version reflects the late V1 hardening cycle: identity repair, safer planner matching, admin player-user mapping, auth and profile hardening, validation cleanup, responsive work, and release QA are now part of the shipped state."
+  }
+];
+
+const V1_IMPLEMENTATION_ITEMS: ScopeDetailItem[] = [
+  {
+    key: "scorecards-and-data",
+    title: "Scorecard ingestion and structured match storage",
+    detail: "V1.0 imports cricket scorecards, parses innings and player activity, and saves match data into the core workspace with safer identity and save-time validation behavior."
+  },
+  {
+    key: "identity-and-mapping",
+    title: "Squad identity, player linkage, and admin user mapping",
+    detail: "The release includes player_id-first squad identity handling, planner-safe matching, and an admin configure workspace to map authenticated users to squad players."
+  },
+  {
+    key: "planner-and-workflows",
+    title: "Planner workflows and match decision support",
+    detail: "Attendance planning, lineup generation, bench visibility, and squad-aware player matching are part of the shipped V1 workflow for internal team operations."
+  },
+  {
+    key: "profiles-dashboard-analytics",
+    title: "Profiles, dashboard, analytics, matches, and validation",
+    detail: "V1.0 includes player profiles, dashboard KPIs, analytics views, match detail views, validation tooling, and responsive hardening for the primary operational pages."
+  },
+  {
+    key: "auth-and-roles",
+    title: "Authentication, role-aware access, and admin-only workspaces",
+    detail: "The live release supports sign-in flows, profile state handling, role-based workspace access, and protected admin surfaces such as Configure and Validation."
+  }
+];
+
+const FUTURE_SCOPE_DETAILS: ScopeDetailItem[] = [
+  {
+    key: "team-creation",
+    title: "Team creation and onboarding flows",
+    detail: "Self-serve team creation, invite setup, and first-time team onboarding are out of scope for the current internal single-team release."
+  },
+  {
+    key: "membership-and-invites",
+    title: "Invites, join requests, and membership lifecycle",
+    detail: "Invite flows, join-request approval, and a full membership model refactor are deferred until after the stable internal V1 usage cycle."
+  },
+  {
+    key: "multi-team-and-ownership",
+    title: "Multi-team support and expanded ownership hierarchy",
+    detail: "The current product is intentionally single-team. Cross-team switching, organization structures, and layered ownership controls remain future scope."
+  },
+  {
+    key: "major-auth-redesign",
+    title: "Major authentication or account product redesign",
+    detail: "The app keeps the current role-aware auth model for V1. Broader account-system redesign, richer access products, or membership architecture changes are postponed."
+  },
+  {
+    key: "new-major-modules",
+    title: "New major modules and non-blocking product ideas",
+    detail: "Large additions such as live scoring, tournament systems, advanced collaboration modules, and nice-to-have experiments should not enter the locked V1 branch."
+  }
+];
 
 function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
   return (
@@ -524,13 +598,53 @@ export default function ValidationPage() {
                 <Stack spacing={0}>
                   <Box sx={{ px: 3, pb: 2 }}>
                     <Typography color="text.secondary">
-                      V1 is now in release-lock mode. Ship only checklist work, blocker fixes, and production-safety changes. Everything else should move to future scope instead of stretching the release.
+                      V1.0 is live and locked. This section summarizes what the current project delivers, what was included in the release hardening cycle, what remains future scope, and how release-lock decisions should be handled going forward.
                     </Typography>
                   </Box>
 
-                  {RELEASE_LOCK_CHECKS.map((item, index) => (
+                  <Box sx={{ px: 3, py: 2.25 }}>
+                    <Stack spacing={1.25}>
+                      <Typography fontWeight={700}>
+                        Current Project Summary
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        This gives the present-day picture of what happened in V1.0 and where the project stands now.
+                      </Typography>
+                    </Stack>
+                  </Box>
+
+                  {PROJECT_SUMMARY_ITEMS.map((item, index) => (
                     <Box key={item.key}>
                       {index > 0 && <Divider />}
+                      <Box sx={{ px: 3, py: 2.25 }}>
+                        <Stack spacing={0.5}>
+                          <Typography fontWeight={700}>
+                            {item.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {item.detail}
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    </Box>
+                  ))}
+
+                  <Divider />
+
+                  <Box sx={{ px: 3, py: 2.25 }}>
+                    <Stack spacing={1.25}>
+                      <Typography fontWeight={700}>
+                        Current V1.0 Implementation
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        This is the current shipped scope that V1.0 is intended to support in production today.
+                      </Typography>
+                    </Stack>
+                  </Box>
+
+                  {V1_IMPLEMENTATION_ITEMS.map((item) => (
+                    <Box key={item.key}>
+                      <Divider />
                       <Box sx={{ px: 3, py: 2.25 }}>
                         <Stack spacing={0.5}>
                           <Typography fontWeight={700}>
@@ -552,15 +666,55 @@ export default function ValidationPage() {
                         Post-V1 / Future Scope
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Keep these out of the V1 release branch unless one becomes a true blocker.
+                        These items are intentionally deferred and should stay out of the locked release branch unless one becomes a real production blocker.
                       </Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                        {FUTURE_SCOPE_ITEMS.map((item) => (
-                          <Chip key={item} label={item} size="small" variant="outlined" />
-                        ))}
-                      </Box>
                     </Stack>
                   </Box>
+
+                  {FUTURE_SCOPE_DETAILS.map((item) => (
+                    <Box key={item.key}>
+                      <Divider />
+                      <Box sx={{ px: 3, py: 2.25 }}>
+                        <Stack spacing={0.5}>
+                          <Typography fontWeight={700}>
+                            {item.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {item.detail}
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    </Box>
+                  ))}
+
+                  <Divider />
+
+                  <Box sx={{ px: 3, py: 2.25 }}>
+                    <Stack spacing={1.25}>
+                      <Typography fontWeight={700}>
+                        Release Lock
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        These rules explain how the branch should be treated after the V1.0 release and what qualifies as acceptable work.
+                      </Typography>
+                    </Stack>
+                  </Box>
+
+                  {RELEASE_LOCK_CHECKS.map((item) => (
+                    <Box key={item.key}>
+                      <Divider />
+                      <Box sx={{ px: 3, py: 2.25 }}>
+                        <Stack spacing={0.5}>
+                          <Typography fontWeight={700}>
+                            {item.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {item.detail}
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    </Box>
+                  ))}
                 </Stack>
               </ValidationSectionCard>
 

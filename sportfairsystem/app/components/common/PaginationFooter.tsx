@@ -30,7 +30,10 @@ export default function PaginationFooter({
       alignItems={{ xs: "stretch", sm: "center" }}
       justifyContent="space-between"
       spacing={2}
-      sx={sx}
+      sx={{
+        px: { xs: 2, sm: 0 },
+        ...sx
+      }}
     >
       <Typography variant="body2" color="text.secondary" textAlign={{ xs: "center", sm: "left" }}>
         {pageStart}-{pageEnd} of {totalCount}
@@ -42,11 +45,11 @@ export default function PaginationFooter({
         justifyContent={{ xs: "space-between", sm: "flex-start" }}
         sx={{ width: { xs: "100%", sm: "auto" } }}
       >
-        <Button size="small" variant="outlined" onClick={onPrevious} disabled={!hasPreviousPage}>
+        <Button size="small" variant="outlined" onClick={onPrevious} disabled={!hasPreviousPage} sx={{ minWidth: { xs: 0, sm: 88 }, flex: { xs: 1, sm: "none" } }}>
           Previous
         </Button>
 
-        <Button size="small" variant="outlined" onClick={onNext} disabled={!hasNextPage}>
+        <Button size="small" variant="outlined" onClick={onNext} disabled={!hasNextPage} sx={{ minWidth: { xs: 0, sm: 88 }, flex: { xs: 1, sm: "none" } }}>
           Next
         </Button>
       </Stack>

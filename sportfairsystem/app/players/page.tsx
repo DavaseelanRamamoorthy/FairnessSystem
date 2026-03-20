@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
@@ -9,29 +9,27 @@ import {
   Box,
   Button,
   Card,
-  CardActionArea,
-  CardActions,
   CardContent,
   Chip,
   CircularProgress,
   Container,
-  Divider,
+  Drawer,
   FormControl,
   Grid,
   InputLabel,
   MenuItem,
   Select,
   Stack,
+  useMediaQuery,
   Typography
 } from "@mui/material";
-import EditRoundedIcon from "@mui/icons-material/EditRounded";
-import FlashOnRoundedIcon from "@mui/icons-material/FlashOnRounded";
+import { useTheme } from "@mui/material/styles";
+import FrontHandRoundedIcon from "@mui/icons-material/FrontHandRounded";
+import SportsBaseballRoundedIcon from "@mui/icons-material/SportsBaseballRounded";
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 
-import AutoHideAlert from "@/app/components/common/AutoHideAlert";
-import SquadMetadataDialog from "@/app/components/players/SquadMetadataDialog";
-import { useAuth } from "@/app/context/AuthContext";
-import { squadAdminEnabled } from "@/app/config/teamConfig";
+import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { formatName } from "@/app/services/formatname";
 import {
   SeasonOption,
@@ -39,29 +37,12 @@ import {
   getPlayerSeasons,
   getSquadPlayerSummaries
 } from "@/app/services/playerProfileService";
-import {
-  hasSquadMetadataColumns,
-  SquadMetadataValues,
-  updateSquadPlayerMetadata
-} from "@/app/services/squadService";
 import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
 
 const PLAYERS_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:players";
 
 type PlayerSortOption = "a-z" | "z-a";
-
-function getPerformanceChipLabel(label: string) {
-  if (label.startsWith("Strike Rate ")) {
-    return label.replace("Strike Rate ", "SR ");
-  }
-
-  if (label.startsWith("Economy ")) {
-    return label.replace("Economy ", "EC ");
-  }
-
-  return label;
-}
 
 function buildMetadataChips(player: PlayerSummary) {
   const chips: Array<{ key: string; label: string; color?: "primary" | "success" | "default" }> = [];
@@ -72,14 +53,6 @@ function buildMetadataChips(player: PlayerSummary) {
 
   if (player.isWicketKeeper) {
     chips.push({ key: "wicket-keeper", label: "Wicket Keeper", color: "success" });
-  }
-
-  player.roleTags.forEach((roleTag) => {
-    chips.push({ key: `tag-${roleTag}`, label: roleTag, color: "default" });
-  });
-
-  if (player.battingStyle) {
-    chips.push({ key: "batting-style", label: player.battingStyle, color: "default" });
   }
 
   return chips;
@@ -106,20 +79,30 @@ function getPlayerGroup(player: PlayerSummary): "batters" | "bowlers" | "all-rou
   return "batters";
 }
 
+function getPlayerCardIcon(player: PlayerSummary) {
+  if (player.isWicketKeeper) {
+    return <FrontHandRoundedIcon />;
+  }
+
+  if (player.role === "Bowler") {
+    return <SportsBaseballRoundedIcon />;
+  }
+
+  return <SportsCricketRoundedIcon />;
+}
+
 export default function PlayersPage() {
+  const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [players, setPlayers] = useState<PlayerSummary[]>([]);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
   const [selectedSeason, setSelectedSeason] = useState("");
+  const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
   const [selectedSort, setSelectedSort] = useState<PlayerSortOption>("a-z");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [editingPlayer, setEditingPlayer] = useState<PlayerSummary | null>(null);
-  const [isSavingMetadata, setIsSavingMetadata] = useState(false);
-  const [metadataColumnsReady, setMetadataColumnsReady] = useState<boolean | null>(
-    squadAdminEnabled ? null : false
-  );
-  const { isAdmin } = useAuth();
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   useEffect(() => {
     const loadSeasons = async () => {
@@ -136,26 +119,12 @@ export default function PlayersPage() {
         );
       } catch {
         // Keep the player view usable even if season options fail to load.
+      } finally {
+        setHasResolvedSeason(true);
       }
     };
 
     void loadSeasons();
-  }, []);
-
-  useEffect(() => {
-    if (!squadAdminEnabled) {
-      return;
-    }
-
-    const loadMetadataSupport = async () => {
-      try {
-        setMetadataColumnsReady(await hasSquadMetadataColumns());
-      } catch {
-        setMetadataColumnsReady(false);
-      }
-    };
-
-    void loadMetadataSupport();
   }, []);
 
   useEffect(() => {
@@ -165,6 +134,10 @@ export default function PlayersPage() {
   }, [selectedSeason]);
 
   useEffect(() => {
+    if (!hasResolvedSeason && !selectedSeason) {
+      return;
+    }
+
     const loadSquad = async () => {
       setIsLoading(true);
       setPlayers([]);
@@ -189,10 +162,8 @@ export default function PlayersPage() {
     };
 
     void loadSquad();
-  }, [selectedSeason]);
+  }, [hasResolvedSeason, selectedSeason]);
 
-  const canEditSquadMetadata = squadAdminEnabled && metadataColumnsReady === true;
-  const showAdminControls = canEditSquadMetadata && isAdmin;
   const visiblePlayers = [...players].sort((left, right) => {
       const direction = selectedSort === "a-z" ? 1 : -1;
       return left.name.localeCompare(right.name) * direction;
@@ -203,81 +174,74 @@ export default function PlayersPage() {
     allRounders: visiblePlayers.filter((player) => getPlayerGroup(player) === "all-rounders")
   };
 
-  useEffect(() => {
-    if (!isAdmin) {
-      setEditingPlayer(null);
-    }
-  }, [isAdmin]);
+  const filterControls = (
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={1.5}
+      sx={{ width: "100%" }}
+    >
+      <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 180 } }}>
+        <InputLabel id="players-season-filter-label">Season</InputLabel>
+        <Select
+          labelId="players-season-filter-label"
+          value={selectedSeason || "all"}
+          label="Season"
+          onChange={(event) => setSelectedSeason(event.target.value)}
+        >
+          <MenuItem value="all">All Seasons</MenuItem>
+          {seasons.map((season) => (
+            <MenuItem key={season.value} value={season.value}>
+              {season.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
 
-  useEffect(() => {
-    if (!successMessage) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setSuccessMessage(null);
-    }, 5000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [successMessage]);
-
-  const handleSaveSquadMetadata = async (
-    playerId: string,
-    values: SquadMetadataValues
-  ) => {
-    try {
-      setIsSavingMetadata(true);
-      setErrorMessage(null);
-
-      const updatedPlayer = await updateSquadPlayerMetadata(playerId, values);
-
-      setPlayers((currentPlayers) => currentPlayers.map((player) => {
-        if (player.id !== playerId) {
-          return player;
-        }
-
-        return {
-          ...player,
-          battingStyle: updatedPlayer.battingStyle,
-          isCaptain: updatedPlayer.isCaptain,
-          isWicketKeeper: updatedPlayer.isWicketKeeper,
-          roleTags: updatedPlayer.roleTags
-        };
-      }));
-
-      setEditingPlayer((currentPlayer) => {
-        if (!currentPlayer || currentPlayer.id !== playerId) {
-          return null;
-        }
-
-        return {
-          ...currentPlayer,
-          battingStyle: updatedPlayer.battingStyle,
-          isCaptain: updatedPlayer.isCaptain,
-          isWicketKeeper: updatedPlayer.isWicketKeeper,
-          roleTags: updatedPlayer.roleTags
-        };
-      });
-
-      setSuccessMessage(`${formatName(updatedPlayer.name)} metadata updated.`);
-      setEditingPlayer(null);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Could not update squad metadata.";
-
-      setErrorMessage(message);
-    } finally {
-      setIsSavingMetadata(false);
-    }
-  };
+      <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 160 } }}>
+        <InputLabel id="players-sort-filter-label">Sort</InputLabel>
+        <Select
+          labelId="players-sort-filter-label"
+          value={selectedSort}
+          label="Sort"
+          onChange={(event) => setSelectedSort(event.target.value as PlayerSortOption)}
+        >
+          <MenuItem value="a-z">A-Z</MenuItem>
+          <MenuItem value="z-a">Z-A</MenuItem>
+        </Select>
+      </FormControl>
+    </Stack>
+  );
 
   return (
     <Container maxWidth="lg">
       <Stack spacing={4}>
+        <Box sx={{ display: { xs: "block", md: "none" } }}>
+          <TeamPageHeader
+            eyebrow="Squad Directory"
+            description="Browse player profiles, review squad tags, and jump into the current season quickly."
+            action={(
+              <Button
+                variant="outlined"
+                startIcon={<TuneRoundedIcon />}
+                onClick={() => setMobileFiltersOpen(true)}
+                sx={{
+                  width: { xs: "100%", sm: "auto" },
+                  alignSelf: "flex-start",
+                  color: "#FFFFFF",
+                  borderColor: alpha("#FFFFFF", 0.22),
+                  backgroundColor: alpha("#FFFFFF", 0.04),
+                  "&:hover": {
+                    borderColor: alpha("#FFFFFF", 0.34),
+                    backgroundColor: alpha("#FFFFFF", 0.08)
+                  }
+                }}
+              >
+                Filters
+              </Button>
+            )}
+          />
+        </Box>
+
         <Stack
           direction={{ xs: "column", md: "row" }}
           justifyContent="space-between"
@@ -286,57 +250,12 @@ export default function PlayersPage() {
         >
           <Box />
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ width: { xs: "100%", md: "auto" } }}>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel id="players-season-filter-label">Season</InputLabel>
-              <Select
-                labelId="players-season-filter-label"
-                value={selectedSeason || "all"}
-                label="Season"
-                onChange={(event) => setSelectedSeason(event.target.value)}
-              >
-                <MenuItem value="all">All Seasons</MenuItem>
-                {seasons.map((season) => (
-                  <MenuItem key={season.value} value={season.value}>
-                    {season.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <InputLabel id="players-sort-filter-label">Sort</InputLabel>
-              <Select
-                labelId="players-sort-filter-label"
-                value={selectedSort}
-                label="Sort"
-                onChange={(event) => setSelectedSort(event.target.value as PlayerSortOption)}
-              >
-                <MenuItem value="a-z">A-Z</MenuItem>
-                <MenuItem value="z-a">Z-A</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
+          <Box sx={{ display: { xs: "none", md: "block" }, width: { md: "auto" } }}>
+            {filterControls}
+          </Box>
         </Stack>
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-        {successMessage && (
-          <AutoHideAlert severity="success" resetKey={successMessage}>
-            {successMessage}
-          </AutoHideAlert>
-        )}
-
-        {squadAdminEnabled && metadataColumnsReady === false && (
-          <AutoHideAlert severity="warning" variant="outlined">
-            Squad metadata editing is not available in this environment yet.
-          </AutoHideAlert>
-        )}
-
-        {showAdminControls && (
-          <AutoHideAlert severity="info" variant="outlined">
-            Squad metadata is editable here for the current team.
-          </AutoHideAlert>
-        )}
 
         {isLoading ? (
           <Box
@@ -408,41 +327,46 @@ export default function PlayersPage() {
                             }
                           }}
                         >
-                          <CardActionArea
-                            component={Link}
-                            href={`/players/${player.id}`}
+                          <Box
+                            role="link"
+                            tabIndex={0}
+                            onClick={() => router.push(`/players/${player.id}`)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                router.push(`/players/${player.id}`);
+                              }
+                            }}
                             sx={{
-                              alignItems: "stretch",
-                              borderRadius: 0,
-                              "&:hover": {
-                                backgroundColor: "transparent"
-                              },
-                              "& .MuiCardActionArea-focusHighlight": {
-                                backgroundColor: "transparent"
+                              backgroundColor: "background.paper",
+                              transition: "background-color .18s ease",
+                              cursor: "pointer",
+                              "&:focus-visible": {
+                                outline: "2px solid",
+                                outlineColor: "primary.main",
+                                outlineOffset: -2
                               }
                             }}
                           >
                             <CardContent
                               className="player-card-body"
                               sx={{
-                                px: 2.5,
-                                py: 2.25,
-                                backgroundColor: "background.paper",
-                                transition: "background-color .18s ease"
+                                px: { xs: 2, sm: 2.5 },
+                                py: { xs: 2, sm: 2.25 }
                               }}
                             >
-                              <Stack spacing={2}>
+                              <Stack spacing={1.75}>
                                 <Stack
-                                  direction="row"
+                                  direction={{ xs: "column", sm: "row" }}
                                   justifyContent="space-between"
-                                  alignItems="center"
+                                  alignItems={{ xs: "center", sm: "center" }}
                                   spacing={1.5}
                                 >
-                                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+                                  <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, width: "100%" }}>
                                     <Box
                                       sx={{
-                                        width: 44,
-                                        height: 44,
+                                        width: { xs: 42, sm: 44 },
+                                        height: { xs: 42, sm: 44 },
                                         borderRadius: 2,
                                         display: "flex",
                                         alignItems: "center",
@@ -453,161 +377,90 @@ export default function PlayersPage() {
                                         flexShrink: 0
                                       }}
                                     >
-                                      {player.role === "Bowler" ? (
-                                        <SportsCricketRoundedIcon />
-                                      ) : (
-                                        <FlashOnRoundedIcon />
-                                      )}
+                                      {getPlayerCardIcon(player)}
                                     </Box>
 
-                                    <Stack spacing={1} sx={{ minWidth: 0 }}>
+                                    <Stack spacing={1} sx={{ minWidth: 0, flex: 1 }}>
                                       <Stack
                                         direction="row"
-                                        spacing={1}
+                                        spacing={0.75}
+                                        useFlexGap
+                                        flexWrap="wrap"
                                         alignItems="center"
-                                        sx={{ minWidth: 0, flexWrap: "wrap" }}
+                                        sx={{ minWidth: 0 }}
                                       >
                                         <Typography
                                           variant="h5"
                                           sx={{
                                             color: "text.primary",
                                             fontWeight: 800,
-                                            lineHeight: 1.1
+                                            lineHeight: 1.12,
+                                            fontSize: { xs: "1.15rem", sm: "1.45rem" },
+                                            wordBreak: "break-word"
                                           }}
                                         >
                                           {formatName(player.name)}
                                         </Typography>
 
-                                        <Chip
-                                          label={getPerformanceChipLabel(player.performanceLabel)}
-                                          size="small"
-                                          sx={(theme) => ({
-                                            width: "fit-content",
-                                            height: 20,
-                                            color: player.role === "Bowler"
-                                              ? theme.palette.warning.contrastText
-                                              : theme.palette.error.contrastText,
-                                            backgroundColor: player.role === "Bowler"
-                                              ? theme.palette.warning.main
-                                              : theme.palette.error.main,
-                                            "& .MuiChip-label": {
-                                              px: 1,
-                                              fontSize: "0.72rem",
-                                              fontWeight: 600
-                                            }
-                                          })}
-                                        />
-                                      </Stack>
-
-                                      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                        {buildMetadataChips(player).length > 0 ? (
-                                          buildMetadataChips(player).map((chip) => (
-                                            <Chip
-                                              key={chip.key}
-                                              label={chip.label}
-                                              size="small"
-                                              variant={chip.color ? "filled" : "outlined"}
-                                              sx={(theme) => ({
-                                                color: chip.color === "primary"
-                                                  ? "#FFFFFF"
-                                                  : chip.color === "success"
-                                                    ? "text.primary"
-                                                    : "text.primary",
-                                                backgroundColor: chip.color === "primary"
-                                                  ? theme.palette.error.main
-                                                  : chip.color === "success"
-                                                    ? alpha(theme.palette.warning.main, 0.28)
-                                                    : (theme.palette.mode === "dark"
-                                                      ? alpha("#FFFFFF", 0.08)
-                                                      : alpha(theme.palette.primary.main, 0.08)),
-                                                borderColor:
-                                                  theme.palette.mode === "dark"
-                                                    ? alpha("#FFFFFF", 0.12)
-                                                    : alpha(theme.palette.primary.main, 0.14)
-                                              })}
-                                            />
-                                          ))
-                                        ) : (
+                                        {buildMetadataChips(player).map((chip) => (
                                           <Chip
-                                            label="No squad tags yet"
+                                            key={chip.key}
+                                            label={chip.label}
                                             size="small"
-                                            variant="outlined"
+                                            variant={chip.color ? "filled" : "outlined"}
                                             sx={(theme) => ({
-                                              color: "text.primary",
+                                              color: chip.color === "primary"
+                                                ? "#FFFFFF"
+                                                : "text.primary",
+                                              backgroundColor: chip.color === "primary"
+                                                ? theme.palette.error.main
+                                                : alpha(theme.palette.warning.main, 0.28),
                                               borderColor:
                                                 theme.palette.mode === "dark"
-                                                  ? alpha("#FFFFFF", 0.14)
-                                                  : alpha(theme.palette.primary.main, 0.16)
+                                                  ? alpha("#FFFFFF", 0.12)
+                                                  : alpha(theme.palette.primary.main, 0.14)
                                             })}
                                           />
-                                        )}
+                                        ))}
                                       </Stack>
                                     </Stack>
                                   </Stack>
 
-                                  <Stack spacing={0} alignItems="flex-end" sx={{ flexShrink: 0 }}>
+                                  <Stack
+                                    spacing={0.35}
+                                    alignItems={{ xs: "flex-start", sm: "flex-end" }}
+                                    sx={{
+                                      flexShrink: 0,
+                                      minWidth: { xs: "auto", sm: 80 }
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="overline"
+                                      sx={{
+                                        lineHeight: 1,
+                                        color: "text.secondary",
+                                        letterSpacing: 0.8
+                                      }}
+                                    >
+                                      Matches
+                                    </Typography>
+
                                     <Typography
                                       variant="h4"
                                       sx={{
                                         lineHeight: 1,
                                         fontWeight: 800,
-                                        color: "text.primary"
+                                        color: "text.primary",
+                                        fontSize: { xs: "1.5rem", sm: "2rem" }
                                       }}
                                     >
                                       {player.matchesPlayed}
-                                    </Typography>
-
-                                    <Typography
-                                      variant="caption"
-                                      sx={{
-                                        mt: 0.35,
-                                        lineHeight: 1.1,
-                                        color: "text.secondary"
-                                      }}
-                                    >
-                                      MATCHES
                                     </Typography>
                                   </Stack>
                                 </Stack>
                               </Stack>
                             </CardContent>
-                          </CardActionArea>
-
-                          <Divider />
-
-                          <CardActions
-                            className="player-card-footer"
-                            sx={{
-                              px: 2.5,
-                              py: 1.5,
-                              justifyContent: "space-between",
-                              backgroundColor: "background.paper",
-                              transition: "background-color .18s ease"
-                            }}
-                          >
-                            <Button
-                              component={Link}
-                              href={`/players/${player.id}`}
-                              size="small"
-                              sx={{ color: "primary.main", fontWeight: 700 }}
-                            >
-                              View Profile
-                            </Button>
-
-                            {showAdminControls && (
-                              <Button
-                                size="small"
-                                startIcon={<EditRoundedIcon />}
-                                onClick={() => {
-                                  setSuccessMessage(null);
-                                  setEditingPlayer(player);
-                                }}
-                                sx={{ color: "primary.main", fontWeight: 700 }}
-                              >
-                                Edit Metadata
-                              </Button>
-                            )}
-                          </CardActions>
+                          </Box>
                         </Card>
                       </Grid>
                     ))}
@@ -618,14 +471,53 @@ export default function PlayersPage() {
           </Stack>
         )}
 
-        <SquadMetadataDialog
-          open={!!editingPlayer}
-          player={editingPlayer}
-          isSaving={isSavingMetadata}
-          onClose={() => setEditingPlayer(null)}
-          onSave={handleSaveSquadMetadata}
-        />
       </Stack>
+
+      <Drawer
+        anchor="bottom"
+        open={isMobile && mobileFiltersOpen}
+        onClose={() => setMobileFiltersOpen(false)}
+        PaperProps={{
+          sx: {
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            px: 2.25,
+            pt: 1.5,
+            pb: "calc(20px + env(safe-area-inset-bottom))"
+          }
+        }}
+      >
+        <Stack spacing={2.25}>
+          <Box
+            sx={{
+              width: 44,
+              height: 4,
+              borderRadius: 999,
+              backgroundColor: "divider",
+              alignSelf: "center"
+            }}
+          />
+
+          <Stack spacing={0.5}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Player Filters
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Narrow the squad view by season and sort order.
+            </Typography>
+          </Stack>
+
+          {filterControls}
+
+          <Button
+            variant="contained"
+            onClick={() => setMobileFiltersOpen(false)}
+            sx={{ alignSelf: "stretch" }}
+          >
+            Apply Filters
+          </Button>
+        </Stack>
+      </Drawer>
     </Container>
   );
 }

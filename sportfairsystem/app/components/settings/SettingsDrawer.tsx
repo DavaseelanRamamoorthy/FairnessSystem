@@ -23,6 +23,10 @@ import DensitySmallRoundedIcon from "@mui/icons-material/DensitySmallRounded";
 import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 
+import {
+  panelActionButtonSx,
+  panelDangerActionButtonSx
+} from "@/app/components/common/accountActionButtonStyles";
 import { useAuth } from "@/app/context/AuthContext";
 import { ThemeModePreference, useSettings } from "@/app/context/SettingsContext";
 import { currentTeamName } from "@/app/config/teamConfig";
@@ -123,7 +127,7 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
                 onClick={onClose}
                 variant="outlined"
                 startIcon={<AccountCircleRoundedIcon />}
-                sx={{ justifyContent: "flex-start" }}
+                sx={panelActionButtonSx}
                 fullWidth
               >
                 Profile
@@ -137,10 +141,10 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
                   onClose();
                   void signOut();
                 }}
-                sx={{ justifyContent: "flex-start" }}
+                sx={panelDangerActionButtonSx}
                 fullWidth
               >
-                Signout
+                Sign Out
               </Button>
             </Stack>
           </Stack>

@@ -2,6 +2,7 @@ import { currentTeamName } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
 import {
   buildSquadIdentityBridge,
+  getPrimarySquadRoleTag,
   getCurrentTeamId,
   mapSquadPlayerRecord,
   SquadPlayerRecord
@@ -100,7 +101,7 @@ export type PlayerSummary = {
   id: string;
   name: string;
   matchesPlayed: number;
-  role: "Batter" | "Bowler" | "Player";
+  role: "Batter" | "Bowler" | "All-Rounder" | "Player";
   performanceLabel: string;
   performanceColor: "primary" | "warning" | "default";
   battingStyle: string | null;
@@ -123,7 +124,7 @@ export type PlayerProfile = {
   strikeRate: number | null;
   totalWickets: number;
   economy: number | null;
-  role: "Batter" | "Bowler" | "Player";
+  role: "Batter" | "Bowler" | "All-Rounder" | "Player";
   battingStyle: string | null;
   isCaptain: boolean;
   isWicketKeeper: boolean;
@@ -201,6 +202,7 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
   const matchesPlayed = stats.matchIds.size;
   const battingMatches = stats.battingMatchIds.size;
   const bowlingMatches = stats.bowlingMatchIds.size;
+  const primaryRoleTag = getPrimarySquadRoleTag(player.roleTags);
 
   const strikeRate =
     stats.battingBalls > 0
@@ -211,6 +213,55 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
     stats.bowlingBalls > 0
       ? stats.bowlingRuns / (stats.bowlingBalls / 6)
       : null;
+
+  if (primaryRoleTag === "All-Rounder") {
+    return {
+      id: player.id,
+      name: player.name,
+      matchesPlayed,
+      role: "All-Rounder",
+      performanceLabel: strikeRate !== null
+        ? `Strike Rate ${strikeRate.toFixed(2)}`
+        : economy !== null
+          ? `Economy ${economy.toFixed(2)}`
+          : "No performance data yet",
+      performanceColor: strikeRate !== null ? "primary" : economy !== null ? "warning" : "default",
+      battingStyle: player.battingStyle,
+      isCaptain: player.isCaptain,
+      isWicketKeeper: player.isWicketKeeper,
+      roleTags: player.roleTags
+    };
+  }
+
+  if (primaryRoleTag === "Bowler") {
+    return {
+      id: player.id,
+      name: player.name,
+      matchesPlayed,
+      role: "Bowler",
+      performanceLabel: economy !== null ? `Economy ${economy.toFixed(2)}` : "No performance data yet",
+      performanceColor: economy !== null ? "warning" : "default",
+      battingStyle: player.battingStyle,
+      isCaptain: player.isCaptain,
+      isWicketKeeper: player.isWicketKeeper,
+      roleTags: player.roleTags
+    };
+  }
+
+  if (primaryRoleTag === "Batter") {
+    return {
+      id: player.id,
+      name: player.name,
+      matchesPlayed,
+      role: "Batter",
+      performanceLabel: strikeRate !== null ? `Strike Rate ${strikeRate.toFixed(2)}` : "No performance data yet",
+      performanceColor: strikeRate !== null ? "primary" : "default",
+      battingStyle: player.battingStyle,
+      isCaptain: player.isCaptain,
+      isWicketKeeper: player.isWicketKeeper,
+      roleTags: player.roleTags
+    };
+  }
 
   if (bowlingMatches > battingMatches && economy !== null) {
     return {

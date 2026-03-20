@@ -7,11 +7,12 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableCellProps,
   TableHead,
-  TableRow,
-  TableContainer
+  TableRow
 } from "@mui/material";
 
+import ResponsiveTableContainer from "@/app/components/common/ResponsiveTableContainer";
 import {
   numericTableCellSx,
   numericTableHeadCellSx
@@ -32,6 +33,12 @@ interface Props {
 }
 
 export default function BowlingTable({ bowlingStats }: Props) {
+  const mobileTextCellSx: TableCellProps["sx"] = {
+    minWidth: { xs: 128, sm: "auto" },
+    px: { xs: 1.5, sm: 2 },
+    py: { xs: 1.4, sm: 1.8 },
+    verticalAlign: "top"
+  };
 
   return (
 
@@ -51,13 +58,21 @@ export default function BowlingTable({ bowlingStats }: Props) {
           </Box>
         </Box>
 
-        <TableContainer>
+        <ResponsiveTableContainer>
 
-          <Table size="small">
+          <Table
+            size="small"
+            sx={{
+              "& .MuiTableCell-root": {
+                px: { xs: 1.5, sm: 2 },
+                py: { xs: 1.35, sm: 1.6 }
+              }
+            }}
+          >
 
             <TableHead>
               <TableRow>
-                <TableCell>Bowler</TableCell>
+                <TableCell sx={mobileTextCellSx}>Bowler</TableCell>
                 <TableCell sx={numericTableHeadCellSx}>Overs</TableCell>
                 <TableCell sx={numericTableHeadCellSx}>M</TableCell>
                 <TableCell sx={numericTableHeadCellSx}>Runs</TableCell>
@@ -72,7 +87,7 @@ export default function BowlingTable({ bowlingStats }: Props) {
 
                 <TableRow key={index}>
 
-                  <TableCell>
+                  <TableCell sx={mobileTextCellSx}>
                     {formatName(bowler.player_name)}
                   </TableCell>
 
@@ -90,7 +105,7 @@ export default function BowlingTable({ bowlingStats }: Props) {
 
           </Table>
 
-        </TableContainer>
+        </ResponsiveTableContainer>
 
       </CardContent>
 

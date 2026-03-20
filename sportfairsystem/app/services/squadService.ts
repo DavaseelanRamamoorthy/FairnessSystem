@@ -14,6 +14,12 @@ export const squadRoleTagOptions = [
 ] as const;
 
 export type SquadRoleTag = (typeof squadRoleTagOptions)[number];
+export const primarySquadRoleTagOptions = [
+  "Batter",
+  "Bowler",
+  "All-Rounder"
+] as const;
+export type PrimarySquadRoleTag = (typeof primarySquadRoleTagOptions)[number];
 
 export type SquadMetadataValues = {
   battingStyle: string | null;
@@ -97,6 +103,41 @@ export function normalizeRoleTags(tags: unknown): string[] {
     return squadRoleTagOptions.indexOf(left as SquadRoleTag)
       - squadRoleTagOptions.indexOf(right as SquadRoleTag);
   });
+}
+
+export function getPrimarySquadRoleTag(roleTags: string[]): PrimarySquadRoleTag | null {
+  const normalizedTags = normalizeRoleTags(roleTags);
+
+  if (normalizedTags.includes("All-Rounder")) {
+    return "All-Rounder";
+  }
+
+  if (normalizedTags.includes("Batter")) {
+    return "Batter";
+  }
+
+  if (normalizedTags.includes("Bowler")) {
+    return "Bowler";
+  }
+
+  return null;
+}
+
+export function validateSquadRoleTags(roleTags: string[]) {
+  const normalizedTags = normalizeRoleTags(roleTags);
+  const primaryRoleTags = normalizedTags.filter((tag): tag is PrimarySquadRoleTag =>
+    primarySquadRoleTagOptions.includes(tag as PrimarySquadRoleTag)
+  );
+
+  if (primaryRoleTags.length === 0) {
+    throw new Error("Assign exactly one primary role: Batter, Bowler, or All-Rounder.");
+  }
+
+  if (primaryRoleTags.length > 1) {
+    throw new Error("A player can only have one primary role: Batter, Bowler, or All-Rounder.");
+  }
+
+  return normalizedTags;
 }
 
 export function normalizeBattingStyle(value: unknown) {
@@ -203,7 +244,7 @@ export async function updateSquadPlayerMetadata(
     batting_style: normalizeBattingStyle(values.battingStyle),
     is_captain: values.isCaptain,
     is_wicket_keeper: values.isWicketKeeper,
-    role_tags: normalizeRoleTags(values.roleTags)
+    role_tags: validateSquadRoleTags(values.roleTags)
   };
 
   if (values.isCaptain) {

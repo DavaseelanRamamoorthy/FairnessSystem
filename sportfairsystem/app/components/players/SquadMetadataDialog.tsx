@@ -20,6 +20,7 @@ import {
 
 import { formatName } from "@/app/services/formatname";
 import {
+  primarySquadRoleTagOptions,
   SquadMetadataValues,
   squadRoleTagOptions
 } from "@/app/services/squadService";
@@ -63,15 +64,43 @@ export default function SquadMetadataDialog({
     setFormValues(createInitialValues(player));
   }, [player]);
 
+  const primaryRoleCount = formValues.roleTags.filter((roleTag) =>
+    primarySquadRoleTagOptions.includes(roleTag as (typeof primarySquadRoleTagOptions)[number])
+  ).length;
+  const primaryRoleError = primaryRoleCount === 0
+    ? "Choose one primary role: Batter, Bowler, or All-Rounder."
+    : primaryRoleCount > 1
+      ? "Only one primary role can be selected for a player."
+      : null;
+
   const handleRoleTagToggle = (roleTag: string) => {
     setFormValues((current) => {
       const hasRoleTag = current.roleTags.includes(roleTag);
+      const isPrimaryRole = primarySquadRoleTagOptions.includes(
+        roleTag as (typeof primarySquadRoleTagOptions)[number]
+      );
+
+      if (hasRoleTag) {
+        return {
+          ...current,
+          roleTags: current.roleTags.filter((tag) => tag !== roleTag)
+        };
+      }
+
+      if (isPrimaryRole) {
+        const secondaryTags = current.roleTags.filter((tag) => !primarySquadRoleTagOptions.includes(
+          tag as (typeof primarySquadRoleTagOptions)[number]
+        ));
+
+        return {
+          ...current,
+          roleTags: [...secondaryTags, roleTag]
+        };
+      }
 
       return {
         ...current,
-        roleTags: hasRoleTag
-          ? current.roleTags.filter((tag) => tag !== roleTag)
-          : [...current.roleTags, roleTag]
+        roleTags: [...current.roleTags, roleTag]
       };
     });
   };
@@ -170,6 +199,12 @@ export default function SquadMetadataDialog({
                 />
               ))}
             </FormGroup>
+
+            {primaryRoleError && (
+              <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
+                {primaryRoleError}
+              </Typography>
+            )}
           </Box>
         </Stack>
       </DialogContent>
@@ -179,7 +214,11 @@ export default function SquadMetadataDialog({
           Cancel
         </Button>
 
-        <Button onClick={() => void handleSave()} variant="contained" disabled={!player || isSaving}>
+        <Button
+          onClick={() => void handleSave()}
+          variant="contained"
+          disabled={!player || isSaving || primaryRoleError !== null}
+        >
           Save Metadata
         </Button>
       </DialogActions>

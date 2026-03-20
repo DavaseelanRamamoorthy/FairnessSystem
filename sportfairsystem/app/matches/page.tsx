@@ -21,6 +21,7 @@ import {
 import { alpha } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 
+import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import MatchesTable from "@/app/components/matches/MatchesTable";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
 import MatchPreviewModal from "@/app/components/matches/MatchPreviewModal";
@@ -495,6 +496,13 @@ export default function MatchesPage() {
         minHeight: 0
       }}
     >
+      <Box sx={{ display: { xs: "block", md: "none" }, mb: 3 }}>
+        <TeamPageHeader
+          eyebrow="Scorecards"
+          description="Review match scorecards, compare innings, and keep recent fixtures within easy reach."
+        />
+      </Box>
+
       {loadErrorMessage && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {loadErrorMessage}
@@ -601,7 +609,7 @@ export default function MatchesPage() {
       {/* UPLOAD BUTTON */}
 
       {isAdmin && (
-        <Box sx={{ position: "fixed", bottom: 30, right: 30 }}>
+        <Box sx={{ position: "fixed", bottom: { xs: 92, md: 30 }, right: { xs: 16, md: 30 } }}>
 
           <Box
             sx={{

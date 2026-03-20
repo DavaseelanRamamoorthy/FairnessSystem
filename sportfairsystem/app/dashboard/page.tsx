@@ -11,7 +11,6 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CircularProgress from "@mui/material/CircularProgress";
 import Table from "@mui/material/Table";
-import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
@@ -29,6 +28,8 @@ import DashboardCard from "@/app/components/dashboard/dashboardCard";
 import SectionHeader from "@/app/components/dashboard/SectionHeader";
 import RunsTrendChart from "@/app/components/dashboard/RunsTrendChart";
 import WicketsTrendChart from "@/app/components/dashboard/WicketsTrendChart";
+import ResponsiveTableContainer from "@/app/components/common/ResponsiveTableContainer";
+import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import {
   numericTableCellSx,
   numericTableHeadCellSx
@@ -222,6 +223,13 @@ export default function DashboardPage() {
   return (
     <Container maxWidth="xl">
       <Stack spacing={4}>
+        <Box sx={{ display: { xs: "block", md: "none" } }}>
+          <TeamPageHeader
+            eyebrow="Team Hub"
+            description="Track fixtures, leaders, and recent match trends from one mobile-ready home view."
+          />
+        </Box>
+
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
         {isLoading ? (
@@ -287,7 +295,7 @@ export default function DashboardPage() {
                   <SectionHeader title="Top Run Leaders" />
                 </Box>
 
-                <TableContainer>
+                <ResponsiveTableContainer>
                   <Table>
                     <TableHead>
                       <TableRow>
@@ -332,7 +340,7 @@ export default function DashboardPage() {
                       )}
                     </TableBody>
                   </Table>
-                </TableContainer>
+                </ResponsiveTableContainer>
               </CardContent>
             </Card>
           </Grid>
@@ -344,7 +352,7 @@ export default function DashboardPage() {
                   <SectionHeader title="Top Wicket Leaders" />
                 </Box>
 
-                <TableContainer>
+                <ResponsiveTableContainer>
                   <Table>
                     <TableHead>
                       <TableRow>
@@ -389,7 +397,7 @@ export default function DashboardPage() {
                       )}
                     </TableBody>
                   </Table>
-                </TableContainer>
+                </ResponsiveTableContainer>
               </CardContent>
             </Card>
           </Grid>
@@ -421,7 +429,7 @@ export default function DashboardPage() {
               <SectionHeader title="Recent Matches" />
             </Box>
 
-            <TableContainer>
+            <ResponsiveTableContainer>
               <Table>
                 <TableHead>
                   <TableRow>
@@ -471,7 +479,7 @@ export default function DashboardPage() {
                   )}
                 </TableBody>
               </Table>
-            </TableContainer>
+            </ResponsiveTableContainer>
           </CardContent>
         </Card>
           </>

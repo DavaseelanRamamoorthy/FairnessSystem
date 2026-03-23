@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 
 import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
 import AnalyticsRoundedIcon from "@mui/icons-material/QueryStats";
+import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
 import DashboardRoundedIcon from "@mui/icons-material/Dashboard";
+import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import FeedbackRoundedIcon from "@mui/icons-material/FeedbackRounded";
 import GroupRoundedIcon from "@mui/icons-material/Group";
@@ -28,6 +30,7 @@ export const desktopBaseNavItems: ShellNavItem[] = [
 ];
 
 export const desktopAdminNavItems: ShellNavItem[] = [
+  { key: "memberships", title: "Memberships", path: "/memberships", icon: <BadgeRoundedIcon /> },
   { key: "configure", title: "Configure", path: "/configure", icon: <ManageAccountsRoundedIcon /> },
   { key: "planner", title: "Planner", path: "/planner", icon: <EventAvailableRoundedIcon /> },
   { key: "analytics", title: "Analytics", path: "/analytics", icon: <AnalyticsRoundedIcon /> },
@@ -55,22 +58,36 @@ const mobileMemberMoreNavItems: ShellNavItem[] = [
 const mobileAdminMoreNavItems: ShellNavItem[] = [
   { key: "feedback", title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> },
   { key: "profile", title: "Profile", path: "/profile", icon: <AccountCircleRoundedIcon /> },
+  { key: "memberships", title: "Memberships", path: "/memberships", icon: <BadgeRoundedIcon /> },
   { key: "configure", title: "Configure", path: "/configure", icon: <ManageAccountsRoundedIcon /> },
   { key: "analytics", title: "Analytics", path: "/analytics", icon: <AnalyticsRoundedIcon /> },
   { key: "validation", title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> },
   { key: "upload", title: "Upload", path: "/upload", icon: <UploadFileRoundedIcon /> }
 ];
 
-export function getDesktopNavItems(isAdmin: boolean) {
-  return isAdmin ? [...desktopBaseNavItems, ...desktopAdminNavItems] : desktopBaseNavItems;
+function maybeAppendFairnessNavItem(items: ShellNavItem[], canSeeFairness: boolean) {
+  if (!canSeeFairness) {
+    return items;
+  }
+
+  return [
+    ...items,
+    { key: "fairness", title: "Fairness", path: "/fairness", icon: <FactCheckRoundedIcon /> }
+  ];
+}
+
+export function getDesktopNavItems(isAdmin: boolean, canSeeFairness = false) {
+  const items = isAdmin ? [...desktopBaseNavItems, ...desktopAdminNavItems] : [...desktopBaseNavItems];
+  return maybeAppendFairnessNavItem(items, canSeeFairness);
 }
 
 export function getMobilePrimaryNavItems(isAdmin: boolean) {
   return isAdmin ? mobileAdminPrimaryNavItems : mobileMemberPrimaryNavItems;
 }
 
-export function getMobileMoreNavItems(isAdmin: boolean) {
-  return isAdmin ? mobileAdminMoreNavItems : mobileMemberMoreNavItems;
+export function getMobileMoreNavItems(isAdmin: boolean, canSeeFairness = false) {
+  const items = isAdmin ? [...mobileAdminMoreNavItems] : [...mobileMemberMoreNavItems];
+  return maybeAppendFairnessNavItem(items, canSeeFairness);
 }
 
 export function isNavPathActive(pathname: string, path: string) {

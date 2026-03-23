@@ -32,10 +32,10 @@ import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { formatName } from "@/app/services/formatname";
 import {
+  MemberRosterSummary,
   SeasonOption,
-  PlayerSummary,
-  getPlayerSeasons,
-  getSquadPlayerSummaries
+  getMemberRosterSummaries,
+  getPlayerSeasons
 } from "@/app/services/playerProfileService";
 import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
@@ -43,8 +43,9 @@ import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFil
 const PLAYERS_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:players";
 
 type PlayerSortOption = "a-z" | "z-a";
+type PlayerStatusFilter = "active" | "inactive" | "invited" | "archived" | "all";
 
-function buildMetadataChips(player: PlayerSummary) {
+function buildMetadataChips(player: MemberRosterSummary) {
   const chips: Array<{ key: string; label: string; color?: "primary" | "success" | "default" }> = [];
 
   if (player.isCaptain) {
@@ -55,10 +56,22 @@ function buildMetadataChips(player: PlayerSummary) {
     chips.push({ key: "wicket-keeper", label: "Wicket Keeper", color: "success" });
   }
 
+  if (player.membershipStatus !== "active") {
+    chips.push({
+      key: `status-${player.membershipStatus}`,
+      label: formatName(player.membershipStatus),
+      color: "default"
+    });
+  }
+
+  if (!player.hasLinkedPlayer) {
+    chips.push({ key: "profile-pending", label: "Profile Pending", color: "default" });
+  }
+
   return chips;
 }
 
-function getPlayerGroup(player: PlayerSummary): "batters" | "bowlers" | "all-rounders" | null {
+function getPlayerGroup(player: MemberRosterSummary): "batters" | "bowlers" | "all-rounders" | null {
   const normalizedTags = player.roleTags.map((tag) => tag.trim().toLowerCase());
   const hasAllRounderTag = normalizedTags.includes("all-rounder") || normalizedTags.includes("all rounder");
   const hasBatterTag = normalizedTags.includes("batter");
@@ -79,7 +92,7 @@ function getPlayerGroup(player: PlayerSummary): "batters" | "bowlers" | "all-rou
   return "batters";
 }
 
-function getPlayerCardIcon(player: PlayerSummary) {
+function getPlayerCardIcon(player: MemberRosterSummary) {
   if (player.isWicketKeeper) {
     return <FrontHandRoundedIcon />;
   }
@@ -95,10 +108,11 @@ export default function PlayersPage() {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const [players, setPlayers] = useState<PlayerSummary[]>([]);
+  const [players, setPlayers] = useState<MemberRosterSummary[]>([]);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
   const [selectedSeason, setSelectedSeason] = useState("");
   const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<PlayerStatusFilter>("active");
   const [selectedSort, setSelectedSort] = useState<PlayerSortOption>("a-z");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -114,11 +128,9 @@ export default function PlayersPage() {
         const resolvedSeason = storedSeason && nextSeasonValues.has(storedSeason)
           ? storedSeason
           : getLatestSeasonValue(nextSeasons);
-        setSelectedSeason((currentSeason) =>
-          currentSeason || resolvedSeason
-        );
+        setSelectedSeason((currentSeason) => currentSeason || resolvedSeason);
       } catch {
-        // Keep the player view usable even if season options fail to load.
+        // Keep the roster usable even if season options fail to load.
       } finally {
         setHasResolvedSeason(true);
       }
@@ -138,13 +150,13 @@ export default function PlayersPage() {
       return;
     }
 
-    const loadSquad = async () => {
+    const loadRoster = async () => {
       setIsLoading(true);
       setPlayers([]);
       setErrorMessage(null);
 
       try {
-        const playerCards = await getSquadPlayerSummaries(
+        const playerCards = await getMemberRosterSummaries(
           !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason
         );
         setPlayers(playerCards);
@@ -152,7 +164,7 @@ export default function PlayersPage() {
         const message =
           error instanceof Error
             ? error.message
-            : "Could not load squad players.";
+            : "Could not load the team roster.";
 
         setPlayers([]);
         setErrorMessage(message);
@@ -161,13 +173,16 @@ export default function PlayersPage() {
       }
     };
 
-    void loadSquad();
+    void loadRoster();
   }, [hasResolvedSeason, selectedSeason]);
 
-  const visiblePlayers = [...players].sort((left, right) => {
+  const visiblePlayers = players
+    .filter((player) => selectedStatus === "all" || player.membershipStatus === selectedStatus)
+    .sort((left, right) => {
       const direction = selectedSort === "a-z" ? 1 : -1;
       return left.name.localeCompare(right.name) * direction;
     });
+
   const groupedPlayers = {
     batters: visiblePlayers.filter((player) => getPlayerGroup(player) === "batters"),
     bowlers: visiblePlayers.filter((player) => getPlayerGroup(player) === "bowlers"),
@@ -180,6 +195,22 @@ export default function PlayersPage() {
       spacing={1.5}
       sx={{ width: "100%" }}
     >
+      <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 180 } }}>
+        <InputLabel id="players-status-filter-label">Status</InputLabel>
+        <Select
+          labelId="players-status-filter-label"
+          value={selectedStatus}
+          label="Status"
+          onChange={(event) => setSelectedStatus(event.target.value as PlayerStatusFilter)}
+        >
+          <MenuItem value="active">Active</MenuItem>
+          <MenuItem value="inactive">Inactive</MenuItem>
+          <MenuItem value="invited">Invited</MenuItem>
+          <MenuItem value="archived">Archived</MenuItem>
+          <MenuItem value="all">All Statuses</MenuItem>
+        </Select>
+      </FormControl>
+
       <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 180 } }}>
         <InputLabel id="players-season-filter-label">Season</InputLabel>
         <Select
@@ -217,8 +248,8 @@ export default function PlayersPage() {
       <Stack spacing={4}>
         <Box sx={{ display: { xs: "block", md: "none" } }}>
           <TeamPageHeader
-            eyebrow="Squad Directory"
-            description="Browse player profiles, review squad tags, and jump into the current season quickly."
+            eyebrow="Roster Directory"
+            description="Browse the member-first roster, review squad tags, and open linked player profiles where they are already available."
             action={(
               <Button
                 variant="outlined"
@@ -271,8 +302,8 @@ export default function PlayersPage() {
         ) : errorMessage ? null : visiblePlayers.length === 0 ? (
           <Alert severity="info">
             {!selectedSeason || selectedSeason === "all"
-              ? "No squad players found yet. Add players from the match preview flow."
-              : `No squad players found for the ${selectedSeason} season.`}
+              ? "No roster members match the current filters."
+              : `No roster members match the current filters for the ${selectedSeason} season.`}
           </Alert>
         ) : (
           <Stack spacing={4}>
@@ -294,176 +325,195 @@ export default function PlayersPage() {
                     <Chip
                       label={`${section.players.length} players`}
                       size="small"
-                                              sx={(theme) => ({
-                                                color: "text.primary",
-                                                backgroundColor:
-                                                  theme.palette.mode === "dark"
-                                                    ? alpha("#FFFFFF", 0.08)
-                                                    : alpha("#DCE7FF", 0.52),
-                                                borderColor:
-                                                  theme.palette.mode === "dark"
-                                                    ? alpha("#FFFFFF", 0.12)
-                                                    : alpha(theme.palette.primary.main, 0.14)
-                                              })}
-                                            />
+                      sx={(currentTheme) => ({
+                        color: "text.primary",
+                        backgroundColor:
+                          currentTheme.palette.mode === "dark"
+                            ? alpha("#FFFFFF", 0.08)
+                            : alpha("#DCE7FF", 0.52),
+                        borderColor:
+                          currentTheme.palette.mode === "dark"
+                            ? alpha("#FFFFFF", 0.12)
+                            : alpha(currentTheme.palette.primary.main, 0.14)
+                      })}
+                    />
                   </Stack>
 
                   <Grid container spacing={3}>
-                    {section.players.map((player) => (
-                      <Grid key={player.id} size={{ xs: 12, md: 6 }}>
-                        <Card
-                          variant="outlined"
-                          sx={{
-                            borderRadius: 3,
-                            overflow: "hidden",
-                            boxShadow: (theme) => theme.vars.customShadows.card,
-                            transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
-                            "&:hover": {
-                              borderColor: (theme) => alpha(theme.palette.primary.main, 0.42),
-                              boxShadow: (theme) => theme.vars.customShadows.z8
-                            },
-                            "&:hover .player-card-body, &:hover .player-card-footer": {
-                              backgroundColor: "action.hover"
-                            }
-                          }}
-                        >
-                          <Box
-                            role="link"
-                            tabIndex={0}
-                            onClick={() => router.push(`/players/${player.id}`)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                router.push(`/players/${player.id}`);
-                              }
-                            }}
+                    {section.players.map((player) => {
+                      const isInteractive = Boolean(player.playerId);
+                      const targetHref = player.playerId ? `/players/${player.playerId}` : null;
+
+                      return (
+                        <Grid key={player.memberId} size={{ xs: 12, md: 6 }}>
+                          <Card
+                            variant="outlined"
                             sx={{
-                              backgroundColor: "background.paper",
-                              transition: "background-color .18s ease",
-                              cursor: "pointer",
-                              "&:focus-visible": {
-                                outline: "2px solid",
-                                outlineColor: "primary.main",
-                                outlineOffset: -2
-                              }
+                              borderRadius: 3,
+                              overflow: "hidden",
+                              boxShadow: (currentTheme) => currentTheme.vars.customShadows.card,
+                              transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
+                              "&:hover": isInteractive ? {
+                                borderColor: (currentTheme) => alpha(currentTheme.palette.primary.main, 0.42),
+                                boxShadow: (currentTheme) => currentTheme.vars.customShadows.z8
+                              } : undefined,
+                              "&:hover .player-card-body": isInteractive ? {
+                                backgroundColor: "action.hover"
+                              } : undefined
                             }}
                           >
-                            <CardContent
-                              className="player-card-body"
+                            <Box
+                              role={isInteractive ? "link" : undefined}
+                              tabIndex={isInteractive ? 0 : -1}
+                              onClick={() => {
+                                if (targetHref) {
+                                  router.push(targetHref);
+                                }
+                              }}
+                              onKeyDown={(event) => {
+                                if (!targetHref) {
+                                  return;
+                                }
+
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  router.push(targetHref);
+                                }
+                              }}
                               sx={{
-                                px: { xs: 2, sm: 2.5 },
-                                py: { xs: 2, sm: 2.25 }
+                                backgroundColor: "background.paper",
+                                transition: "background-color .18s ease",
+                                cursor: isInteractive ? "pointer" : "default",
+                                "&:focus-visible": {
+                                  outline: "2px solid",
+                                  outlineColor: "primary.main",
+                                  outlineOffset: -2
+                                }
                               }}
                             >
-                              <Stack spacing={1.75}>
-                                <Stack
-                                  direction={{ xs: "column", sm: "row" }}
-                                  justifyContent="space-between"
-                                  alignItems={{ xs: "center", sm: "center" }}
-                                  spacing={1.5}
-                                >
-                                  <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, width: "100%" }}>
-                                    <Box
-                                      sx={{
-                                        width: { xs: 42, sm: 44 },
-                                        height: { xs: 42, sm: 44 },
-                                        borderRadius: 2,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        color: "primary.main",
-                                        backgroundColor: (theme) =>
-                                          alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.18 : 0.12),
-                                        flexShrink: 0
-                                      }}
-                                    >
-                                      {getPlayerCardIcon(player)}
-                                    </Box>
-
-                                    <Stack spacing={1} sx={{ minWidth: 0, flex: 1 }}>
-                                      <Stack
-                                        direction="row"
-                                        spacing={0.75}
-                                        useFlexGap
-                                        flexWrap="wrap"
-                                        alignItems="center"
-                                        sx={{ minWidth: 0 }}
+                              <CardContent
+                                className="player-card-body"
+                                sx={{
+                                  px: { xs: 2, sm: 2.5 },
+                                  py: { xs: 2, sm: 2.25 }
+                                }}
+                              >
+                                <Stack spacing={1.75}>
+                                  <Stack
+                                    direction={{ xs: "column", sm: "row" }}
+                                    justifyContent="space-between"
+                                    alignItems={{ xs: "center", sm: "center" }}
+                                    spacing={1.5}
+                                  >
+                                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, width: "100%" }}>
+                                      <Box
+                                        sx={{
+                                          width: { xs: 42, sm: 44 },
+                                          height: { xs: 42, sm: 44 },
+                                          borderRadius: 2,
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          color: "primary.main",
+                                          backgroundColor: (currentTheme) =>
+                                            alpha(currentTheme.palette.primary.main, currentTheme.palette.mode === "dark" ? 0.18 : 0.12),
+                                          flexShrink: 0
+                                        }}
                                       >
-                                        <Typography
-                                          variant="h5"
-                                          sx={{
-                                            color: "text.primary",
-                                            fontWeight: 800,
-                                            lineHeight: 1.12,
-                                            fontSize: { xs: "1.15rem", sm: "1.45rem" },
-                                            wordBreak: "break-word"
-                                          }}
-                                        >
-                                          {formatName(player.name)}
-                                        </Typography>
+                                        {getPlayerCardIcon(player)}
+                                      </Box>
 
-                                        {buildMetadataChips(player).map((chip) => (
-                                          <Chip
-                                            key={chip.key}
-                                            label={chip.label}
-                                            size="small"
-                                            variant={chip.color ? "filled" : "outlined"}
-                                            sx={(theme) => ({
-                                              color: chip.color === "primary"
-                                                ? "#FFFFFF"
-                                                : "text.primary",
-                                              backgroundColor: chip.color === "primary"
-                                                ? theme.palette.error.main
-                                                : alpha(theme.palette.warning.main, 0.28),
-                                              borderColor:
-                                                theme.palette.mode === "dark"
-                                                  ? alpha("#FFFFFF", 0.12)
-                                                  : alpha(theme.palette.primary.main, 0.14)
-                                            })}
-                                          />
-                                        ))}
+                                      <Stack spacing={1} sx={{ minWidth: 0, flex: 1 }}>
+                                        <Stack
+                                          direction="row"
+                                          spacing={0.75}
+                                          useFlexGap
+                                          flexWrap="wrap"
+                                          alignItems="center"
+                                          sx={{ minWidth: 0 }}
+                                        >
+                                          <Typography
+                                            variant="h5"
+                                            sx={{
+                                              color: "text.primary",
+                                              fontWeight: 800,
+                                              lineHeight: 1.12,
+                                              fontSize: { xs: "1.15rem", sm: "1.45rem" },
+                                              wordBreak: "break-word"
+                                            }}
+                                          >
+                                            {formatName(player.name)}
+                                          </Typography>
+
+                                          {buildMetadataChips(player).map((chip) => (
+                                            <Chip
+                                              key={chip.key}
+                                              label={chip.label}
+                                              size="small"
+                                              variant={chip.color ? "filled" : "outlined"}
+                                              sx={(currentTheme) => ({
+                                                color: chip.color === "primary"
+                                                  ? "#FFFFFF"
+                                                  : "text.primary",
+                                                backgroundColor: chip.color === "primary"
+                                                  ? currentTheme.palette.error.main
+                                                  : alpha(currentTheme.palette.warning.main, 0.28),
+                                                borderColor:
+                                                  currentTheme.palette.mode === "dark"
+                                                    ? alpha("#FFFFFF", 0.12)
+                                                    : alpha(currentTheme.palette.primary.main, 0.14)
+                                              })}
+                                            />
+                                          ))}
+                                        </Stack>
                                       </Stack>
                                     </Stack>
-                                  </Stack>
 
-                                  <Stack
-                                    spacing={0.35}
-                                    alignItems={{ xs: "flex-start", sm: "flex-end" }}
-                                    sx={{
-                                      flexShrink: 0,
-                                      minWidth: { xs: "auto", sm: 80 }
-                                    }}
-                                  >
-                                    <Typography
-                                      variant="overline"
+                                    <Stack
+                                      spacing={0.35}
+                                      alignItems={{ xs: "flex-start", sm: "flex-end" }}
                                       sx={{
-                                        lineHeight: 1,
-                                        color: "text.secondary",
-                                        letterSpacing: 0.8
+                                        flexShrink: 0,
+                                        minWidth: { xs: "auto", sm: 96 }
                                       }}
                                     >
-                                      Matches
-                                    </Typography>
+                                      <Typography
+                                        variant="overline"
+                                        sx={{
+                                          lineHeight: 1,
+                                          color: "text.secondary",
+                                          letterSpacing: 0.8
+                                        }}
+                                      >
+                                        Matches
+                                      </Typography>
 
-                                    <Typography
-                                      variant="h4"
-                                      sx={{
-                                        lineHeight: 1,
-                                        fontWeight: 800,
-                                        color: "text.primary",
-                                        fontSize: { xs: "1.5rem", sm: "2rem" }
-                                      }}
-                                    >
-                                      {player.matchesPlayed}
-                                    </Typography>
+                                      <Typography
+                                        variant="h4"
+                                        sx={{
+                                          lineHeight: 1,
+                                          fontWeight: 800,
+                                          color: "text.primary",
+                                          fontSize: { xs: "1.5rem", sm: "2rem" }
+                                        }}
+                                      >
+                                        {player.matchesPlayed}
+                                      </Typography>
+
+                                      {!player.hasLinkedPlayer && (
+                                        <Typography variant="caption" color="text.secondary">
+                                          Membership only
+                                        </Typography>
+                                      )}
+                                    </Stack>
                                   </Stack>
                                 </Stack>
-                              </Stack>
-                            </CardContent>
-                          </Box>
-                        </Card>
-                      </Grid>
-                    ))}
+                              </CardContent>
+                            </Box>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
                   </Grid>
                 </Stack>
               );
@@ -503,7 +553,7 @@ export default function PlayersPage() {
               Player Filters
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Narrow the squad view by season and sort order.
+              Narrow the roster by member status, season, and sort order.
             </Typography>
           </Stack>
 

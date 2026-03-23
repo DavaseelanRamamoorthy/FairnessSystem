@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   Avatar,
@@ -26,6 +27,7 @@ import {
   panelDangerActionButtonSx
 } from "@/app/components/common/accountActionButtonStyles";
 import { useAuth } from "@/app/context/AuthContext";
+import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
 import { getMobileMoreNavItems, isNavPathActive } from "@/app/layout/navigationConfig";
 
 type MobileMoreSheetProps = {
@@ -43,12 +45,37 @@ export default function MobileMoreSheet({
 }: MobileMoreSheetProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
-  const moreItems = getMobileMoreNavItems(isAdmin);
+  const [canSeeFairness, setCanSeeFairness] = useState(false);
+  const moreItems = getMobileMoreNavItems(isAdmin, canSeeFairness);
   const profileLetter = (profile?.firstName ?? profile?.email ?? "P").charAt(0).toUpperCase();
   const profileDisplayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim()
     || profile?.username
     || profile?.email
     || "Profile";
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadFairnessVisibility = async () => {
+      try {
+        const nextVisibility = await canAccessFairnessWorkspace();
+
+        if (isActive) {
+          setCanSeeFairness(nextVisibility);
+        }
+      } catch {
+        if (isActive) {
+          setCanSeeFairness(false);
+        }
+      }
+    };
+
+    void loadFairnessVisibility();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   return (
     <Drawer

@@ -1,7 +1,8 @@
-import { currentTeamName, squadAdminEnabled } from "@/app/config/teamConfig";
+import { squadAdminEnabled } from "@/app/config/teamConfig";
 import { getCurrentUserAccess, requireAdminAccess } from "@/app/services/accessControlService";
 import { cleanName } from "@/app/services/cleanName";
 import { normalizeTeamName } from "@/app/services/teamValidationService";
+import { getActiveTeamName } from "@/app/services/teamContextService";
 import { supabase } from "@/app/services/supabaseClient";
 
 export const squadRoleTagOptions = [
@@ -293,7 +294,10 @@ export async function bridgeCurrentTeamPlayerIdentities(
 ): Promise<SquadIdentityBridgeResult> {
   await requireAdminAccess();
 
-  const teamId = await getCurrentTeamId();
+  const [teamId, activeTeamName] = await Promise.all([
+    getCurrentTeamId(),
+    getActiveTeamName()
+  ]);
   const requestedPlayerIds = Array.from(
     new Set((options?.playerIds ?? []).filter(Boolean))
   );
@@ -373,12 +377,12 @@ export async function bridgeCurrentTeamPlayerIdentities(
 
   const inningsRows = (inningsData ?? []) as TeamInningsRow[];
   const currentTeamInningsIds = inningsRows
-    .filter((innings) => normalizeTeamName(innings.team_name) === normalizeTeamName(currentTeamName))
+    .filter((innings) => normalizeTeamName(innings.team_name) === normalizeTeamName(activeTeamName))
     .map((innings) => innings.id);
   const opponentInningsIds = inningsRows
     .filter((innings) =>
       Boolean(innings.team_name)
-      && normalizeTeamName(innings.team_name) !== normalizeTeamName(currentTeamName)
+      && normalizeTeamName(innings.team_name) !== normalizeTeamName(activeTeamName)
     )
     .map((innings) => innings.id);
 
@@ -411,7 +415,7 @@ export async function bridgeCurrentTeamPlayerIdentities(
   }
 
   const missingMatchPlayers = ((missingMatchPlayerData ?? []) as MatchPlayerLinkRow[])
-    .filter((row) => normalizeTeamName(row.team_name) === normalizeTeamName(currentTeamName));
+    .filter((row) => normalizeTeamName(row.team_name) === normalizeTeamName(activeTeamName));
   const missingBattingRows = (missingBattingData ?? []) as BattingLinkRow[];
   const missingBowlingRows = (missingBowlingData ?? []) as BowlingLinkRow[];
 

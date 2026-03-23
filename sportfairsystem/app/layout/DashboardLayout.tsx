@@ -9,13 +9,15 @@ import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import ReleaseIntroDialog from "@/app/components/common/ReleaseIntroDialog";
 import SettingsDrawer from "@/app/components/settings/SettingsDrawer";
 import { useAuth } from "@/app/context/AuthContext";
+import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
 import MobileBottomNav from "./MobileBottomNav";
 import MobileMoreSheet from "./MobileMoreSheet";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
 const PUBLIC_ROUTES = ["/login", "/signup", "/reset-password"];
-const ADMIN_ONLY_ROUTES = ["/configure", "/planner", "/analytics", "/validation", "/upload"];
+const ADMIN_ONLY_ROUTES = ["/configure", "/memberships", "/planner", "/analytics", "/validation", "/upload"];
+const FAIRNESS_ONLY_ROUTES = ["/fairness"];
 const RELEASE_INTRO_VERSION = "v1.0";
 
 function getReleaseIntroStorageKey(userId: string) {
@@ -32,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
   const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
   const [dontShowReleaseIntroAgain, setDontShowReleaseIntroAgain] = useState(false);
+  const [canSeeFairness, setCanSeeFairness] = useState(false);
   const [, setReleaseIntroVisibilityVersion] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
@@ -58,6 +61,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     () => ADMIN_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
     [pathname]
   );
+  const isFairnessRoute = useMemo(
+    () => FAIRNESS_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
+    [pathname]
+  );
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!isAuthenticated) {
+      setCanSeeFairness(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadFairnessVisibility = async () => {
+      try {
+        const nextVisibility = await canAccessFairnessWorkspace();
+
+        if (isActive) {
+          setCanSeeFairness(nextVisibility);
+        }
+      } catch {
+        if (isActive) {
+          setCanSeeFairness(false);
+        }
+      }
+    };
+
+    void loadFairnessVisibility();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isAuthenticated, profile?.id, profile?.teamId]);
 
   useEffect(() => {
     if (isLoading) {
@@ -81,12 +119,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     if (isAuthenticated && isAdminRoute && !isAdmin) {
       router.replace("/dashboard");
+      return;
+    }
+
+    if (isAuthenticated && isFairnessRoute && !canSeeFairness) {
+      router.replace("/dashboard");
     }
   }, [
+    canSeeFairness,
     isAdmin,
     isAdminRoute,
     isAuthenticated,
     isEntryAuthRoute,
+    isFairnessRoute,
     isLoading,
     isProfileComplete,
     isProfileRoute,
@@ -216,7 +261,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }}
         >
           {!isMobileShell && (
-            <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
+    <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
           )}
 
           <Box

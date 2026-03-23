@@ -53,10 +53,24 @@ function getPageHeader(pathname: string) {
     };
   }
 
+  if (pathname === "/fairness") {
+    return {
+      title: `${currentTeamName} Fairness`,
+      subtitle: "Organiser and captain workspace for saved matchday fairness tracking, alerts, and planner history."
+    };
+  }
+
   if (pathname === "/configure") {
     return {
       title: `${currentTeamName} Configure`,
       subtitle: "Admin mapping for team users, squad identity links, and release-ready access setup."
+    };
+  }
+
+  if (pathname === "/memberships") {
+    return {
+      title: `${currentTeamName} Memberships`,
+      subtitle: "V2 membership foundation for team members, linked accounts, linked players, and season coverage."
     };
   }
 

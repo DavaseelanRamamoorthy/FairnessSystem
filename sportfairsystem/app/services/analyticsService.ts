@@ -1,6 +1,6 @@
-import { currentTeamName } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
 import { supabase } from "@/app/services/supabaseClient";
+import { getActiveTeamContext } from "@/app/services/teamContextService";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 
 export type SeasonOption = {
@@ -159,22 +159,8 @@ function getResultBucket(match: Pick<MatchRow, "result" | "result_summary">) {
   return "Unknown";
 }
 
-async function getCurrentTeamId() {
-  const { data: teamData, error: teamError } = await supabase
-    .from("teams")
-    .select("id")
-    .eq("name", currentTeamName)
-    .single();
-
-  if (teamError || !teamData) {
-    throw new Error("Could not load the current team.");
-  }
-
-  return teamData.id as string;
-}
-
 export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSnapshot> {
-  const teamId = await getCurrentTeamId();
+  const { teamId, teamName: activeTeamName } = await getActiveTeamContext();
 
   const [
     { data: matchData, error: matchError },
@@ -247,8 +233,8 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
   }
 
   const inningsRows = (inningsData ?? []) as InningsRow[];
-  const battingInningsRows = inningsRows.filter((innings) => innings.team_name === currentTeamName);
-  const bowlingInningsRows = inningsRows.filter((innings) => innings.team_name !== currentTeamName);
+  const battingInningsRows = inningsRows.filter((innings) => innings.team_name === activeTeamName);
+  const bowlingInningsRows = inningsRows.filter((innings) => innings.team_name !== activeTeamName);
   const battingInningsIds = battingInningsRows.map((innings) => innings.id);
   const bowlingInningsIds = bowlingInningsRows.map((innings) => innings.id);
 
@@ -279,7 +265,7 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
             .from("match_players")
             .select("match_id, player_id, player_name, did_bat, did_bowl")
             .in("match_id", matchIds)
-            .eq("team_name", currentTeamName)
+            .eq("team_name", activeTeamName)
         : Promise.resolve({ data: [], error: null })
     ]);
 
@@ -338,7 +324,7 @@ export async function getAnalyticsSnapshot(season?: string): Promise<AnalyticsSn
   const matchTrend = [...matches]
     .sort((left, right) => (left.match_date ?? "").localeCompare(right.match_date ?? ""))
     .map((match) => ({
-      label: match.match_code ?? getOpponentName(match.team_a, match.team_b, currentTeamName) ?? "Match",
+      label: match.match_code ?? getOpponentName(match.team_a, match.team_b, activeTeamName) ?? "Match",
       runs: runsByMatch.get(match.id) ?? 0,
       wickets: wicketsByMatch.get(match.id) ?? 0
     }));

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   Avatar,
@@ -18,6 +19,7 @@ import { varAlpha } from "minimal-shared/utils";
 
 import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
 import { useAuth } from "@/app/context/AuthContext";
+import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
 import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 import { getDesktopNavItems, isNavPathActive } from "@/app/layout/navigationConfig";
 
@@ -30,12 +32,37 @@ export default function Sidebar({ collapsed, onOpenSettings }: Props) {
 
   const pathname = usePathname();
   const { isAdmin, profile } = useAuth();
-  const navItems = getDesktopNavItems(isAdmin);
+  const [canSeeFairness, setCanSeeFairness] = useState(false);
+  const navItems = getDesktopNavItems(isAdmin, canSeeFairness);
   const profileLetter = (profile?.firstName ?? profile?.email ?? "P").charAt(0).toUpperCase();
   const profileDisplayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim()
     || profile?.username
     || profile?.email
     || "Profile";
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadFairnessVisibility = async () => {
+      try {
+        const nextVisibility = await canAccessFairnessWorkspace();
+
+        if (isActive) {
+          setCanSeeFairness(nextVisibility);
+        }
+      } catch {
+        if (isActive) {
+          setCanSeeFairness(false);
+        }
+      }
+    };
+
+    void loadFairnessVisibility();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   return (
     <>

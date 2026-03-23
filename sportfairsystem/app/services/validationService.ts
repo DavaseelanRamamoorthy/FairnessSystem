@@ -1,9 +1,8 @@
-import { currentTeamName } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
 import { CricketRuleSeverity } from "@/app/services/cricketRulebook";
 import { evaluateParsedMatchAgainstCricketRulebook } from "@/app/services/ruleEvaluationService";
-import { getCurrentTeamId } from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
+import { getActiveTeamContext } from "@/app/services/teamContextService";
 import { normalizeTeamName } from "@/app/services/teamValidationService";
 import { ParsedMatch } from "@/app/types/match.types";
 import { getOpponentName } from "@/app/utils/matchOpponent";
@@ -159,8 +158,8 @@ function buildEmptySnapshot(seasons: ValidationSeasonOption[]): ValidationSnapsh
   };
 }
 
-function isCurrentTeamContext(teamName: string | null | undefined) {
-  return normalizeTeamName(teamName) === normalizeTeamName(currentTeamName);
+function isCurrentTeamContext(teamName: string | null | undefined, activeTeamName: string) {
+  return normalizeTeamName(teamName) === normalizeTeamName(activeTeamName);
 }
 
 function dedupeValidationIssueItems(items: ValidationIssueItem[]) {
@@ -184,7 +183,7 @@ function dedupeValidationIssueItems(items: ValidationIssueItem[]) {
 }
 
 export async function getValidationSnapshot(season?: string): Promise<ValidationSnapshot> {
-  const teamId = await getCurrentTeamId();
+  const { teamId, teamName: activeTeamName } = await getActiveTeamContext();
 
   const [
     { data: matchData, error: matchError },
@@ -281,7 +280,9 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
   }
 
   const matchPlayers = (matchPlayersData ?? []) as MatchPlayerRow[];
-  const currentTeamMatchPlayers = matchPlayers.filter((row) => isCurrentTeamContext(row.team_name));
+  const currentTeamMatchPlayers = matchPlayers.filter((row) =>
+    isCurrentTeamContext(row.team_name, activeTeamName)
+  );
 
   const missingPlayerLinks: ValidationIssueItem[] = [];
 
@@ -293,38 +294,17 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
         matchId: row.match_id,
         matchCode: match?.match_code ?? null,
         matchDate: match?.match_date ?? null,
-        opponentName: getOpponentName(match?.team_a ?? null, match?.team_b ?? null, currentTeamName),
+        opponentName: getOpponentName(match?.team_a ?? null, match?.team_b ?? null, activeTeamName),
         playerName: row.player_name,
         source: "Match XI",
-        detail: "Moonwalkers XI player is missing player_id in match_players."
+        detail: `${activeTeamName} XI player is missing player_id in match_players.`
       });
     });
 
   battingStats
     .filter((row) => {
       const innings = inningsById.get(row.innings_id);
-      return isCurrentTeamContext(innings?.team_name) && !row.player_id && Boolean(row.player_name);
-    })
-    .forEach((row) => {
-      const innings = inningsById.get(row.innings_id);
-      const match = innings ? matchById.get(innings.match_id) : null;
-
-      missingPlayerLinks.push({
-        matchId: innings?.match_id ?? "",
-        matchCode: match?.match_code ?? null,
-        matchDate: match?.match_date ?? null,
-        opponentName: getOpponentName(match?.team_a ?? null, match?.team_b ?? null, currentTeamName),
-        playerName: row.player_name ?? "Unknown Player",
-        source: "Batting",
-        detail: "Moonwalkers batting row is missing player_id."
-      });
-    });
-
-  bowlingStats
-    .filter((row) => {
-      const innings = inningsById.get(row.innings_id);
-      return Boolean(innings?.team_name)
-        && !isCurrentTeamContext(innings?.team_name)
+      return isCurrentTeamContext(innings?.team_name, activeTeamName)
         && !row.player_id
         && Boolean(row.player_name);
     })
@@ -336,10 +316,33 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
         matchId: innings?.match_id ?? "",
         matchCode: match?.match_code ?? null,
         matchDate: match?.match_date ?? null,
-        opponentName: getOpponentName(match?.team_a ?? null, match?.team_b ?? null, currentTeamName),
+        opponentName: getOpponentName(match?.team_a ?? null, match?.team_b ?? null, activeTeamName),
+        playerName: row.player_name ?? "Unknown Player",
+        source: "Batting",
+        detail: `${activeTeamName} batting row is missing player_id.`
+      });
+    });
+
+  bowlingStats
+    .filter((row) => {
+      const innings = inningsById.get(row.innings_id);
+      return Boolean(innings?.team_name)
+        && !isCurrentTeamContext(innings?.team_name, activeTeamName)
+        && !row.player_id
+        && Boolean(row.player_name);
+    })
+    .forEach((row) => {
+      const innings = inningsById.get(row.innings_id);
+      const match = innings ? matchById.get(innings.match_id) : null;
+
+      missingPlayerLinks.push({
+        matchId: innings?.match_id ?? "",
+        matchCode: match?.match_code ?? null,
+        matchDate: match?.match_date ?? null,
+        opponentName: getOpponentName(match?.team_a ?? null, match?.team_b ?? null, activeTeamName),
         playerName: row.player_name ?? "Unknown Player",
         source: "Bowling",
-        detail: "Moonwalkers bowling row is missing player_id."
+        detail: `${activeTeamName} bowling row is missing player_id.`
       });
     });
 
@@ -380,7 +383,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
 
   const duplicateNameRisks = Array.from(duplicateNameMap.entries())
     .filter(([, entry]) =>
-      Array.from(entry.teams).some((teamName) => isCurrentTeamContext(teamName))
+      Array.from(entry.teams).some((teamName) => isCurrentTeamContext(teamName, activeTeamName))
       && entry.teams.size > 1
     )
     .map(([normalizedName, entry]) => ({
@@ -388,7 +391,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
       displayName: entry.displayName,
       teams: Array.from(entry.teams).sort(),
       appearances: entry.appearances.size,
-      note: `Name appears for Moonwalkers and ${entry.teams.size - 1} other team context(s).`
+      note: `Name appears for ${activeTeamName} and ${entry.teams.size - 1} other team context(s).`
     }))
     .sort((left, right) => right.appearances - left.appearances);
 
@@ -462,7 +465,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
         matchId: match.id,
         matchCode: match.match_code,
         matchDate: match.match_date,
-        opponentName: getOpponentName(match.team_a, match.team_b, currentTeamName),
+        opponentName: getOpponentName(match.team_a, match.team_b, activeTeamName),
         rulebookName: evaluation.rulebook.name,
         severity: finding.severity,
         title: finding.title,
@@ -477,7 +480,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
   battingStats.forEach((row) => {
     const innings = inningsById.get(row.innings_id);
 
-    if (!innings || !isCurrentTeamContext(innings.team_name) || !row.player_name) {
+    if (!innings || !isCurrentTeamContext(innings.team_name, activeTeamName) || !row.player_name) {
       return;
     }
 
@@ -489,7 +492,12 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
   bowlingStats.forEach((row) => {
     const innings = inningsById.get(row.innings_id);
 
-    if (!innings || !innings.team_name || isCurrentTeamContext(innings.team_name) || !row.player_name) {
+    if (
+      !innings
+      || !innings.team_name
+      || isCurrentTeamContext(innings.team_name, activeTeamName)
+      || !row.player_name
+    ) {
       return;
     }
 
@@ -528,7 +536,7 @@ export async function getValidationSnapshot(season?: string): Promise<Validation
         matchId: match.id,
         matchCode: match.match_code,
         matchDate: match.match_date,
-        opponentName: getOpponentName(match.team_a, match.team_b, currentTeamName),
+        opponentName: getOpponentName(match.team_a, match.team_b, activeTeamName),
         xiCount,
         activeCount,
         note

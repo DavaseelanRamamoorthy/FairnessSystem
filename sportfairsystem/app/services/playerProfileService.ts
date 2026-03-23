@@ -110,6 +110,19 @@ export type PlayerSummary = {
   roleTags: string[];
 };
 
+export type PlannerPlayerSummary = PlayerSummary & {
+  memberId: string;
+  playerId: string | null;
+  identityNames: string[];
+};
+
+export type MemberRosterSummary = PlayerSummary & {
+  memberId: string;
+  playerId: string | null;
+  membershipStatus: "active" | "inactive" | "invited" | "archived";
+  hasLinkedPlayer: boolean;
+};
+
 export type PlayerProfile = {
   id: string;
   name: string;
@@ -144,6 +157,23 @@ export type PlayerProfile = {
 
 type SquadPlayerSummaryOptions = {
   includeInactiveForSeason?: boolean;
+};
+
+type TeamMemberRosterRow = {
+  id?: unknown;
+  name?: unknown;
+  status?: unknown;
+};
+
+type MemberLinkedPlayerRow = {
+  id?: unknown;
+  member_id?: unknown;
+  name?: unknown;
+  is_guest?: unknown;
+  batting_style?: unknown;
+  is_captain?: unknown;
+  is_wicket_keeper?: unknown;
+  role_tags?: unknown;
 };
 
 function oversToBalls(overs: number) {
@@ -618,6 +648,305 @@ export async function getSquadPlayerSummaries(
     .sort((left, right) => {
       if (right.matchesPlayed !== left.matchesPlayed) {
         return right.matchesPlayed - left.matchesPlayed;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+}
+
+export async function getPlannerPlayerSummaries(
+  season?: string,
+  options?: SquadPlayerSummaryOptions
+) {
+  const teamId = await getCurrentTeamId();
+  const [
+    {
+      squadPlayers,
+      matchPlayers,
+      inningsRows,
+      battingStats,
+      bowlingStats
+    },
+    { data: seasonRows, error: seasonRowsError },
+    { data: memberRows, error: memberRowsError }
+  ] = await Promise.all([
+    loadSharedPlayerData(teamId, season),
+    season
+      ? supabase
+        .from("membership_seasons")
+        .select("id, name")
+        .eq("team_id", teamId)
+        .eq("name", season)
+      : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("team_members")
+      .select("id, name, status, season_id")
+      .eq("team_id", teamId)
+  ]);
+
+  if (seasonRowsError) {
+    throw new Error("Could not load planner seasons.");
+  }
+
+  if (memberRowsError) {
+    throw new Error("Could not load planner team members.");
+  }
+
+  const selectedSeasonIds = new Set(
+    ((seasonRows ?? []) as Array<{ id?: unknown }>).flatMap((row) =>
+      typeof row.id === "string" ? [row.id] : []
+    )
+  );
+
+  const filteredMembers = ((memberRows ?? []) as Array<{
+    id?: unknown;
+    name?: unknown;
+    status?: unknown;
+    season_id?: unknown;
+  }>).filter((row) => {
+    const memberStatus =
+      row.status === "inactive" || row.status === "invited" || row.status === "archived"
+        ? row.status
+        : "active";
+
+    if (!options?.includeInactiveForSeason && memberStatus !== "active") {
+      return false;
+    }
+
+    if (!season) {
+      return true;
+    }
+
+    if (selectedSeasonIds.size === 0) {
+      return false;
+    }
+
+    return typeof row.season_id === "string" && selectedSeasonIds.has(row.season_id);
+  });
+
+  if (filteredMembers.length === 0) {
+    return [] as PlannerPlayerSummary[];
+  }
+
+  const statsByPlayer = aggregatePlayerStats(
+    squadPlayers,
+    matchPlayers,
+    inningsRows,
+    battingStats,
+    bowlingStats
+  );
+  const squadPlayerById = new Map(
+    squadPlayers.map((player) => [player.id, player] as const)
+  );
+  const memberIds = filteredMembers.flatMap((row) => (typeof row.id === "string" ? [row.id] : []));
+
+  const [
+    { data: linkedPlayersData, error: linkedPlayersError },
+    { data: aliasRows, error: aliasRowsError }
+  ] = await Promise.all([
+    supabase
+      .from("players")
+      .select("id, member_id, name, is_guest, batting_style, is_captain, is_wicket_keeper, role_tags")
+      .eq("team_id", teamId)
+      .eq("is_guest", false)
+      .in("member_id", memberIds),
+    supabase
+      .from("team_member_aliases")
+      .select("member_id, alias")
+      .eq("team_id", teamId)
+      .in("member_id", memberIds)
+  ]);
+
+  if (linkedPlayersError) {
+    throw new Error("Could not load planner linked player profiles.");
+  }
+
+  if (aliasRowsError) {
+    throw new Error("Could not load planner external names.");
+  }
+
+  const linkedPlayerByMemberId = new Map<string, SquadPlayer>();
+  ((linkedPlayersData ?? []) as MemberLinkedPlayerRow[]).forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const playerId = typeof row.id === "string" ? row.id : null;
+
+    if (!memberId || !playerId) {
+      return;
+    }
+
+    linkedPlayerByMemberId.set(
+      memberId,
+      squadPlayerById.get(playerId) ?? mapSquadPlayerRecord(row as Record<string, unknown>)
+    );
+  });
+
+  const aliasesByMemberId = new Map<string, string[]>();
+  ((aliasRows ?? []) as Array<{ member_id?: unknown; alias?: unknown }>).forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const alias = typeof row.alias === "string" ? row.alias.trim() : "";
+
+    if (!memberId || !alias) {
+      return;
+    }
+
+    const currentAliases = aliasesByMemberId.get(memberId) ?? [];
+    currentAliases.push(alias);
+    aliasesByMemberId.set(memberId, currentAliases);
+  });
+
+  return filteredMembers.map((row) => {
+    const memberId = typeof row.id === "string" ? row.id : "";
+    const memberName = typeof row.name === "string" ? row.name : "";
+    const linkedPlayer = linkedPlayerByMemberId.get(memberId) ?? null;
+    const basePlayer: SquadPlayer = linkedPlayer ?? {
+      id: memberId,
+      name: memberName,
+      isGuest: false,
+      battingStyle: null,
+      isCaptain: false,
+      isWicketKeeper: false,
+      roleTags: []
+    };
+    const summary = buildPlayerSummary(
+      {
+        ...basePlayer,
+        id: linkedPlayer?.id ?? memberId,
+        name: memberName
+      },
+      linkedPlayer ? (statsByPlayer.get(linkedPlayer.id) ?? createEmptyStats()) : createEmptyStats()
+    );
+    const rawIdentityNames = [
+      summary.name,
+      linkedPlayer?.name ?? null,
+      ...(aliasesByMemberId.get(memberId) ?? [])
+    ].filter((value): value is string => Boolean(value));
+
+    const seenNames = new Set<string>();
+    const identityNames = rawIdentityNames.filter((value) => {
+      const key = cleanName(value);
+
+      if (!key || seenNames.has(key)) {
+        return false;
+      }
+
+      seenNames.add(key);
+      return true;
+    });
+
+    return {
+      ...summary,
+      memberId,
+      playerId: linkedPlayer?.id ?? null,
+      identityNames
+    } satisfies PlannerPlayerSummary;
+  }).sort((left, right) => {
+    if (right.matchesPlayed !== left.matchesPlayed) {
+      return right.matchesPlayed - left.matchesPlayed;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+export async function getMemberRosterSummaries(season?: string) {
+  const teamId = await getCurrentTeamId();
+  const [
+    {
+      squadPlayers,
+      matchPlayers,
+      inningsRows,
+      battingStats,
+      bowlingStats
+    },
+    { data: membersData, error: membersError },
+    { data: linkedPlayersData, error: linkedPlayersError }
+  ] = await Promise.all([
+    loadSharedPlayerData(teamId, season),
+    supabase
+      .from("team_members")
+      .select("id, name, status")
+      .eq("team_id", teamId)
+      .order("name", { ascending: true }),
+    supabase
+      .from("players")
+      .select("id, member_id, name, is_guest, batting_style, is_captain, is_wicket_keeper, role_tags")
+      .eq("team_id", teamId)
+      .eq("is_guest", false)
+      .not("member_id", "is", null)
+  ]);
+
+  if (membersError) {
+    throw new Error("Could not load team roster members.");
+  }
+
+  if (linkedPlayersError) {
+    throw new Error("Could not load linked player profiles.");
+  }
+
+  const statsByPlayer = aggregatePlayerStats(
+    squadPlayers,
+    matchPlayers,
+    inningsRows,
+    battingStats,
+    bowlingStats
+  );
+  const squadPlayerById = new Map(
+    squadPlayers.map((player) => [player.id, player] as const)
+  );
+  const linkedPlayerByMemberId = new Map<string, SquadPlayer>();
+
+  ((linkedPlayersData ?? []) as MemberLinkedPlayerRow[]).forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const playerId = typeof row.id === "string" ? row.id : null;
+
+    if (!memberId || !playerId) {
+      return;
+    }
+
+    linkedPlayerByMemberId.set(
+      memberId,
+      squadPlayerById.get(playerId) ?? mapSquadPlayerRecord(row as Record<string, unknown>)
+    );
+  });
+
+  return ((membersData ?? []) as TeamMemberRosterRow[])
+    .map((row) => {
+      const memberId = typeof row.id === "string" ? row.id : "";
+      const name = typeof row.name === "string" ? row.name : "";
+      const membershipStatus =
+        row.status === "inactive" || row.status === "invited" || row.status === "archived"
+          ? row.status
+          : "active";
+      const linkedPlayer = linkedPlayerByMemberId.get(memberId) ?? null;
+      const basePlayer: SquadPlayer = linkedPlayer ?? {
+        id: memberId,
+        name,
+        isGuest: false,
+        battingStyle: null,
+        isCaptain: false,
+        isWicketKeeper: false,
+        roleTags: []
+      };
+      const summary = buildPlayerSummary(
+        {
+          ...basePlayer,
+          id: linkedPlayer?.id ?? memberId,
+          name
+        },
+        linkedPlayer ? (statsByPlayer.get(linkedPlayer.id) ?? createEmptyStats()) : createEmptyStats()
+      );
+
+      return {
+        ...summary,
+        memberId,
+        playerId: linkedPlayer?.id ?? null,
+        membershipStatus,
+        hasLinkedPlayer: Boolean(linkedPlayer)
+      } satisfies MemberRosterSummary;
+    })
+    .sort((left, right) => {
+      if (left.membershipStatus !== right.membershipStatus) {
+        return left.membershipStatus.localeCompare(right.membershipStatus);
       }
 
       return left.name.localeCompare(right.name);

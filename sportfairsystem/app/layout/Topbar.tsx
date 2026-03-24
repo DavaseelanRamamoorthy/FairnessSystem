@@ -60,6 +60,20 @@ function getPageHeader(pathname: string) {
     };
   }
 
+  if (pathname.startsWith("/fairness/member/")) {
+    return {
+      title: "Member Fairness",
+      subtitle: "Leadership-only fairness detail for one member's saved history, quota progress, and recent week-by-week outcomes."
+    };
+  }
+
+  if (pathname === "/my-fairness") {
+    return {
+      title: "My Fairness",
+      subtitle: "Your own fairness history with available weeks, actual XI chances, bench outcomes, and quota progress."
+    };
+  }
+
   if (pathname === "/configure") {
     return {
       title: `${currentTeamName} Configure`,

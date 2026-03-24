@@ -81,11 +81,22 @@ export type PlannerBatchDetail = PlannerBatchListItem & {
     unavailablePlayers: string[];
     linkedActualMatchId: string | null;
     linkedActualMatchLabel: string | null;
+    suggestedActualMatchId: string | null;
+    suggestedActualMatchLabel: string | null;
     actualListedPlayers: string[];
     actualBattedPlayers: string[];
     actualBowledPlayers: string[];
   }>;
 };
+
+function compareActualMatchCandidates(
+  left: PlannerActualMatchCandidate,
+  right: PlannerActualMatchCandidate
+) {
+  const leftKey = [left.matchDate ?? "", left.matchCode ?? "", left.matchTitle ?? "", left.id].join("|");
+  const rightKey = [right.matchDate ?? "", right.matchCode ?? "", right.matchTitle ?? "", right.id].join("|");
+  return leftKey.localeCompare(rightKey);
+}
 
 function isPlannerPersistenceMissingError(error: { code?: string | null } | null) {
   return error?.code === "42P01" || error?.code === "42703";
@@ -400,6 +411,18 @@ export async function getFriendlyPlannerBatchDetail(batchId: string) {
     listFriendlyPlannerActualMatchCandidates(batchId),
     getPlannerActualMatchLinkMap(access.teamId, [batchId])
   ]);
+  const sortedActualMatchCandidates = [...actualMatchCandidates].sort(compareActualMatchCandidates);
+  const exactDateCandidates = mappedBatch.weekendDate
+    ? sortedActualMatchCandidates.filter((candidate) => candidate.matchDate === mappedBatch.weekendDate)
+    : [];
+  const canSafelyAutoSuggest = Boolean(
+    mappedBatch.weekendDate
+    && exactDateCandidates.length === mappedBatch.matchCount
+    && new Set(exactDateCandidates.map((candidate) => candidate.id)).size === mappedBatch.matchCount
+  );
+  const linkedCandidateIds = new Set(Array.from(actualLinkMap.values()).map((link) => link.matchId));
+  const unlinkedCandidates = (canSafelyAutoSuggest ? exactDateCandidates : [])
+    .filter((candidate) => !linkedCandidateIds.has(candidate.id));
   const linkedMatchIds = Array.from(
     new Set(Array.from(actualLinkMap.values()).map((link) => link.matchId))
   );
@@ -409,6 +432,9 @@ export async function getFriendlyPlannerBatchDetail(batchId: string) {
     const matchNumber = index + 1;
     const rows = assignmentsByMatch.get(matchNumber) ?? [];
     const linkedActualMatch = actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null;
+    const suggestedActualMatch = !linkedActualMatch
+      ? (unlinkedCandidates[matchNumber - 1] ?? null)
+      : null;
     const actualParticipation = linkedActualMatch
       ? (actualParticipationByMatchId.get(linkedActualMatch.matchId) ?? null)
       : null;
@@ -428,6 +454,8 @@ export async function getFriendlyPlannerBatchDetail(batchId: string) {
         .map((row) => row.player_name as string),
       linkedActualMatchId: linkedActualMatch?.matchId ?? null,
       linkedActualMatchLabel: linkedActualMatch?.label ?? null,
+      suggestedActualMatchId: suggestedActualMatch?.id ?? null,
+      suggestedActualMatchLabel: suggestedActualMatch?.label ?? null,
       actualListedPlayers: actualParticipation?.listedNames ?? [],
       actualBattedPlayers: actualParticipation?.battedNames ?? [],
       actualBowledPlayers: actualParticipation?.bowledNames ?? []
@@ -436,7 +464,7 @@ export async function getFriendlyPlannerBatchDetail(batchId: string) {
 
   return {
     ...mappedBatch,
-    actualMatchCandidates,
+    actualMatchCandidates: sortedActualMatchCandidates,
     matches
   } satisfies PlannerBatchDetail;
 }

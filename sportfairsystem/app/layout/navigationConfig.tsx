@@ -26,6 +26,7 @@ export const desktopBaseNavItems: ShellNavItem[] = [
   { key: "dashboard", title: "Dashboard", path: "/dashboard", icon: <DashboardRoundedIcon /> },
   { key: "matches", title: "Matches", path: "/matches", icon: <SportsCricketRoundedIcon /> },
   { key: "players", title: "Players", path: "/players", icon: <GroupRoundedIcon /> },
+  { key: "my-fairness", title: "My Fairness", path: "/my-fairness", icon: <FactCheckRoundedIcon /> },
   { key: "feedback", title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> }
 ];
 
@@ -52,11 +53,13 @@ const mobileAdminPrimaryNavItems: ShellNavItem[] = [
 ];
 
 const mobileMemberMoreNavItems: ShellNavItem[] = [
+  { key: "my-fairness", title: "My Fairness", path: "/my-fairness", icon: <FactCheckRoundedIcon /> },
   { key: "profile", title: "Profile", path: "/profile", icon: <AccountCircleRoundedIcon /> }
 ];
 
 const mobileAdminMoreNavItems: ShellNavItem[] = [
   { key: "feedback", title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> },
+  { key: "my-fairness", title: "My Fairness", path: "/my-fairness", icon: <FactCheckRoundedIcon /> },
   { key: "profile", title: "Profile", path: "/profile", icon: <AccountCircleRoundedIcon /> },
   { key: "memberships", title: "Memberships", path: "/memberships", icon: <BadgeRoundedIcon /> },
   { key: "configure", title: "Configure", path: "/configure", icon: <ManageAccountsRoundedIcon /> },

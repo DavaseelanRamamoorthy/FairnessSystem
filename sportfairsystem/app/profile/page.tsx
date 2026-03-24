@@ -508,6 +508,12 @@ export default function ProfilePage() {
                       </Button>
                     )}
 
+                    {profile.teamId && (
+                      <Button component={Link} href="/my-fairness" variant="outlined">
+                        Open My Fairness
+                      </Button>
+                    )}
+
                     {profile.role === "admin" && profile.teamId && mappingColumnsReady && !profile.playerId && (
                       <Button component={Link} href="/configure" variant="outlined">
                         Open Configure

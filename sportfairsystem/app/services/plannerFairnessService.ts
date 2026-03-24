@@ -1,4 +1,7 @@
-import { requireFairnessWorkspaceAccess } from "@/app/services/accessControlService";
+import {
+  getCurrentTeamMembershipAccess,
+  requireFairnessWorkspaceAccess
+} from "@/app/services/accessControlService";
 import {
   getPlannerActualMatchLinkMap,
   getPlannerActualParticipationByMatch
@@ -25,6 +28,7 @@ type PlannerAssignmentRow = {
 };
 
 export type PlannerFairnessPlayerSummary = {
+  memberId: string;
   playerId: string;
   name: string;
   isCaptain: boolean;
@@ -62,13 +66,31 @@ export type PlannerFairnessDashboard = {
   alerts: PlannerFairnessAlert[];
 };
 
+export type PlannerFairnessMemberSnapshot = {
+  savedMatchdays: number;
+  member: PlannerFairnessPlayerSummary | null;
+  alerts: PlannerFairnessAlert[];
+};
+
 export type PlannerFairnessAlert = {
   id: string;
-  type: "baseline_build" | "no_xi_yet" | "underuse_after_quota" | "repeat_bench";
+  type:
+    | "baseline_build"
+    | "no_xi_yet"
+    | "underuse_after_quota"
+    | "repeat_bench"
+    | "planned_xi_no_show"
+    | "planned_twelfth_used"
+    | "planned_bench_used"
+    | "planned_unavailable_used";
   severity: "info" | "warning";
   playerId: string;
   playerName: string;
   message: string;
+};
+
+type PlannerFairnessBuildOptions = {
+  includePlayersWithoutAvailability?: boolean;
 };
 
 function isPlannerPersistenceMissingError(error: { code?: string | null } | null) {
@@ -114,10 +136,12 @@ function didPlayerActuallyParticipate(
   );
 }
 
-export async function getPlannerFairnessDashboard(season?: string) {
-  const access = await requireFairnessWorkspaceAccess();
-  const roster = await getPlannerPlayerSummaries(season);
-
+async function buildPlannerFairnessDashboard(
+  teamId: string,
+  roster: Awaited<ReturnType<typeof getPlannerPlayerSummaries>>,
+  season?: string,
+  options?: PlannerFairnessBuildOptions
+) {
   if (roster.length === 0) {
     return {
       savedMatchdays: 0,
@@ -133,7 +157,7 @@ export async function getPlannerFairnessDashboard(season?: string) {
   const batchesQuery = supabase
     .from("planner_matchday_batches")
     .select("id, weekend_date, weekend_label, created_at")
-    .eq("team_id", access.teamId)
+    .eq("team_id", teamId)
     .eq("planner_mode", "friendly")
     .order("weekend_date", { ascending: false })
     .order("created_at", { ascending: false });
@@ -172,7 +196,7 @@ export async function getPlannerFairnessDashboard(season?: string) {
     ? await supabase
       .from("planner_matchday_assignments")
       .select("batch_id, match_number, player_id, member_id, assignment, is_available")
-      .eq("team_id", access.teamId)
+      .eq("team_id", teamId)
       .in("batch_id", batchIds)
       
     : { data: [], error: null };
@@ -202,12 +226,33 @@ export async function getPlannerFairnessDashboard(season?: string) {
       }
     ] as const)
   );
-  const actualLinkMap = await getPlannerActualMatchLinkMap(access.teamId, batchIds);
+  const actualLinkMap = await getPlannerActualMatchLinkMap(teamId, batchIds);
   const linkedMatchIds = Array.from(
     new Set(Array.from(actualLinkMap.values()).map((link) => link.matchId))
   );
-  const actualParticipationByMatchId = await getPlannerActualParticipationByMatch(access.teamId, linkedMatchIds);
+  const actualParticipationByMatchId = await getPlannerActualParticipationByMatch(teamId, linkedMatchIds);
   const assignmentsByIdentityId = new Map<string, PlannerAssignmentRow[]>();
+  const playerByIdentityId = new Map<
+    string,
+    {
+      playerId: string;
+      name: string;
+    }
+  >();
+
+  roster.forEach((player) => {
+    playerByIdentityId.set(player.memberId, {
+      playerId: player.playerId ?? player.memberId,
+      name: player.name
+    });
+
+    if (player.playerId) {
+      playerByIdentityId.set(player.playerId, {
+        playerId: player.playerId,
+        name: player.name
+      });
+    }
+  });
 
   ((assignmentsData ?? []) as PlannerAssignmentRow[]).forEach((row) => {
     const identityId =
@@ -331,7 +376,19 @@ export async function getPlannerFairnessDashboard(season?: string) {
           continue;
         }
 
-        const hadXiSelection = batchAssignments.some((row) => row.assignment === "xi");
+        const hadXiSelection = batchAssignments.some((row) => {
+          const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+          const actualLink = matchNumber ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null : null;
+          const actualParticipation = actualLink
+            ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
+            : null;
+
+          if (actualParticipation) {
+            return didPlayerActuallyParticipate(row, actualParticipation);
+          }
+
+          return row.assignment === "xi";
+        });
 
         if (hadXiSelection) {
           break;
@@ -409,6 +466,7 @@ export async function getPlannerFairnessDashboard(season?: string) {
         .slice(0, 5);
 
       return {
+        memberId: player.memberId,
         playerId: player.playerId ?? player.memberId,
         name: player.name,
         isCaptain: player.isCaptain,
@@ -425,7 +483,7 @@ export async function getPlannerFairnessDashboard(season?: string) {
         recentHistory
       } satisfies PlannerFairnessPlayerSummary;
     })
-    .filter((player) => player.availableMatchdays > 0)
+    .filter((player) => options?.includePlayersWithoutAvailability || player.availableMatchdays > 0)
     .sort((left, right) => {
       if (left.underuseRisk !== right.underuseRisk) {
         return left.underuseRisk ? -1 : 1;
@@ -445,23 +503,16 @@ export async function getPlannerFairnessDashboard(season?: string) {
   const alerts = playerSummaries.flatMap((player) => {
     const playerAlerts: PlannerFairnessAlert[] = [];
 
-    if (player.availableMatchdays >= 1 && player.xiCount === 0) {
+    if (player.consecutiveAvailableNoXiBatches >= 2) {
       playerAlerts.push({
         id: `${player.playerId}-no-xi-yet`,
         type: "no_xi_yet",
         severity: "warning",
         playerId: player.playerId,
         playerName: player.name,
-        message: `${player.name} has been available for ${player.availableMatchdays} saved matchday${player.availableMatchdays > 1 ? "s" : ""} but still has 0 XI selections.`
-      });
-    } else if (player.quotaRemaining > 0 && player.availableMatchdays >= 1) {
-      playerAlerts.push({
-        id: `${player.playerId}-baseline-build`,
-        type: "baseline_build",
-        severity: "info",
-        playerId: player.playerId,
-        playerName: player.name,
-        message: `${player.name} still needs ${player.quotaRemaining} more XI selection${player.quotaRemaining > 1 ? "s" : ""} to complete the 5-match baseline.`
+        message: player.xiCount === 0
+          ? `${player.name} has been available for ${player.consecutiveAvailableNoXiBatches} consecutive saved week${player.consecutiveAvailableNoXiBatches > 1 ? "s" : ""} but still has 0 actual XI selections.`
+          : `${player.name} has been available for ${player.consecutiveAvailableNoXiBatches} consecutive saved week${player.consecutiveAvailableNoXiBatches > 1 ? "s" : ""} without an actual XI selection.`
       });
     }
 
@@ -492,12 +543,90 @@ export async function getPlannerFairnessDashboard(season?: string) {
     }
 
     return playerAlerts;
-  }).sort((left, right) => {
-    if (left.severity !== right.severity) {
-      return left.severity === "warning" ? -1 : 1;
+  });
+
+  const reconciliationAlerts: PlannerFairnessAlert[] = [];
+
+  Array.from(assignmentsByIdentityId.entries()).forEach(([identityId, rows]) => {
+    const player = playerByIdentityId.get(identityId);
+
+    if (!player) {
+      return;
     }
 
-    return left.playerName.localeCompare(right.playerName);
+    rows.forEach((row) => {
+      const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
+      const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+      const assignment = typeof row.assignment === "string" ? row.assignment : null;
+
+      if (!batchId || matchNumber === null || !assignment) {
+        return;
+      }
+
+      const actualLink = actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null;
+
+      if (!actualLink) {
+        return;
+      }
+
+      const actualParticipation = actualParticipationByMatchId.get(actualLink.matchId) ?? null;
+
+      if (!actualParticipation) {
+        return;
+      }
+
+      const metadata = batchMetadataById.get(batchId);
+      const weekendLabel = metadata?.weekendLabel ?? metadata?.weekendDate ?? "the saved matchday";
+      const actuallyParticipated = didPlayerActuallyParticipate(row, actualParticipation);
+      const batchMatchLabel = `${weekendLabel} Match ${matchNumber}`;
+
+      if (assignment === "xi" && !actuallyParticipated) {
+        reconciliationAlerts.push({
+          id: `${player.playerId}-${batchId}-${matchNumber}-planned-xi-no-show`,
+          type: "planned_xi_no_show",
+          severity: "warning",
+          playerId: player.playerId,
+          playerName: player.name,
+          message: `${player.name} was planned in the XI for ${batchMatchLabel} but no actual appearance was found in the linked scorecard.`
+        });
+        return;
+      }
+
+      if (assignment === "twelfth" && actuallyParticipated) {
+        reconciliationAlerts.push({
+          id: `${player.playerId}-${batchId}-${matchNumber}-planned-twelfth-used`,
+          type: "planned_twelfth_used",
+          severity: "info",
+          playerId: player.playerId,
+          playerName: player.name,
+          message: `${player.name} was planned as 12th man for ${batchMatchLabel} but was actually used in the linked scorecard.`
+        });
+        return;
+      }
+
+      if (assignment === "bench" && actuallyParticipated) {
+        reconciliationAlerts.push({
+          id: `${player.playerId}-${batchId}-${matchNumber}-planned-bench-used`,
+          type: "planned_bench_used",
+          severity: "warning",
+          playerId: player.playerId,
+          playerName: player.name,
+          message: `${player.name} was planned on the bench for ${batchMatchLabel} but appears in the linked scorecard.`
+        });
+        return;
+      }
+
+      if ((assignment === "unavailable" || row.is_available === false) && actuallyParticipated) {
+        reconciliationAlerts.push({
+          id: `${player.playerId}-${batchId}-${matchNumber}-planned-unavailable-used`,
+          type: "planned_unavailable_used",
+          severity: "warning",
+          playerId: player.playerId,
+          playerName: player.name,
+          message: `${player.name} was marked unavailable for ${batchMatchLabel} but appears in the linked scorecard.`
+        });
+      }
+    });
   });
 
   return {
@@ -507,6 +636,66 @@ export async function getPlannerFairnessDashboard(season?: string) {
     playersAtOrAboveQuota: playerSummaries.filter((player) => player.xiCount >= 5).length,
     underuseRiskCount: playerSummaries.filter((player) => player.underuseRisk).length,
     playerSummaries,
-    alerts
+    alerts: [...reconciliationAlerts, ...alerts].sort((left, right) => {
+    if (left.severity !== right.severity) {
+      return left.severity === "warning" ? -1 : 1;
+    }
+
+    return left.playerName.localeCompare(right.playerName);
+    })
   } satisfies PlannerFairnessDashboard;
+}
+
+function buildPlannerFairnessMemberSnapshot(
+  dashboard: PlannerFairnessDashboard,
+  memberId: string
+) {
+  const member = dashboard.playerSummaries.find((player) => player.memberId === memberId) ?? null;
+
+  return {
+    savedMatchdays: dashboard.savedMatchdays,
+    member,
+    alerts: member
+      ? dashboard.alerts.filter((alert) => alert.playerId === member.playerId)
+      : []
+  } satisfies PlannerFairnessMemberSnapshot;
+}
+
+export async function getPlannerFairnessDashboard(season?: string) {
+  const access = await requireFairnessWorkspaceAccess();
+  const roster = await getPlannerPlayerSummaries(season);
+
+  return buildPlannerFairnessDashboard(access.teamId, roster, season);
+}
+
+export async function getCurrentMemberFairnessSnapshot(season?: string) {
+  const access = await getCurrentTeamMembershipAccess();
+
+  if (!access.teamId || !access.memberId) {
+    throw new Error("Your account is not linked to an active team membership yet.");
+  }
+
+  const roster = await getPlannerPlayerSummaries(season, {
+    includeInactiveForSeason: true
+  });
+  const dashboard = await buildPlannerFairnessDashboard(access.teamId, roster, season, {
+    includePlayersWithoutAvailability: true
+  });
+
+  return buildPlannerFairnessMemberSnapshot(dashboard, access.memberId);
+}
+
+export async function getPlannerFairnessMemberSnapshot(
+  memberId: string,
+  season?: string
+) {
+  const access = await requireFairnessWorkspaceAccess();
+  const roster = await getPlannerPlayerSummaries(season, {
+    includeInactiveForSeason: true
+  });
+  const dashboard = await buildPlannerFairnessDashboard(access.teamId, roster, season, {
+    includePlayersWithoutAvailability: true
+  });
+
+  return buildPlannerFairnessMemberSnapshot(dashboard, memberId);
 }

@@ -30,6 +30,7 @@ import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
+import { useAuth } from "@/app/context/AuthContext";
 import { formatName } from "@/app/services/formatname";
 import {
   MemberRosterSummary,
@@ -45,7 +46,7 @@ const PLAYERS_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:players";
 type PlayerSortOption = "a-z" | "z-a";
 type PlayerStatusFilter = "active" | "inactive" | "invited" | "archived" | "all";
 
-function buildMetadataChips(player: MemberRosterSummary) {
+function buildMetadataChips(player: MemberRosterSummary, showMembershipSignals: boolean) {
   const chips: Array<{ key: string; label: string; color?: "primary" | "success" | "default" }> = [];
 
   if (player.isCaptain) {
@@ -56,7 +57,7 @@ function buildMetadataChips(player: MemberRosterSummary) {
     chips.push({ key: "wicket-keeper", label: "Wicket Keeper", color: "success" });
   }
 
-  if (player.membershipStatus !== "active") {
+  if (showMembershipSignals && player.membershipStatus !== "active") {
     chips.push({
       key: `status-${player.membershipStatus}`,
       label: formatName(player.membershipStatus),
@@ -64,7 +65,7 @@ function buildMetadataChips(player: MemberRosterSummary) {
     });
   }
 
-  if (!player.hasLinkedPlayer) {
+  if (showMembershipSignals && !player.hasLinkedPlayer) {
     chips.push({ key: "profile-pending", label: "Profile Pending", color: "default" });
   }
 
@@ -107,6 +108,7 @@ function getPlayerCardIcon(player: MemberRosterSummary) {
 export default function PlayersPage() {
   const router = useRouter();
   const theme = useTheme();
+  const { isAdmin } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [players, setPlayers] = useState<MemberRosterSummary[]>([]);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
@@ -445,7 +447,7 @@ export default function PlayersPage() {
                                             {formatName(player.name)}
                                           </Typography>
 
-                                          {buildMetadataChips(player).map((chip) => (
+                                          {buildMetadataChips(player, isAdmin).map((chip) => (
                                             <Chip
                                               key={chip.key}
                                               label={chip.label}
@@ -500,7 +502,7 @@ export default function PlayersPage() {
                                         {player.matchesPlayed}
                                       </Typography>
 
-                                      {!player.hasLinkedPlayer && (
+                                      {isAdmin && !player.hasLinkedPlayer && (
                                         <Typography variant="caption" color="text.secondary">
                                           Membership only
                                         </Typography>

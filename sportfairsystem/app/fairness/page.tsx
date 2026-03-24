@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -29,6 +30,7 @@ import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
 import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
+import { cleanName } from "@/app/services/cleanName";
 import { formatName } from "@/app/services/formatname";
 import {
   deleteFriendlyPlannerBatch,
@@ -44,7 +46,12 @@ import {
   PlannerFairnessDashboard,
   getPlannerFairnessDashboard
 } from "@/app/services/plannerFairnessService";
-import { getPlayerSeasons, SeasonOption } from "@/app/services/playerProfileService";
+import {
+  getPlannerPlayerSummaries,
+  getPlayerSeasons,
+  PlannerPlayerSummary,
+  SeasonOption
+} from "@/app/services/playerProfileService";
 import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
 
@@ -119,26 +126,20 @@ function buildFairnessHistoryLabel(
     : `${entry.weekendLabel}: No tracked assignments`;
 }
 
-function getFairnessAlertSeverity(
-  alert: PlannerFairnessAlert
-): "info" | "warning" {
-  return alert.severity;
-}
+function stripLeadingPlayerNameFromAlert(alert: PlannerFairnessAlert) {
+  const normalizedPlayerName = formatName(alert.playerName).toLowerCase();
+  const message = alert.message.trim();
+  const normalizedMessage = message.toLowerCase();
 
-function renderFairnessAlertMessage(alert: PlannerFairnessAlert) {
-  const formattedName = formatName(alert.playerName);
-  const remainingMessage = alert.message.startsWith(alert.playerName)
-    ? alert.message.slice(alert.playerName.length).trimStart()
-    : alert.message;
+  if (normalizedMessage.startsWith(normalizedPlayerName)) {
+    return message.slice(formatName(alert.playerName).length).trimStart();
+  }
 
-  return (
-    <>
-      <Box component="span" sx={{ fontWeight: 800 }}>
-        {formattedName}
-      </Box>
-      {remainingMessage ? ` ${remainingMessage}` : ""}
-    </>
-  );
+  if (typeof alert.playerName === "string" && normalizedMessage.startsWith(alert.playerName.toLowerCase())) {
+    return message.slice(alert.playerName.length).trimStart();
+  }
+
+  return message;
 }
 
 function formatTimestamp(value: string | null) {
@@ -161,6 +162,74 @@ function formatTimestamp(value: string | null) {
   });
 }
 
+function StaticNameList({ names }: { names: string[] }) {
+  return (
+    <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+      {names.map((name, index) => (
+        <Typography
+          key={`${name}-${index}`}
+          component="li"
+          variant="body2"
+          sx={{ mb: 0.5 }}
+        >
+          {formatName(name)}
+        </Typography>
+      ))}
+    </Box>
+  );
+}
+
+function normalizeComparisonName(name: string) {
+  return cleanName(name).replace(/\s+/g, " ").trim();
+}
+
+function resolveComparisonIdentityKey(name: string, canonicalNameByIdentityKey: Map<string, string>) {
+  const normalizedName = normalizeComparisonName(name);
+  return canonicalNameByIdentityKey.get(normalizedName) ?? normalizedName;
+}
+
+function buildMatchComparisonInsights(
+  match: PlannerBatchDetail["matches"][number],
+  canonicalNameByIdentityKey: Map<string, string>
+) {
+  const actualNameKeySet = new Set(
+    match.actualListedPlayers.map((name) => resolveComparisonIdentityKey(name, canonicalNameByIdentityKey))
+  );
+  const plannedXiNoShow = match.xiPlayers.filter(
+    (name) => !actualNameKeySet.has(resolveComparisonIdentityKey(name, canonicalNameByIdentityKey))
+  );
+  const plannedTwelfthUsed = match.twelfthPlayer
+    ? actualNameKeySet.has(resolveComparisonIdentityKey(match.twelfthPlayer, canonicalNameByIdentityKey))
+      ? [match.twelfthPlayer]
+      : []
+    : [];
+  const plannedBenchUsed = match.benchPlayers.filter(
+    (name) => actualNameKeySet.has(resolveComparisonIdentityKey(name, canonicalNameByIdentityKey))
+  );
+  const plannedUnavailableUsed = match.unavailablePlayers.filter(
+    (name) => actualNameKeySet.has(resolveComparisonIdentityKey(name, canonicalNameByIdentityKey))
+  );
+  const insights: string[] = [];
+
+  if (plannedXiNoShow.length > 0) {
+    insights.push(`Planned XI but no actual appearance: ${plannedXiNoShow.map((name) => formatName(name)).join(", ")}`);
+  }
+
+  if (plannedTwelfthUsed.length > 0) {
+    insights.push(`Planned 12th but actually used: ${plannedTwelfthUsed.map((name) => formatName(name)).join(", ")}`);
+  }
+
+  if (plannedBenchUsed.length > 0) {
+    insights.push(`Planned bench but actually used: ${plannedBenchUsed.map((name) => formatName(name)).join(", ")}`);
+  }
+
+  if (plannedUnavailableUsed.length > 0) {
+    insights.push(`Marked unavailable but appeared: ${plannedUnavailableUsed.map((name) => formatName(name)).join(", ")}`);
+  }
+
+  return insights;
+}
+
 export default function FairnessPage() {
   const { isAuthenticated } = useAuth();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
@@ -168,8 +237,11 @@ export default function FairnessPage() {
   const [selectedSeason, setSelectedSeason] = useState(() => readStoredSeasonFilter(FAIRNESS_SEASON_STORAGE_KEY) ?? "");
   const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
   const [dashboard, setDashboard] = useState<PlannerFairnessDashboard | null>(null);
+  const [plannerIdentitySummaries, setPlannerIdentitySummaries] = useState<PlannerPlayerSummary[]>([]);
+  const [recentComparisonBatchDetails, setRecentComparisonBatchDetails] = useState<PlannerBatchDetail[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [isLoadingComparisonInsights, setIsLoadingComparisonInsights] = useState(false);
   const [savedBatches, setSavedBatches] = useState<PlannerBatchListItem[]>([]);
   const [isLoadingBatches, setIsLoadingBatches] = useState(false);
   const [selectedBatchId, setSelectedBatchId] = useState("");
@@ -179,8 +251,10 @@ export default function FairnessPage() {
   const [isSavingBatchNotes, setIsSavingBatchNotes] = useState(false);
   const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
   const [savingActualMatchKey, setSavingActualMatchKey] = useState<string | null>(null);
+  const [isAutoLinkingSuggestedMatches, setIsAutoLinkingSuggestedMatches] = useState(false);
   const [fairnessTrackerPage, setFairnessTrackerPage] = useState(1);
   const [savedBatchesPage, setSavedBatchesPage] = useState(1);
+  const [selectedAlertPlayerId, setSelectedAlertPlayerId] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -258,6 +332,67 @@ export default function FairnessPage() {
     }
   }, [selectedSeason]);
 
+  const canonicalNameByIdentityKey = useMemo(() => {
+    const nextMap = new Map<string, string>();
+
+    plannerIdentitySummaries.forEach((player) => {
+      const canonicalName = formatName(player.name);
+
+      [player.name, ...(player.identityNames ?? [])].forEach((identityName) => {
+        const normalizedKey = normalizeComparisonName(identityName);
+
+        if (!normalizedKey || nextMap.has(normalizedKey)) {
+          return;
+        }
+
+        nextMap.set(normalizedKey, canonicalName);
+      });
+    });
+
+    return nextMap;
+  }, [plannerIdentitySummaries]);
+
+  const recentComparisonInsights = useMemo(() => {
+    const grouped = recentComparisonBatchDetails.flatMap((batchDetail) =>
+      batchDetail.matches.flatMap((match) => {
+        if (!match.linkedActualMatchId) {
+          return [];
+        }
+
+        const insights = buildMatchComparisonInsights(match, canonicalNameByIdentityKey);
+
+        if (insights.length === 0) {
+          return [];
+        }
+
+        return [{
+          id: `${batchDetail.id}-match-${match.matchNumber}`,
+          weekendLabel: batchDetail.weekendLabel,
+          matchNumber: match.matchNumber,
+          insights
+        }];
+      })
+    );
+
+    const groupedByWeekend = new Map<string, { weekendLabel: string; entries: Array<{ id: string; matchNumber: number; insights: string[] }> }>();
+
+    grouped.forEach((entry) => {
+      const currentEntries = groupedByWeekend.get(entry.weekendLabel)?.entries ?? [];
+      currentEntries.push({
+        id: entry.id,
+        matchNumber: entry.matchNumber,
+        insights: entry.insights
+      });
+
+      groupedByWeekend.set(entry.weekendLabel, {
+        weekendLabel: entry.weekendLabel,
+        entries: currentEntries
+      });
+    });
+
+    return Array.from(groupedByWeekend.values());
+  }, [canonicalNameByIdentityKey, recentComparisonBatchDetails]);
+
   const loadFairnessWorkspace = useCallback(async () => {
     if (!hasAccess || (!hasResolvedSeason && !selectedSeason)) {
       return;
@@ -270,13 +405,15 @@ export default function FairnessPage() {
 
     try {
       const normalizedSeason = !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason;
-      const [nextDashboard, nextBatches] = await Promise.all([
+      const [nextDashboard, nextBatches, nextPlannerIdentitySummaries] = await Promise.all([
         getPlannerFairnessDashboard(normalizedSeason),
-        listFriendlyPlannerBatches(normalizedSeason)
+        listFriendlyPlannerBatches(normalizedSeason),
+        getPlannerPlayerSummaries(normalizedSeason)
       ]);
 
       setDashboard(nextDashboard);
       setSavedBatches(nextBatches);
+      setPlannerIdentitySummaries(nextPlannerIdentitySummaries);
       setSelectedBatchId((currentBatchId) => {
         if (currentBatchId && nextBatches.some((batch) => batch.id === currentBatchId)) {
           return currentBatchId;
@@ -287,6 +424,7 @@ export default function FairnessPage() {
     } catch (error) {
       setDashboard(null);
       setSavedBatches([]);
+      setPlannerIdentitySummaries([]);
       setDashboardError(error instanceof Error ? error.message : "Could not load the fairness workspace.");
     } finally {
       setIsLoadingDashboard(false);
@@ -297,6 +435,48 @@ export default function FairnessPage() {
   useEffect(() => {
     void loadFairnessWorkspace();
   }, [loadFairnessWorkspace]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadRecentComparisonInsights = async () => {
+      if (!hasAccess || savedBatches.length === 0) {
+        setRecentComparisonBatchDetails([]);
+        return;
+      }
+
+      setIsLoadingComparisonInsights(true);
+
+      try {
+        const recentBatches = savedBatches.slice(0, 4);
+        const nextDetails = await Promise.all(
+          recentBatches.map((batch) => getFriendlyPlannerBatchDetail(batch.id))
+        );
+
+        if (!isActive) {
+          return;
+        }
+
+        setRecentComparisonBatchDetails(nextDetails);
+      } catch {
+        if (!isActive) {
+          return;
+        }
+
+        setRecentComparisonBatchDetails([]);
+      } finally {
+        if (isActive) {
+          setIsLoadingComparisonInsights(false);
+        }
+      }
+    };
+
+    void loadRecentComparisonInsights();
+
+    return () => {
+      isActive = false;
+    };
+  }, [hasAccess, savedBatches]);
 
   useEffect(() => {
     let isActive = true;
@@ -353,6 +533,47 @@ export default function FairnessPage() {
     return dashboard?.alerts ?? [];
   }, [dashboard]);
 
+  const groupedFairnessAlerts = useMemo(() => {
+    const grouped = new Map<string, { playerId: string; playerName: string; severity: "info" | "warning"; alerts: PlannerFairnessAlert[] }>();
+
+    fairnessAlerts.forEach((alert) => {
+      const currentGroup = grouped.get(alert.playerId);
+
+      if (!currentGroup) {
+        grouped.set(alert.playerId, {
+          playerId: alert.playerId,
+          playerName: alert.playerName,
+          severity: alert.severity,
+          alerts: [alert]
+        });
+        return;
+      }
+
+      currentGroup.alerts.push(alert);
+      if (alert.severity === "warning") {
+        currentGroup.severity = "warning";
+      }
+    });
+
+    return Array.from(grouped.values()).sort((left, right) => {
+      if (left.severity !== right.severity) {
+        return left.severity === "warning" ? -1 : 1;
+      }
+
+      return formatName(left.playerName).localeCompare(formatName(right.playerName));
+    });
+  }, [fairnessAlerts]);
+
+  const selectedAlertPlayerGroup = useMemo(() => {
+    if (groupedFairnessAlerts.length === 0) {
+      return null;
+    }
+
+    return groupedFairnessAlerts.find((group) => group.playerId === selectedAlertPlayerId)
+      ?? groupedFairnessAlerts[0]
+      ?? null;
+  }, [groupedFairnessAlerts, selectedAlertPlayerId]);
+
   const fairnessNoXiPlayers = useMemo(() => {
     return fairnessProgressPlayers.filter((player) => player.xiCount === 0);
   }, [fairnessProgressPlayers]);
@@ -372,6 +593,14 @@ export default function FairnessPage() {
     const startIndex = (fairnessTrackerPage - 1) * FAIRNESS_TRACKER_PAGE_SIZE;
     return players.slice(startIndex, startIndex + FAIRNESS_TRACKER_PAGE_SIZE);
   }, [dashboard?.playerSummaries, fairnessTrackerPage]);
+  const memberIdByPlayerId = useMemo(() => {
+    return new Map(
+      (dashboard?.playerSummaries ?? []).map((player) => [player.playerId, player.memberId] as const)
+    );
+  }, [dashboard?.playerSummaries]);
+  const selectedAlertMemberId = selectedAlertPlayerGroup
+    ? (memberIdByPlayerId.get(selectedAlertPlayerGroup.playerId) ?? "")
+    : "";
   const savedBatchesPageCount = Math.max(1, Math.ceil(savedBatches.length / SAVED_BATCHES_PAGE_SIZE));
   const paginatedSavedBatches = useMemo(() => {
     const startIndex = (savedBatchesPage - 1) * SAVED_BATCHES_PAGE_SIZE;
@@ -390,6 +619,19 @@ export default function FairnessPage() {
     setFairnessTrackerPage(1);
     setSavedBatchesPage(1);
   }, [selectedSeason]);
+
+  useEffect(() => {
+    if (groupedFairnessAlerts.length === 0) {
+      setSelectedAlertPlayerId("");
+      return;
+    }
+
+    setSelectedAlertPlayerId((currentPlayerId) =>
+      groupedFairnessAlerts.some((group) => group.playerId === currentPlayerId)
+        ? currentPlayerId
+        : groupedFairnessAlerts[0]?.playerId ?? ""
+    );
+  }, [groupedFairnessAlerts]);
 
   const handleBatchNotesSave = async () => {
     if (!selectedBatchDetail) {
@@ -475,6 +717,42 @@ export default function FairnessPage() {
     }
   };
 
+  const handleAutoLinkSuggestedMatches = async () => {
+    if (!selectedBatchDetail) {
+      return;
+    }
+
+    const matchesToLink = selectedBatchDetail.matches.filter(
+      (match) => !match.linkedActualMatchId && match.suggestedActualMatchId
+    );
+
+    if (matchesToLink.length === 0) {
+      return;
+    }
+
+    setIsAutoLinkingSuggestedMatches(true);
+    setErrorMessage(null);
+
+    try {
+      for (const match of matchesToLink) {
+        await updateFriendlyPlannerBatchActualMatchLink(
+          selectedBatchDetail.id,
+          match.matchNumber,
+          match.suggestedActualMatchId
+        );
+      }
+
+      const refreshedDetail = await getFriendlyPlannerBatchDetail(selectedBatchDetail.id);
+      setSelectedBatchDetail(refreshedDetail);
+      await loadFairnessWorkspace();
+      setSuccessMessage(`Auto-linked ${matchesToLink.length} suggested scorecard${matchesToLink.length > 1 ? "s" : ""}.`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not auto-link the suggested scorecards.");
+    } finally {
+      setIsAutoLinkingSuggestedMatches(false);
+    }
+  };
+
   if (hasAccess === null || !hasResolvedSeason) {
     return (
       <Container maxWidth="xl">
@@ -556,36 +834,132 @@ export default function FairnessPage() {
           </Card>
         ) : dashboard ? (
           <Stack spacing={3}>
-            <Card variant="outlined" sx={{ borderRadius: 3 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Stack spacing={2}>
-                  <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                    Fairness Alerts
-                  </Typography>
-                  {dashboard.savedMatchdays === 0 ? (
-                    <EmptyStateMessage>
-                      Save a friendly matchday plan first. Alerts start once planner history exists.
-                    </EmptyStateMessage>
-                  ) : fairnessAlerts.length === 0 ? (
-                    <EmptyStateMessage>
-                      No active fairness alerts from the saved planner history.
-                    </EmptyStateMessage>
-                  ) : (
-                    <Stack spacing={1.25}>
-                      {fairnessAlerts.map((alert) => (
-                        <Alert
-                          key={alert.id}
-                          severity={getFairnessAlertSeverity(alert)}
-                          variant="outlined"
-                        >
-                          {renderFairnessAlertMessage(alert)}
-                        </Alert>
-                      ))}
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12, lg: 6 }}>
+                <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Stack spacing={2}>
+                      <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                        Comparison Insights
+                      </Typography>
+                      {isLoadingComparisonInsights ? (
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <CircularProgress size={18} />
+                          <Typography variant="body2" color="text.secondary">
+                            Loading recent planned-vs-actual comparison insights...
+                          </Typography>
+                        </Stack>
+                      ) : recentComparisonInsights.length === 0 ? (
+                        <EmptyStateMessage>
+                          No planned-vs-actual comparison insights yet from the last 4 saved matchdays.
+                        </EmptyStateMessage>
+                      ) : (
+                        <Stack spacing={1.5}>
+                          {recentComparisonInsights.map((entry) => (
+                            <Box key={entry.weekendLabel}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                                {entry.weekendLabel}
+                              </Typography>
+                              <Stack spacing={1}>
+                                {entry.entries.map((matchEntry) => (
+                                  <Box key={matchEntry.id}>
+                                    <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                                      Match {matchEntry.matchNumber}
+                                    </Typography>
+                                    <Box component="ul" sx={{ m: 0, pl: 2.5, listStyle: "none" }}>
+                                      {matchEntry.insights.map((insight, index) => (
+                                        <Typography
+                                          key={`${matchEntry.id}-insight-${index}`}
+                                          component="li"
+                                          variant="body2"
+                                          sx={{ mb: 0.5 }}
+                                        >
+                                          - {insight}
+                                        </Typography>
+                                      ))}
+                                    </Box>
+                                  </Box>
+                                ))}
+                              </Stack>
+                            </Box>
+                          ))}
+                        </Stack>
+                      )}
                     </Stack>
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid size={{ xs: 12, lg: 6 }}>
+                <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Stack spacing={2}>
+                      <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                        Fairness Alerts
+                      </Typography>
+                      {dashboard.savedMatchdays === 0 ? (
+                        <EmptyStateMessage>
+                          Save a friendly matchday plan first. Alerts start once planner history exists.
+                        </EmptyStateMessage>
+                      ) : groupedFairnessAlerts.length === 0 ? (
+                        <EmptyStateMessage>
+                          No active fairness alerts from the saved planner history.
+                        </EmptyStateMessage>
+                      ) : (
+                        <Stack spacing={2}>
+                          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                            {groupedFairnessAlerts.map((group) => (
+                              <Chip
+                                key={`fairness-alert-player-${group.playerId}`}
+                                label={formatName(group.playerName)}
+                                clickable
+                                color={group.severity === "warning" ? "warning" : "info"}
+                                variant={selectedAlertPlayerGroup?.playerId === group.playerId ? "filled" : "outlined"}
+                                onClick={() => setSelectedAlertPlayerId(group.playerId)}
+                              />
+                            ))}
+                          </Stack>
+                          {selectedAlertPlayerGroup ? (
+                            <Stack spacing={1}>
+                              <Stack
+                                direction={{ xs: "column", sm: "row" }}
+                                spacing={1}
+                                justifyContent="space-between"
+                                alignItems={{ xs: "flex-start", sm: "center" }}
+                              >
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                  {formatName(selectedAlertPlayerGroup.playerName)}
+                                </Typography>
+                                <Button
+                                  component={Link}
+                                  href={selectedAlertMemberId ? `/fairness/member/${selectedAlertMemberId}` : "/fairness"}
+                                  variant="outlined"
+                                  size="small"
+                                  disabled={!selectedAlertMemberId}
+                                >
+                                  Open Member Detail
+                                </Button>
+                              </Stack>
+                              <Box component="ul" sx={{ m: 0, pl: 2.5, listStyle: "none" }}>
+                                {selectedAlertPlayerGroup.alerts.map((alert) => (
+                                  <Typography
+                                    key={alert.id}
+                                    component="li"
+                                    variant="body2"
+                                    sx={{ mb: 0.75 }}
+                                  >
+                                    - {stripLeadingPlayerNameFromAlert(alert)}
+                                  </Typography>
+                                ))}
+                              </Box>
+                            </Stack>
+                          ) : null}
+                        </Stack>
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
 
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -635,6 +1009,21 @@ export default function FairnessPage() {
                         </Stack>
                       ) : selectedBatchDetail ? (
                         <Stack spacing={2}>
+                          {selectedBatchDetail.matches.some(
+                            (match) => !match.linkedActualMatchId && match.suggestedActualMatchId
+                          ) ? (
+                            <Stack direction="row" justifyContent="flex-end">
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                disabled={isAutoLinkingSuggestedMatches}
+                                startIcon={isAutoLinkingSuggestedMatches ? <CircularProgress size={16} color="inherit" /> : null}
+                                onClick={() => void handleAutoLinkSuggestedMatches()}
+                              >
+                                Auto-Link Suggested Scorecards
+                              </Button>
+                            </Stack>
+                          ) : null}
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                             <Chip label={selectedBatchDetail.weekendLabel} color="primary" variant="outlined" />
                             <Chip label={`Saved ${formatTimestamp(selectedBatchDetail.createdAt)}`} variant="outlined" />
@@ -644,7 +1033,22 @@ export default function FairnessPage() {
                           </Stack>
 
                           <Grid container spacing={2}>
-                            {selectedBatchDetail.matches.map((match) => (
+                            {selectedBatchDetail.matches.map((match) => {
+                              const linkedActualMatchIdsForOtherMatches = new Set(
+                                selectedBatchDetail.matches
+                                  .filter((candidateMatch) =>
+                                    candidateMatch.matchNumber !== match.matchNumber
+                                    && Boolean(candidateMatch.linkedActualMatchId)
+                                  )
+                                  .map((candidateMatch) => candidateMatch.linkedActualMatchId as string)
+                              );
+                              const availableActualMatchCandidates = selectedBatchDetail.actualMatchCandidates.filter(
+                                (candidate) =>
+                                  candidate.id === match.linkedActualMatchId
+                                  || !linkedActualMatchIdsForOtherMatches.has(candidate.id)
+                              );
+
+                              return (
                               <Grid key={`saved-match-${match.matchNumber}`} size={{ xs: 12, md: 4 }}>
                                 <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
                                   <CardContent sx={{ p: 2 }}>
@@ -664,7 +1068,7 @@ export default function FairnessPage() {
                                           }
                                         >
                                           <MenuItem value="">Not Linked</MenuItem>
-                                          {selectedBatchDetail.actualMatchCandidates.map((candidate) => (
+                                          {availableActualMatchCandidates.map((candidate) => (
                                             <MenuItem key={`${match.matchNumber}-${candidate.id}`} value={candidate.id}>
                                               {candidate.label}
                                             </MenuItem>
@@ -675,99 +1079,134 @@ export default function FairnessPage() {
                                         <Typography variant="caption" color="text.secondary">
                                           Linked to {match.linkedActualMatchLabel}
                                         </Typography>
+                                      ) : match.suggestedActualMatchLabel ? (
+                                        <Stack spacing={0.75}>
+                                          <Typography variant="caption" color="text.secondary">
+                                            Suggested: {match.suggestedActualMatchLabel}
+                                          </Typography>
+                                          <Stack direction="row" spacing={1}>
+                                            <Button
+                                              size="small"
+                                              variant="outlined"
+                                              disabled={savingActualMatchKey === `${selectedBatchDetail.id}:${match.matchNumber}`}
+                                              onClick={() =>
+                                                void handleActualMatchLinkSave(match.matchNumber, match.suggestedActualMatchId ?? "")
+                                              }
+                                            >
+                                              Use Suggested
+                                            </Button>
+                                          </Stack>
+                                        </Stack>
                                       ) : (
                                         <Typography variant="caption" color="text.secondary">
                                           Link the real scorecard for this match to move fairness from planned to actual participation.
                                         </Typography>
                                       )}
-                                      <Typography variant="caption" color="text.secondary">
-                                        XI
-                                      </Typography>
-                                      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                        {match.xiPlayers.map((player) => (
-                                          <Chip key={`batch-${selectedBatchDetail.id}-m${match.matchNumber}-xi-${player}`} label={formatName(player)} size="small" variant="outlined" />
-                                        ))}
-                                      </Stack>
-                                      <Typography variant="caption" color="text.secondary">
-                                        12th / Bench
-                                      </Typography>
-                                      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                        {match.twelfthPlayer ? (
-                                          <Chip label={`${formatName(match.twelfthPlayer)} - 12th`} size="small" color="warning" variant="outlined" />
-                                        ) : null}
-                                        {match.benchPlayers.map((player) => (
-                                          <Chip key={`batch-${selectedBatchDetail.id}-m${match.matchNumber}-bench-${player}`} label={formatName(player)} size="small" variant="outlined" />
-                                        ))}
-                                      </Stack>
-                                      {match.unavailablePlayers.length > 0 ? (
-                                        <>
-                                          <Typography variant="caption" color="text.secondary">
-                                            Unavailable
-                                          </Typography>
-                                          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                            {match.unavailablePlayers.map((player) => (
-                                              <Chip key={`batch-${selectedBatchDetail.id}-m${match.matchNumber}-na-${player}`} label={formatName(player)} size="small" variant="outlined" />
-                                            ))}
-                                          </Stack>
-                                        </>
-                                      ) : null}
-                                      {match.linkedActualMatchId ? (
-                                        <>
-                                          <Typography variant="caption" color="text.secondary">
-                                            Actual Scorecard Involvement
-                                          </Typography>
-                                          {match.actualListedPlayers.length > 0 ? (
-                                            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                              {match.actualListedPlayers.map((player) => (
+                                      <Grid container spacing={2}>
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                          <Stack spacing={1.25}>
+                                            <Chip
+                                              label="Matchday Fairness Planner"
+                                              size="small"
+                                              variant="filled"
+                                              sx={{ alignSelf: "flex-start" }}
+                                            />
+                                            <StaticNameList names={match.xiPlayers} />
+                                            <Chip
+                                              label="12th / Bench"
+                                              size="small"
+                                              variant="filled"
+                                              sx={{ alignSelf: "flex-start" }}
+                                            />
+                                            <StaticNameList
+                                              names={[
+                                                ...(match.twelfthPlayer ? [`${formatName(match.twelfthPlayer)} - 12th`] : []),
+                                                ...match.benchPlayers
+                                              ]}
+                                            />
+                                            {match.unavailablePlayers.length > 0 ? (
+                                              <>
                                                 <Chip
-                                                  key={`batch-${selectedBatchDetail.id}-m${match.matchNumber}-actual-${player}`}
-                                                  label={formatName(player)}
+                                                  label="Unavailable"
                                                   size="small"
-                                                  color="success"
-                                                  variant="outlined"
+                                                  variant="filled"
+                                                  sx={{ alignSelf: "flex-start" }}
                                                 />
-                                              ))}
-                                            </Stack>
-                                          ) : (
-                                            <Typography variant="caption" color="text.secondary">
-                                              No actual player involvement was matched from the linked scorecard yet.
-                                            </Typography>
-                                          )}
-                                          {(match.actualBattedPlayers.length > 0 || match.actualBowledPlayers.length > 0) ? (
-                                            <Stack spacing={0.75}>
+                                                <StaticNameList names={match.unavailablePlayers} />
+                                              </>
+                                            ) : null}
+                                          </Stack>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                          <Stack spacing={1.25}>
+                                            <Chip
+                                              label="Actual Result"
+                                              size="small"
+                                              variant="filled"
+                                              sx={{ alignSelf: "flex-start" }}
+                                            />
+                                            {match.linkedActualMatchId ? (
+                                              <Stack spacing={1}>
+                                                {match.actualListedPlayers.length > 0 ? (
+                                                  <StaticNameList names={match.actualListedPlayers} />
+                                                ) : (
+                                                  <Typography variant="caption" color="text.secondary">
+                                                    No actual player involvement was matched from the linked scorecard yet.
+                                                  </Typography>
+                                                )}
+                                              </Stack>
+                                            ) : (
+                                              <Typography variant="body2" color="text.secondary">
+                                                Link the actual scorecard to compare the planned fairness lineup with what really happened.
+                                              </Typography>
+                                            )}
+                                          </Stack>
+                                        </Grid>
+                                      </Grid>
+                                      {match.linkedActualMatchId && (
+                                        <Grid container spacing={2}>
+                                          <Grid size={{ xs: 12, md: 6 }}>
+                                            <Stack spacing={1.25}>
+                                              <Chip
+                                                label="Batted"
+                                                size="small"
+                                                variant="filled"
+                                                sx={{ alignSelf: "flex-start" }}
+                                              />
                                               {match.actualBattedPlayers.length > 0 ? (
-                                                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                                  {match.actualBattedPlayers.map((player) => (
-                                                    <Chip
-                                                      key={`batch-${selectedBatchDetail.id}-m${match.matchNumber}-bat-${player}`}
-                                                      label={`${formatName(player)} - Bat`}
-                                                      size="small"
-                                                      variant="outlined"
-                                                    />
-                                                  ))}
-                                                </Stack>
-                                              ) : null}
-                                              {match.actualBowledPlayers.length > 0 ? (
-                                                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                                  {match.actualBowledPlayers.map((player) => (
-                                                    <Chip
-                                                      key={`batch-${selectedBatchDetail.id}-m${match.matchNumber}-bowl-${player}`}
-                                                      label={`${formatName(player)} - Bowl`}
-                                                      size="small"
-                                                      variant="outlined"
-                                                    />
-                                                  ))}
-                                                </Stack>
-                                              ) : null}
+                                                <StaticNameList names={match.actualBattedPlayers} />
+                                              ) : (
+                                                <Typography variant="caption" color="text.secondary">
+                                                  No batting involvement was matched from the linked scorecard yet.
+                                                </Typography>
+                                              )}
                                             </Stack>
-                                          ) : null}
-                                        </>
-                                      ) : null}
+                                          </Grid>
+                                          <Grid size={{ xs: 12, md: 6 }}>
+                                            <Stack spacing={1.25}>
+                                              <Chip
+                                                label="Bowled"
+                                                size="small"
+                                                variant="filled"
+                                                sx={{ alignSelf: "flex-start" }}
+                                              />
+                                              {match.actualBowledPlayers.length > 0 ? (
+                                                <StaticNameList names={match.actualBowledPlayers} />
+                                              ) : (
+                                                <Typography variant="caption" color="text.secondary">
+                                                  No bowling involvement was matched from the linked scorecard yet.
+                                                </Typography>
+                                              )}
+                                            </Stack>
+                                          </Grid>
+                                        </Grid>
+                                      )}
                                     </Stack>
                                   </CardContent>
                                 </Card>
                               </Grid>
-                            ))}
+                              );
+                            })}
                           </Grid>
 
                           <TextField
@@ -851,6 +1290,14 @@ export default function FairnessPage() {
                                       variant="outlined"
                                     />
                                   ) : null}
+                                  <Button
+                                    component={Link}
+                                    href={`/fairness/member/${player.memberId}`}
+                                    variant="outlined"
+                                    size="small"
+                                  >
+                                    Open Detail
+                                  </Button>
                                 </Stack>
                               </Stack>
                               <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
@@ -1015,7 +1462,7 @@ export default function FairnessPage() {
                                       size="small"
                                       onClick={() => setSelectedBatchId(batch.id)}
                                     >
-                                      {selectedBatchId === batch.id ? "Viewing" : "View"}
+                                      View
                                     </Button>
                                     <Button
                                       variant="outlined"

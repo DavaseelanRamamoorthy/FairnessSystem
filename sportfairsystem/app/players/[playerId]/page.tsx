@@ -134,6 +134,7 @@ type ProfileKpiCardProps = {
   footer: string;
   tone?: KpiCardTone;
   compactValue?: boolean;
+  subvalue?: string | null;
 };
 
 function getMetadataChipSx(kind: "role" | "captain" | "keeper" | "tag" | "style") {
@@ -247,6 +248,75 @@ function getRatePercentage(value: number, total: number) {
   return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
 }
 
+function SnapshotRing({
+  label,
+  value,
+  total,
+  color
+}: {
+  label: string;
+  value: number;
+  total: number;
+  color: string;
+}) {
+  const percentage = getRatePercentage(value, total);
+
+  return (
+    <Stack spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+      <Box sx={{ position: "relative", display: "inline-flex" }}>
+        <CircularProgress
+          variant="determinate"
+          value={100}
+          size={108}
+          thickness={4}
+          sx={{
+            color: (theme) =>
+              theme.palette.mode === "dark"
+                ? alpha("#FFFFFF", 0.1)
+                : alpha(PLAYER_NAVY, 0.08)
+          }}
+        />
+        <CircularProgress
+          variant="determinate"
+          value={percentage}
+          size={108}
+          thickness={4}
+          sx={{
+            color,
+            position: "absolute",
+            left: 0
+          }}
+        />
+        <Stack
+          spacing={0.15}
+          alignItems="center"
+          justifyContent="center"
+          sx={{
+            position: "absolute",
+            inset: 0
+          }}
+        >
+          <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1 }}>
+            {value}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
+            / {total || 0}
+          </Typography>
+        </Stack>
+      </Box>
+
+      <Stack spacing={0.35} alignItems="center">
+        <Typography sx={{ color: "text.primary", fontWeight: 700, textAlign: "center" }}>
+          {label}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {percentage}%
+        </Typography>
+      </Stack>
+    </Stack>
+  );
+}
+
 function getDisplayResultLabel(match: PlayerProfile["recentMatches"][number]) {
   const rawResult = typeof match.result === "string" ? match.result.trim() : "";
   const normalizedResult = rawResult.toLowerCase();
@@ -279,7 +349,8 @@ function ProfileKpiCard({
   icon,
   footer,
   tone = "navy",
-  compactValue = false
+  compactValue = false,
+  subvalue = null
 }: ProfileKpiCardProps) {
   const style = KPI_CARD_STYLES[tone];
 
@@ -376,6 +447,19 @@ function ProfileKpiCard({
               >
                 {value}
               </Typography>
+              {subvalue ? (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: alpha("#FFFFFF", 0.78),
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    textAlign: "right"
+                  }}
+                >
+                  {subvalue}
+                </Typography>
+              ) : null}
             </Stack>
           </Stack>
         </Stack>
@@ -692,7 +776,7 @@ export default function PlayerProfilePage() {
                     justifyContent="space-between"
                   >
                     <Stack spacing={1.75} sx={{ flex: 1, minWidth: 0 }}>
-                      <Stack direction="row" spacing={2} alignItems="flex-start">
+                      <Stack direction="row" spacing={2} alignItems="center">
                         <Box
                           sx={(currentTheme) => ({
                             width: 64,
@@ -715,7 +799,12 @@ export default function PlayerProfilePage() {
                         </Box>
 
                         <Stack spacing={1.25} sx={{ minWidth: 0 }}>
-                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            flexWrap="wrap"
+                          >
                             <Typography
                               variant="h3"
                               sx={{
@@ -764,16 +853,6 @@ export default function PlayerProfilePage() {
                                 sx={getMetadataChipSx("tag")}
                               />
                             ))}
-
-                            {profile.battingStyle && (
-                              <Chip
-                                label={profile.battingStyle}
-                                size="small"
-                                variant="outlined"
-                                sx={getMetadataChipSx("style")}
-                              />
-                            )}
-
                           </Stack>
                           </Stack>
                         </Stack>
@@ -1021,6 +1100,7 @@ export default function PlayerProfilePage() {
                 <ProfileKpiCard
                   label="Total Runs"
                   value={profile.totalRuns}
+                  subvalue={`SR ${profile.strikeRate !== null ? profile.strikeRate.toFixed(2) : "-"}`}
                   icon={<FlashOnRoundedIcon />}
                   tone="red"
                   footer="Batting contribution"
@@ -1031,6 +1111,7 @@ export default function PlayerProfilePage() {
                 <ProfileKpiCard
                   label="Wickets"
                   value={profile.totalWickets}
+                  subvalue={`EC ${profile.economy !== null ? profile.economy.toFixed(2) : "-"}`}
                   icon={<TrackChangesRoundedIcon />}
                   tone="gold"
                   footer="Bowling contribution"
@@ -1069,45 +1150,18 @@ export default function PlayerProfilePage() {
                         Performance Snapshot
                       </Typography>
 
-                      <Stack spacing={2}>
-                        {involvementBars.map((item) => {
-                          const percentage = getRatePercentage(item.value, item.total);
-
-                          return (
-                            <Stack key={item.label} spacing={0.85}>
-                              <Stack direction="row" justifyContent="space-between" spacing={2}>
-                                <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                                  {item.label}
-                                </Typography>
-                                <Typography color="text.secondary">
-                                  {item.value} / {item.total || 0}
-                                </Typography>
-                              </Stack>
-
-                              <Box
-                                sx={(currentTheme) => ({
-                                  height: 12,
-                                  borderRadius: 999,
-                                  overflow: "hidden",
-                                  backgroundColor:
-                                    currentTheme.palette.mode === "dark"
-                                      ? alpha("#FFFFFF", 0.08)
-                                      : alpha(PLAYER_NAVY, 0.08)
-                                })}
-                              >
-                                <Box
-                                  sx={{
-                                    width: `${percentage}%`,
-                                    height: "100%",
-                                    borderRadius: 999,
-                                    background: `linear-gradient(90deg, ${alpha(item.color, 0.88)} 0%, ${item.color} 100%)`
-                                  }}
-                                />
-                              </Box>
-                            </Stack>
-                          );
-                        })}
-                      </Stack>
+                      <Grid container spacing={2.5} justifyContent="center">
+                        {involvementBars.map((item) => (
+                          <Grid key={item.label} size={{ xs: 12, sm: 4 }}>
+                            <SnapshotRing
+                              label={item.label}
+                              value={item.value}
+                              total={item.total}
+                              color={item.color}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
                     </Stack>
                   </CardContent>
                 </Card>
@@ -1154,27 +1208,6 @@ export default function PlayerProfilePage() {
                             {profile.totalWickets > 0 || profile.economy !== null
                               ? `${profile.totalWickets} / ${profile.economy?.toFixed(2) ?? "-"}`
                               : "-"}
-                          </Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between" spacing={2}>
-                          <Typography color="text.secondary">Batting Matches</Typography>
-                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                            {profile.battingMatches}
-                          </Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between" spacing={2}>
-                          <Typography color="text.secondary">Bowling Matches</Typography>
-                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                            {profile.bowlingMatches}
-                          </Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between" spacing={2}>
-                          <Typography color="text.secondary">Active Usage</Typography>
-                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                            {activeUsagePercent}% ({profile.activeMatches} of {profile.totalTeamMatches} active matches)
                           </Typography>
                         </Stack>
 

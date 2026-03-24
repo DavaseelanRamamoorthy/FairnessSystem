@@ -2,7 +2,7 @@
 
 ## Source
 
-This plan is based on `SportFairSystem_V2_Final_Architecture_Spec.pdf` and the current V1 codebase in this repository.
+This plan is based on `SportFairSystem_V2_Master_Spec.pdf`, the recorded summary in `docs/v2-master-spec-record.md`, and the current V1 codebase in this repository.
 
 ## Planning Intent
 

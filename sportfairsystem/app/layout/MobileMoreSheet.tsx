@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 
 import {
   Avatar,
@@ -27,12 +26,17 @@ import {
   panelDangerActionButtonSx
 } from "@/app/components/common/accountActionButtonStyles";
 import { useAuth } from "@/app/context/AuthContext";
-import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
 import { getMobileMoreNavItems, isNavPathActive } from "@/app/layout/navigationConfig";
 
 type MobileMoreSheetProps = {
   open: boolean;
   isAdmin: boolean;
+  hasTeam: boolean;
+  canSeeFairness: boolean;
+  canAccessMemberships: boolean;
+  canAccessAnalytics: boolean;
+  canAccessValidation: boolean;
+  canAccessUpload: boolean;
   onClose: () => void;
   onOpenSettings: () => void;
 };
@@ -40,42 +44,32 @@ type MobileMoreSheetProps = {
 export default function MobileMoreSheet({
   open,
   isAdmin,
+  hasTeam,
+  canSeeFairness,
+  canAccessMemberships,
+  canAccessAnalytics,
+  canAccessValidation,
+  canAccessUpload,
   onClose,
   onOpenSettings
 }: MobileMoreSheetProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
-  const [canSeeFairness, setCanSeeFairness] = useState(false);
-  const moreItems = getMobileMoreNavItems(isAdmin, canSeeFairness);
+  const effectiveCanSeeFairness = hasTeam ? canSeeFairness : false;
+  const moreItems = getMobileMoreNavItems(
+    isAdmin,
+    effectiveCanSeeFairness,
+    hasTeam,
+    canAccessMemberships,
+    canAccessAnalytics,
+    canAccessValidation,
+    canAccessUpload
+  );
   const profileLetter = (profile?.firstName ?? profile?.email ?? "P").charAt(0).toUpperCase();
   const profileDisplayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim()
     || profile?.username
     || profile?.email
     || "Profile";
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadFairnessVisibility = async () => {
-      try {
-        const nextVisibility = await canAccessFairnessWorkspace();
-
-        if (isActive) {
-          setCanSeeFairness(nextVisibility);
-        }
-      } catch {
-        if (isActive) {
-          setCanSeeFairness(false);
-        }
-      }
-    };
-
-    void loadFairnessVisibility();
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
 
   return (
     <Drawer
@@ -126,7 +120,9 @@ export default function MobileMoreSheet({
               {profileDisplayName}
             </Typography>
             <Chip
-              label={profile?.role === "admin" ? "Admin Access" : "Member Access"}
+              label={hasTeam
+                ? (profile?.role === "admin" ? "Admin Access" : "Member Access")
+                : "Profile Only"}
               size="small"
               sx={{
                 alignSelf: "flex-start",

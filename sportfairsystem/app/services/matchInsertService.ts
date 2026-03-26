@@ -4,7 +4,7 @@ import {
   normalizeNameKey,
   uniqueNameKeys
 } from "./matchTextNormalization";
-import { requireAdminAccess } from "./accessControlService";
+import { requireMatchDataManagementAccess } from "./accessControlService";
 import {
   bridgeCurrentTeamPlayerIdentities,
   hasSquadMetadataColumns,
@@ -258,7 +258,7 @@ export async function saveMatchToDatabase(
     sourceFileName?: string;
   }
 ) {
-  await requireAdminAccess();
+  await requireMatchDataManagementAccess();
   const activeTeam = await getActiveTeamContext();
   const { teamId, teamName: currentTeamName, teamCode: currentTeamCode } = activeTeam;
 

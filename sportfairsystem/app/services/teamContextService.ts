@@ -14,34 +14,87 @@ export type ActiveTeamContext = {
   teamCode: string;
 };
 
-export async function getActiveTeamContext(): Promise<ActiveTeamContext> {
-  const access = await getCurrentUserAccess();
+type CachedValue<T> = {
+  value: T;
+  expiresAt: number;
+};
 
-  if (!access.teamId) {
-    throw new Error("Could not load the current team.");
+const TEAM_CONTEXT_CACHE_TTL_MS = 3000;
+
+let activeTeamContextPromise: Promise<ActiveTeamContext> | null = null;
+let activeTeamContextCache: CachedValue<ActiveTeamContext> | null = null;
+
+function getCachedValue<T>(cache: CachedValue<T> | null) {
+  if (!cache || cache.expiresAt <= Date.now()) {
+    return null;
   }
 
-  const { data, error } = await supabase
-    .from("teams")
-    .select("id, name, join_code")
-    .eq("id", access.teamId)
-    .single();
+  return cache.value;
+}
 
-  if (error || !data) {
-    return {
-      teamId: access.teamId,
-      teamName: resolveActiveTeamName(null),
-      teamCode: resolveActiveTeamCode(null, null)
-    };
-  }
-
-  const team = data as TeamRow;
-
+function setCachedValue<T>(value: T): CachedValue<T> {
   return {
-    teamId: team.id,
-    teamName: resolveActiveTeamName(team.name),
-    teamCode: resolveActiveTeamCode(team.name, team.join_code)
+    value,
+    expiresAt: Date.now() + TEAM_CONTEXT_CACHE_TTL_MS
   };
+}
+
+export function clearActiveTeamContextCache() {
+  activeTeamContextPromise = null;
+  activeTeamContextCache = null;
+}
+
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange(() => {
+    clearActiveTeamContextCache();
+  });
+}
+
+export async function getActiveTeamContext(): Promise<ActiveTeamContext> {
+  const cachedContext = getCachedValue(activeTeamContextCache);
+
+  if (cachedContext) {
+    return cachedContext;
+  }
+
+  if (activeTeamContextPromise) {
+    return activeTeamContextPromise;
+  }
+
+  activeTeamContextPromise = (async () => {
+    const access = await getCurrentUserAccess();
+
+    if (!access.teamId) {
+      throw new Error("Could not load the current team.");
+    }
+
+    const { data, error } = await supabase
+      .from("teams")
+      .select("id, name, join_code")
+      .eq("id", access.teamId)
+      .single();
+
+    const context: ActiveTeamContext = error || !data
+      ? {
+          teamId: access.teamId,
+          teamName: resolveActiveTeamName(null),
+          teamCode: resolveActiveTeamCode(null, null)
+        }
+      : {
+          teamId: (data as TeamRow).id,
+          teamName: resolveActiveTeamName((data as TeamRow).name),
+          teamCode: resolveActiveTeamCode((data as TeamRow).name, (data as TeamRow).join_code)
+        };
+
+    activeTeamContextCache = setCachedValue(context);
+    return context;
+  })();
+
+  try {
+    return await activeTeamContextPromise;
+  } finally {
+    activeTeamContextPromise = null;
+  }
 }
 
 export async function getActiveTeamName() {

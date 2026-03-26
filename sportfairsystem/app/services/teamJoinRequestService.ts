@@ -4,8 +4,15 @@ import {
 } from "@/app/services/accessControlService";
 import { normalizeJoinCodeInput } from "@/app/services/teamOnboardingService";
 import { supabase } from "@/app/services/supabaseClient";
+import type { TeamBusinessRole } from "@/app/services/teamRoles";
 
 export type TeamJoinRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export type ApproveTeamJoinRequestInput = {
+  role: TeamBusinessRole;
+  seasonId: string;
+  existingMemberId?: string | null;
+};
 
 export type TeamJoinRequestRecord = {
   requestId: string;
@@ -154,9 +161,18 @@ export async function listPendingTeamJoinRequests() {
   return ((data ?? []) as RawTeamJoinRequestRow[]).map((row) => mapTeamJoinRequestRow(row));
 }
 
-export async function approveTeamJoinRequest(requestId: string) {
+export async function approveTeamJoinRequest(requestId: string, input: ApproveTeamJoinRequestInput) {
+  const normalizedSeasonId = input.seasonId.trim();
+
+  if (!normalizedSeasonId) {
+    throw new Error("Select a season before approving the join request.");
+  }
+
   const { error } = await supabase.rpc("approve_team_join_request", {
-    target_request_id: requestId
+    target_request_id: requestId,
+    next_role: input.role,
+    next_season_id: normalizedSeasonId,
+    existing_member_id: input.existingMemberId?.trim() || null
   });
 
   if (error) {

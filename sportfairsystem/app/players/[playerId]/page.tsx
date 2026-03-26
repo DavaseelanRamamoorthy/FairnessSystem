@@ -27,16 +27,13 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
-import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import FlashOnRoundedIcon from "@mui/icons-material/FlashOnRounded";
 import TrackChangesRoundedIcon from "@mui/icons-material/TrackChangesRounded";
 import FrontHandRoundedIcon from "@mui/icons-material/FrontHandRounded";
 
-import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import PaginationFooter from "@/app/components/common/PaginationFooter";
-import SquadMetadataDialog from "@/app/components/players/SquadMetadataDialog";
 import { usePagination } from "@/app/hooks/usePagination";
 import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 import { formatName } from "@/app/services/formatname";
@@ -48,12 +45,8 @@ import {
 } from "@/app/services/playerProfileService";
 import { useAuth } from "@/app/context/AuthContext";
 import {
-  getPrimarySquadRoleTag,
-  hasSquadMetadataColumns,
-  SquadMetadataValues,
-  updateSquadPlayerMetadata
+  getPrimarySquadRoleTag
 } from "@/app/services/squadService";
-import { squadAdminEnabled } from "@/app/config/teamConfig";
 import { formatDate } from "@/app/utils/formatDate";
 import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
@@ -506,12 +499,6 @@ export default function PlayerProfilePage() {
   const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isSavingMetadata, setIsSavingMetadata] = useState(false);
-  const [metadataColumnsReady, setMetadataColumnsReady] = useState<boolean | null>(
-    squadAdminEnabled ? null : false
-  );
-  const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false);
   const [expandedMatchId, setExpandedMatchId] = useState<string | false>(false);
   const recentMatchesPagination = usePagination({
     items: profile?.recentMatches ?? [],
@@ -547,23 +534,6 @@ export default function PlayerProfilePage() {
       storeSeasonFilter(PLAYER_PROFILE_SEASON_STORAGE_KEY, selectedSeason);
     }
   }, [selectedSeason]);
-
-  useEffect(() => {
-    if (!squadAdminEnabled || !isAdmin) {
-      setMetadataColumnsReady(false);
-      return;
-    }
-
-    const loadMetadataSupport = async () => {
-      try {
-        setMetadataColumnsReady(await hasSquadMetadataColumns());
-      } catch {
-        setMetadataColumnsReady(false);
-      }
-    };
-
-    void loadMetadataSupport();
-  }, [isAdmin]);
 
   useEffect(() => {
     if (!hasResolvedSeason && !selectedSeason) {
@@ -628,20 +598,6 @@ export default function PlayerProfilePage() {
     setExpandedMatchId(false);
   }, [recentMatchesPagination.currentPage]);
 
-  useEffect(() => {
-    if (!successMessage) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setSuccessMessage(null);
-    }, 5000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [successMessage]);
-
   const usagePercent = profile && profile.totalTeamMatches > 0
     ? Math.round((profile.matchesPlayed / profile.totalTeamMatches) * 100)
     : 0;
@@ -652,7 +608,6 @@ export default function PlayerProfilePage() {
     ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, isAdmin, activeTeamName)
     : "";
   const bestFitLabel = profile ? getBestFitLabel(profile) : "";
-  const canEditSquadMetadata = squadAdminEnabled && metadataColumnsReady === true && isAdmin;
 
   const paginatedRecentMatches = recentMatchesPagination.paginatedItems;
   const primaryRoleTag = profile ? getPrimarySquadRoleTag(profile.roleTags) : null;
@@ -679,44 +634,6 @@ export default function PlayerProfilePage() {
       }
     ]
     : [];
-
-  const handleSaveSquadMetadata = async (
-    currentPlayerId: string,
-    values: SquadMetadataValues
-  ) => {
-    try {
-      setIsSavingMetadata(true);
-      setErrorMessage(null);
-
-      const updatedPlayer = await updateSquadPlayerMetadata(currentPlayerId, values);
-
-      setProfile((currentProfile) => {
-        if (!currentProfile || currentProfile.id !== currentPlayerId) {
-          return currentProfile;
-        }
-
-        return {
-          ...currentProfile,
-          battingStyle: updatedPlayer.battingStyle,
-          isCaptain: updatedPlayer.isCaptain,
-          isWicketKeeper: updatedPlayer.isWicketKeeper,
-          roleTags: updatedPlayer.roleTags
-        };
-      });
-
-      setSuccessMessage(`${formatName(updatedPlayer.name)} metadata updated.`);
-      setIsMetadataDialogOpen(false);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Could not update squad metadata.";
-
-      setErrorMessage(message);
-    } finally {
-      setIsSavingMetadata(false);
-    }
-  };
 
   return (
     <Container maxWidth="xl">
@@ -881,15 +798,10 @@ export default function PlayerProfilePage() {
                         </Select>
                       </FormControl>
 
-                      {canEditSquadMetadata && (
-                        <Button
-                          variant="outlined"
-                          startIcon={<EditRoundedIcon />}
-                          onClick={() => setIsMetadataDialogOpen(true)}
-                          sx={{ justifyContent: "flex-start" }}
-                        >
-                          Edit Metadata
-                        </Button>
+                      {isAdmin && (
+                        <Alert severity="info" variant="outlined">
+                          Manage player setup in Memberships.
+                        </Alert>
                       )}
                     </Stack>
                   </Stack>
@@ -1059,18 +971,6 @@ export default function PlayerProfilePage() {
             </Card>
           )}
         </Box>
-
-        {successMessage && (
-          <AutoHideAlert severity="success" resetKey={successMessage}>
-            {successMessage}
-          </AutoHideAlert>
-        )}
-
-        {isAdmin && squadAdminEnabled && metadataColumnsReady === false && (
-          <AutoHideAlert severity="warning" variant="outlined">
-            Squad metadata editing is not available in this environment yet.
-          </AutoHideAlert>
-        )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
@@ -1402,20 +1302,6 @@ export default function PlayerProfilePage() {
           </>
         ) : null}
 
-        <SquadMetadataDialog
-          open={isMetadataDialogOpen}
-          player={profile ? {
-            id: profile.id,
-            name: profile.name,
-            battingStyle: profile.battingStyle,
-            isCaptain: profile.isCaptain,
-            isWicketKeeper: profile.isWicketKeeper,
-            roleTags: profile.roleTags
-          } : null}
-          isSaving={isSavingMetadata}
-          onClose={() => setIsMetadataDialogOpen(false)}
-          onSave={handleSaveSquadMetadata}
-        />
       </Stack>
     </Container>
   );

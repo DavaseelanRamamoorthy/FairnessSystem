@@ -67,9 +67,18 @@ These workstreams run across all phases and should be treated as ongoing enginee
 
 ### 3. Access Model
 
-- Expand role handling from `admin/member` to `admin/captain/player`
+- Move from legacy `admin/member` app access toward business roles on memberships:
+  - `organiser`
+  - `captain`
+  - `finance`
+  - `coordinator`
+  - `inventory_manager`
+  - `player`
 - Keep permissions explicit and conservative
 - Separate application access from membership role where needed
+- Treat `organiser` as the only default full-CRUD authority
+- Treat `captain` as full-view by default, not full-edit
+- Allow elevated edit access for non-organisers only through explicit permissions
 
 ### 4. Quality Gates
 
@@ -138,10 +147,14 @@ Make team membership manageable through the app.
   - invited
   - archived
 - Role support for:
-  - admin
+  - organiser
   - captain
+  - finance
+  - coordinator
+  - inventory_manager
   - player
 - Season assignment on memberships
+- Permission-aware access rules for existing V2 modules
 
 ### Implementation Notes
 
@@ -149,11 +162,17 @@ Make team membership manageable through the app.
 - Start reading operational permissions from membership role rules
 - Add audit-friendly status transitions instead of deletes where possible
 - Reuse existing squad metadata patterns where practical
+- `organiser` owns team CRUD, join approvals, membership changes, and permission delegation
+- `captain` gets broad visibility across the app, but should not receive broad edit rights by default
+- `finance` and `inventory_manager` are valid V2 business roles even if their full product modules land later
+- `coordinator` is the operational support role for team coordination workflows
+- `player` remains the base member role with no elevated permissions by default
 
 ### Exit Criteria
 
-- Admin can create and manage members without touching raw tables
-- Captain role exists in schema and service logic
+- Organiser can create and manage members without touching raw tables
+- Captain role exists in schema and service logic with conservative default edit rights
+- Additional business roles exist in schema and permission logic even where their dedicated modules are not yet shipped
 - Membership validity can be filtered by season
 - No current V1 admin flow is regressed
 
@@ -161,6 +180,7 @@ Make team membership manageable through the app.
 
 - Permission drift if `users.role` and membership role disagree
 - Ambiguity between a squad player record and a team member record in UI wording
+- Confusion if role existence is interpreted as full module delivery for finance or inventory
 
 ## Phase 2: Invite System and Account Linking
 
@@ -194,6 +214,89 @@ Allow members to exist before accounts, then link them safely.
 
 - Duplicate acceptance or reused invite codes
 - Linking flows that bypass current access protections
+
+### Current V2.0 Onboarding Decision
+
+For the narrowed repository V2.0 release, onboarding should follow a team-code-first approval model.
+
+- Team code is the primary team-entry mechanism
+- Invite links are not the mainline onboarding path for V2.0
+- Invite tooling may remain as fallback or admin-only infrastructure, but the main user journey should not depend on emailed invite links
+
+### Requester Flow
+
+1. User signs up or logs in to the app
+2. User enters the 6-character Team code
+3. User submits a join request to the team
+4. User waits for organiser approval before becoming an active member
+
+### Organiser Approval Flow
+
+Approving a join request must not be a one-click action. The organiser should complete the membership decision during approval.
+
+Required during approval:
+
+- Role assignment is mandatory
+
+Strongly recommended during approval:
+
+- Season assignment should be required, or the UI must apply a clearly visible default season
+
+Optional but important during approval:
+
+- Organiser can link the requester to an existing unclaimed member record when this is actually a roster claim
+- Otherwise the organiser approves the requester as a new member
+
+### Resulting Product Rule
+
+- Team code starts the request
+- Organiser approval completes the membership
+- Membership role is assigned during approval, not later
+- Duplicate roster entries should be prevented by giving organisers a clear existing-member-link option during approval
+
+This keeps V2.0 simpler, reduces dependency on auth email throughput, and makes invite links non-essential for the primary onboarding journey.
+
+## Practical V2.0 Role Scope
+
+The refined role model for V2.0 should be read in two layers:
+
+- V2.0 includes the business roles, permission model, onboarding assignment, and access gating on existing modules
+- V2.0 does not require every role to have a fully built dedicated workspace yet
+
+Roles and default expectations for V2.0:
+
+- `organiser`
+  - top-level team authority
+  - full CRUD across existing V2 modules
+- `captain`
+  - full view across the app
+  - no broad edit rights by default
+  - elevated edit access only by explicit permission
+- `finance`
+  - valid business role in V2.0
+  - permission and access wiring can exist before a dedicated finance module ships
+- `coordinator`
+  - operational team-coordination role
+  - limited workflow edit access based on explicit permissions
+- `inventory_manager`
+  - valid business role in V2.0
+  - permission and access wiring can exist before a dedicated inventory module ships
+- `player`
+  - base member role
+  - personal/member views only by default
+
+Practical scope rule:
+
+- In scope for V2.0:
+  - role definitions
+  - permission matrix
+  - role assignment during approval
+  - permission-based gating on current V2 modules
+- Out of scope for V2.0:
+  - dedicated finance module
+  - dedicated inventory module
+  - event/RSVP operations
+  - posts, polls, and comments
 
 ## V3.0 Future Scope Reference
 

@@ -38,9 +38,9 @@ import {
   numericTableCellSx,
   numericTableHeadCellSx
 } from "@/app/components/common/tableCellStyles";
-import { useAuth } from "@/app/context/AuthContext";
 import { usePagination } from "@/app/hooks/usePagination";
 import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
+import { canAccessValidationWorkspace, canManageValidationWorkspace } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import { bridgeCurrentTeamPlayerIdentities } from "@/app/services/squadService";
 import {
@@ -316,8 +316,9 @@ function buildHistoricalCleanupSteps(snapshot: ValidationSnapshot): HistoricalCl
 }
 
 export default function ValidationPage() {
-  const { isAdmin } = useAuth();
   const { teamName } = useActiveTeamBranding();
+  const [canAccessWorkspace, setCanAccessWorkspace] = useState<boolean | null>(null);
+  const [canManageWorkspace, setCanManageWorkspace] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState("");
   const [snapshot, setSnapshot] = useState<ValidationSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -372,7 +373,36 @@ export default function ValidationPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin) {
+    let isActive = true;
+
+    const loadValidationAccess = async () => {
+      try {
+        const [nextCanAccessWorkspace, nextCanManageWorkspace] = await Promise.all([
+          canAccessValidationWorkspace(),
+          canManageValidationWorkspace()
+        ]);
+
+        if (isActive) {
+          setCanAccessWorkspace(nextCanAccessWorkspace);
+          setCanManageWorkspace(nextCanManageWorkspace);
+        }
+      } catch {
+        if (isActive) {
+          setCanAccessWorkspace(false);
+          setCanManageWorkspace(false);
+        }
+      }
+    };
+
+    void loadValidationAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canAccessWorkspace) {
       setSnapshot(null);
       setErrorMessage(null);
       setSuccessMessage(null);
@@ -381,7 +411,7 @@ export default function ValidationPage() {
     }
 
     void loadValidationSnapshot(selectedSeason);
-  }, [isAdmin, loadValidationSnapshot, selectedSeason]);
+  }, [canAccessWorkspace, loadValidationSnapshot, selectedSeason]);
 
   useEffect(() => {
     if (selectedSeason) {
@@ -444,7 +474,7 @@ export default function ValidationPage() {
                 </Select>
               </FormControl>
 
-              {isAdmin && (
+              {canManageWorkspace && (
                 <Button
                   variant="outlined"
                   onClick={handleRepairLinks}
@@ -457,9 +487,9 @@ export default function ValidationPage() {
           )}
         />
 
-        {!isAdmin && (
+        {canAccessWorkspace === false && (
           <AutoHideAlert severity="info" variant="outlined">
-            Validation workspace is available to admin users only.
+            Validation is available to organisers, captains, or members with stats or identity access.
           </AutoHideAlert>
         )}
 
@@ -470,7 +500,7 @@ export default function ValidationPage() {
           </AutoHideAlert>
         )}
 
-        {isAdmin && isLoading ? (
+        {canAccessWorkspace && isLoading ? (
           <Box
             sx={{
               minHeight: 320,
@@ -481,7 +511,7 @@ export default function ValidationPage() {
           >
             <CircularProgress />
           </Box>
-        ) : isAdmin && snapshot ? (
+        ) : canAccessWorkspace && snapshot ? (
           <>
             <Box
               sx={{

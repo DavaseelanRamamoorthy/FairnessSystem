@@ -133,14 +133,19 @@ Evidence:
 - role and permission foundation is implemented in schema and services
 - V2 business roles now go beyond the original spec:
   - organiser
+  - captain
+  - finance
   - coordinator
-  - financer
   - inventory_manager
-  - member
+  - player
 
 Notes:
 
 - this is intentionally richer than the original `Admin / Captain / Player` wording from the master spec
+- for the narrowed V2.0 release, role and permission support is in scope even where a dedicated feature module is not
+- `organiser` is the intended top-level authority
+- `captain` should be treated as full-view by default, not full-edit
+- finance and inventory are valid V2 roles, but their dedicated modules are still later work
 - some legacy access behavior still exists in parts of the app
 
 ---
@@ -448,6 +453,22 @@ If we instead read the project against the narrowed repository V2.0 release scop
 2. Deliver invite flow
 3. Finish team creation, join-request, and onboarding flow stability
 4. Finish replacing legacy role assumptions with V2 permission checks
+
+Current onboarding decision for practical V2.0 release:
+
+- Team code is the primary join path
+- Join always starts as a requester-initiated join request
+- Organiser approval is mandatory before membership becomes active
+- Role assignment during approval is mandatory
+- Invite links may remain as fallback/admin tooling, but they are not the main V2.0 onboarding path
+
+Current role-scope decision for practical V2.0 release:
+
+- `organiser`, `captain`, `finance`, `coordinator`, `inventory_manager`, and `player` are in scope as business roles
+- V2.0 should enforce permission differences between those roles on existing modules
+- `organiser` is the only default full-CRUD role
+- `captain` is full-view by default and only gets edit rights through explicit permission grants
+- finance and inventory roles are in scope as access-control concepts even though dedicated finance and inventory modules are not
 
 ### Next priority
 

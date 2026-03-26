@@ -47,6 +47,21 @@ export default function AcceptInvitePage() {
   const [isAccepting, setIsAccepting] = useState(false);
   const rawToken = searchParams.get("token")?.trim() ?? "";
   const nextPath = useMemo(() => (rawToken ? buildNextPath(rawToken) : "/accept-invite"), [rawToken]);
+  const isPendingInvite = invitePreview ? invitePreview.status === "pending" : true;
+
+  useEffect(() => {
+    if (!acceptSuccess) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      router.push("/profile");
+    }, 1800);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [acceptSuccess, router]);
 
   useEffect(() => {
     let isActive = true;
@@ -99,6 +114,15 @@ export default function AcceptInvitePage() {
 
       const result = await acceptTeamInvite(rawToken);
       await refreshProfile();
+      setInvitePreview((current) => (
+        current
+          ? {
+            ...current,
+            status: "accepted",
+            acceptedAt: new Date().toISOString()
+          }
+          : current
+      ));
       setAcceptSuccess(
         result.createdMember
           ? "Invite accepted. Your new team membership is ready."
@@ -221,6 +245,9 @@ export default function AcceptInvitePage() {
                       <strong>Invite Type:</strong> {invitePreview.inviteType === "existing_member" ? "Claim existing member" : "Create new member"}
                     </Typography>
                     <Typography>
+                      <strong>Status:</strong> {invitePreview.status.charAt(0).toUpperCase() + invitePreview.status.slice(1)}
+                    </Typography>
+                    <Typography>
                       <strong>Expires:</strong> {new Date(invitePreview.tokenExpiresAt).toLocaleString()}
                     </Typography>
                   </Stack>
@@ -230,21 +257,33 @@ export default function AcceptInvitePage() {
                   </Alert>
                 )}
 
+                {invitePreview && !isPendingInvite && !acceptSuccess && (
+                  <Alert severity={invitePreview.status === "expired" || invitePreview.status === "cancelled" ? "warning" : "info"}>
+                    {invitePreview.status === "accepted"
+                      ? "This invite has already been accepted."
+                      : invitePreview.status === "expired"
+                        ? "This invite has expired. Ask your organiser for a fresh one."
+                        : "This invite is no longer available."}
+                  </Alert>
+                )}
+
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
                   <Button
                     variant="contained"
                     onClick={() => void handleAcceptInvite()}
-                    disabled={!rawToken || isAccepting}
+                    disabled={!rawToken || isAccepting || !isPendingInvite || Boolean(acceptSuccess)}
                     startIcon={isAccepting ? <CircularProgress size={18} color="inherit" /> : <CheckCircleRoundedIcon />}
                   >
                     {isAccepting ? "Accepting..." : "Accept Invite"}
                   </Button>
                   <Button variant="text" onClick={() => router.push("/profile")}>
-                    Go To Profile
+                    {acceptSuccess ? "Continue To Profile" : "Go To Profile"}
                   </Button>
-                  <Button variant="text" onClick={() => router.push("/dashboard")}>
-                    Go To Dashboard
-                  </Button>
+                  {!acceptSuccess && (
+                    <Button variant="text" onClick={() => router.push("/dashboard")}>
+                      Go To Dashboard
+                    </Button>
+                  )}
                 </Stack>
               </>
             )}

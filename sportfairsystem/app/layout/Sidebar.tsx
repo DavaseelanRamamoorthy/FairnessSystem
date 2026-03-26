@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 
 import {
   Avatar,
@@ -19,51 +18,52 @@ import { varAlpha } from "minimal-shared/utils";
 
 import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
 import { useAuth } from "@/app/context/AuthContext";
-import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
 import { getDesktopNavItems, isNavPathActive } from "@/app/layout/navigationConfig";
 import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 
 interface Props {
   collapsed?: boolean;
+  hasTeam: boolean;
+  canSeeFairness: boolean;
+  canAccessMemberships: boolean;
+  canAccessPlanner: boolean;
+  canAccessAnalytics: boolean;
+  canAccessValidation: boolean;
   onOpenSettings: () => void;
 }
 
-export default function Sidebar({ collapsed, onOpenSettings }: Props) {
+export default function Sidebar({
+  collapsed,
+  hasTeam,
+  canSeeFairness,
+  canAccessMemberships,
+  canAccessPlanner,
+  canAccessAnalytics,
+  canAccessValidation,
+  onOpenSettings
+}: Props) {
 
   const pathname = usePathname();
   const { isAdmin, profile } = useAuth();
-  const [canSeeFairness, setCanSeeFairness] = useState(false);
   const { teamName, teamCode } = useActiveTeamBranding();
-  const navItems = getDesktopNavItems(isAdmin, canSeeFairness);
+  const effectiveCanSeeFairness = hasTeam ? canSeeFairness : false;
+  const navItems = getDesktopNavItems(
+    isAdmin,
+    effectiveCanSeeFairness,
+    hasTeam,
+    canAccessMemberships,
+    canAccessPlanner,
+    canAccessAnalytics,
+    canAccessValidation
+  );
   const profileLetter = (profile?.firstName ?? profile?.email ?? "P").charAt(0).toUpperCase();
   const profileDisplayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim()
     || profile?.username
     || profile?.email
     || "Profile";
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadFairnessVisibility = async () => {
-      try {
-        const nextVisibility = await canAccessFairnessWorkspace();
-
-        if (isActive) {
-          setCanSeeFairness(nextVisibility);
-        }
-      } catch {
-        if (isActive) {
-          setCanSeeFairness(false);
-        }
-      }
-    };
-
-    void loadFairnessVisibility();
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
+  const shellName = hasTeam ? teamName : "SportFairSystem";
+  const shellCode = hasTeam ? teamCode : "SF";
+  const shellEyebrow = hasTeam ? "Team Space" : "Profile Space";
 
   return (
     <>
@@ -111,16 +111,16 @@ export default function Sidebar({ collapsed, onOpenSettings }: Props) {
             }}
           >
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              {teamCode}
+              {shellCode}
             </Typography>
           </Box>
         ) : (
           <Box>
             <Typography variant="overline" sx={{ color: "text.secondary" }}>
-              Team Space
+              {shellEyebrow}
             </Typography>
             <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
-              {teamName}
+              {shellName}
             </Typography>
           </Box>
         )}

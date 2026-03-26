@@ -1,10 +1,21 @@
 import {
-  requireAdminAccess,
   canManageIdentityWorkspace,
+  requireMembershipManagementAccess,
+  requireMembershipWorkspaceAccess,
+  requireOrganiserAccess,
   requireIdentityManagementAccess
 } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import { supabase } from "@/app/services/supabaseClient";
+import {
+  getDefaultPermissionsForRole,
+  mapBusinessRoleToAppAuthRole,
+  mapBusinessRoleToLegacyMembershipRole,
+  normalizeTeamBusinessRole,
+  TeamBusinessRole,
+  TeamPermission
+} from "@/app/services/teamRoles";
+import { normalizeRoleTags } from "@/app/services/squadService";
 
 export type MembershipSeasonRecord = {
   id: string;
@@ -26,7 +37,7 @@ export type TeamMemberAliasRecord = {
 export type TeamMembershipRecord = {
   memberId: string;
   name: string;
-  role: "admin" | "captain" | "player";
+  role: TeamBusinessRole;
   status: "active" | "inactive" | "invited" | "archived";
   seasonId: string | null;
   seasonName: string | null;
@@ -35,7 +46,12 @@ export type TeamMembershipRecord = {
   userEmail: string | null;
   playerId: string | null;
   playerName: string | null;
+  battingStyle: string | null;
+  isCaptain: boolean;
+  isWicketKeeper: boolean;
+  roleTags: string[];
   aliases: TeamMemberAliasRecord[];
+  permissions: TeamPermission[];
 };
 
 export type TeamMembershipRole = TeamMembershipRecord["role"];
@@ -74,6 +90,7 @@ type RawMemberRow = {
   id?: unknown;
   name?: unknown;
   role?: unknown;
+  team_role?: unknown;
   status?: unknown;
   season_id?: unknown;
 };
@@ -97,6 +114,10 @@ type RawPlayerRow = {
   name?: unknown;
   is_guest?: unknown;
   member_id?: unknown;
+  batting_style?: unknown;
+  is_captain?: unknown;
+  is_wicket_keeper?: unknown;
+  role_tags?: unknown;
 };
 
 type RawAliasRow = {
@@ -105,6 +126,11 @@ type RawAliasRow = {
   alias?: unknown;
   alias_type?: unknown;
   is_primary?: unknown;
+};
+
+type RawPermissionRow = {
+  member_id?: unknown;
+  permission?: unknown;
 };
 
 let membershipFoundationSupportPromise: Promise<boolean> | null = null;
@@ -219,7 +245,7 @@ export async function canManageExternalNames() {
 }
 
 export async function getMembershipSeasons() {
-  const access = await requireAdminAccess();
+  const access = await requireMembershipWorkspaceAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -241,7 +267,7 @@ export async function getMembershipSeasons() {
 }
 
 export async function getTeamMembershipRecords() {
-  const access = await requireAdminAccess();
+  const access = await requireMembershipWorkspaceAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -253,11 +279,12 @@ export async function getTeamMembershipRecords() {
     { data: seasonsData, error: seasonsError },
     { data: usersData, error: usersError },
     { data: playersData, error: playersError },
-    { data: aliasesData, error: aliasesError }
+    { data: aliasesData, error: aliasesError },
+    { data: permissionsData, error: permissionsError }
   ] = await Promise.all([
     supabase
       .from("team_members")
-      .select("id, name, role, status, season_id")
+      .select("id, name, role, team_role, status, season_id")
       .eq("team_id", access.teamId)
       .order("name", { ascending: true }),
     supabase
@@ -273,14 +300,18 @@ export async function getTeamMembershipRecords() {
       .eq("team_id", access.teamId),
     supabase
       .from("players")
-      .select("id, name")
+      .select("id, name, batting_style, is_captain, is_wicket_keeper, role_tags")
       .eq("team_id", access.teamId)
       .order("name", { ascending: true }),
     supabase
       .from("team_member_aliases")
       .select("id, member_id, alias, alias_type, is_primary")
       .eq("team_id", access.teamId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("team_member_permissions")
+      .select("member_id, permission")
+      .eq("team_id", access.teamId)
   ]);
 
   if (membersError) {
@@ -305,6 +336,10 @@ export async function getTeamMembershipRecords() {
 
   if (aliasesError) {
     throw new Error("Could not load team member aliases.");
+  }
+
+  if (permissionsError) {
+    throw new Error("Could not load team member permissions.");
   }
 
   const members = (membersData ?? []) as RawMemberRow[];
@@ -358,14 +393,35 @@ export async function getTeamMembershipRecords() {
     })
   );
 
-  const playerNameById = new Map<string, string>(
+  const playerDetailsById = new Map<string, {
+    name: string;
+    battingStyle: string | null;
+    isCaptain: boolean;
+    isWicketKeeper: boolean;
+    roleTags: string[];
+  }>(
     ((playersData ?? []) as RawPlayerRow[])
       .map((row) => {
         const playerId = typeof row.id === "string" ? row.id : null;
         const playerName = typeof row.name === "string" ? row.name : null;
-        return playerId && playerName ? [playerId, playerName] as const : null;
+        return playerId && playerName ? [
+          playerId,
+          {
+            name: playerName,
+            battingStyle: normalizeNullableText(row.batting_style),
+            isCaptain: row.is_captain === true,
+            isWicketKeeper: row.is_wicket_keeper === true,
+            roleTags: normalizeRoleTags(row.role_tags)
+          }
+        ] as const : null;
       })
-      .filter((entry): entry is readonly [string, string] => Boolean(entry))
+      .filter((entry): entry is readonly [string, {
+        name: string;
+        battingStyle: string | null;
+        isCaptain: boolean;
+        isWicketKeeper: boolean;
+        roleTags: string[];
+      }] => Boolean(entry))
   );
 
   const aliasesByMemberId = new Map<string, TeamMemberAliasRecord[]>();
@@ -389,9 +445,23 @@ export async function getTeamMembershipRecords() {
     aliasesByMemberId.set(memberId, currentAliases);
   });
 
+  const permissionsByMemberId = new Map<string, TeamPermission[]>();
+  ((permissionsData ?? []) as RawPermissionRow[]).forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const permission = typeof row.permission === "string" ? row.permission : null;
+
+    if (!memberId || !permission || !memberIds.has(memberId)) {
+      return;
+    }
+
+    const currentPermissions = permissionsByMemberId.get(memberId) ?? [];
+    currentPermissions.push(permission as TeamPermission);
+    permissionsByMemberId.set(memberId, currentPermissions);
+  });
+
   const membershipRecords = members.map((row) => {
     const memberId = typeof row.id === "string" ? row.id : "";
-    const role = row.role === "admin" || row.role === "captain" ? row.role : "player";
+    const role = normalizeTeamBusinessRole(row.team_role, row.role);
     const status =
       row.status === "inactive" || row.status === "invited" || row.status === "archived"
         ? row.status
@@ -401,6 +471,7 @@ export async function getTeamMembershipRecords() {
     const userId = typeof link?.user_id === "string" ? link.user_id : null;
     const playerId = typeof link?.player_id === "string" ? link.player_id : null;
     const userDisplay = userId ? userDisplayById.get(userId) : null;
+    const playerDetails = playerId ? playerDetailsById.get(playerId) : null;
 
     return {
       memberId,
@@ -413,7 +484,12 @@ export async function getTeamMembershipRecords() {
       userDisplayName: userDisplay?.displayName ?? null,
       userEmail: userDisplay?.email ?? null,
       playerId,
-      playerName: playerId ? (playerNameById.get(playerId) ?? null) : null,
+      playerName: playerDetails?.name ?? null,
+      battingStyle: playerDetails?.battingStyle ?? null,
+      isCaptain: playerDetails?.isCaptain ?? false,
+      isWicketKeeper: playerDetails?.isWicketKeeper ?? false,
+      roleTags: playerDetails?.roleTags ?? [],
+      permissions: permissionsByMemberId.get(memberId) ?? [],
       aliases: (aliasesByMemberId.get(memberId) ?? []).sort((left, right) => {
         if (left.isPrimary !== right.isPrimary) {
           return left.isPrimary ? -1 : 1;
@@ -503,7 +579,7 @@ export async function updateTeamMembershipStatus(
   memberId: string,
   status: TeamMembershipStatus
 ) {
-  const access = await requireAdminAccess();
+  const access = await requireMembershipManagementAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -534,33 +610,57 @@ export async function updateTeamMembershipStatus(
   } as const;
 }
 
-function mapLegacyMemberRoleToTeamRole(role: TeamMembershipRole) {
-  if (role === "admin") {
-    return "organiser";
+async function syncTeamMemberPermissions(
+  teamId: string,
+  memberId: string,
+  role: TeamBusinessRole,
+  grantedByUserId: string
+) {
+  const nextPermissions = getDefaultPermissionsForRole(role);
+
+  const { error: deleteError } = await supabase
+    .from("team_member_permissions")
+    .delete()
+    .eq("team_id", teamId)
+    .eq("member_id", memberId);
+
+  if (deleteError) {
+    throw new Error("Could not reset the team member permissions.");
   }
 
-  if (role === "captain") {
-    return "coordinator";
+  if (nextPermissions.length === 0) {
+    return nextPermissions;
   }
 
-  return "member";
-}
+  const { error: insertError } = await supabase
+    .from("team_member_permissions")
+    .insert(
+      nextPermissions.map((permission) => ({
+        team_id: teamId,
+        member_id: memberId,
+        permission,
+        granted_by_user_id: grantedByUserId
+      }))
+    );
 
-function mapLegacyMemberRoleToUserRole(role: TeamMembershipRole) {
-  return role === "admin" ? "admin" : "member";
+  if (insertError) {
+    throw new Error("Could not assign the default permissions for the selected team role.");
+  }
+
+  return nextPermissions;
 }
 
 export async function updateTeamMembershipRole(
   memberId: string,
   role: TeamMembershipRole
 ) {
-  const access = await requireAdminAccess();
+  const access = await requireOrganiserAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
   }
 
-  if (!["admin", "captain", "player"].includes(role)) {
+  if (!["organiser", "captain", "finance", "coordinator", "inventory_manager", "player"].includes(role)) {
     throw new Error("Invalid team member role.");
   }
 
@@ -575,14 +675,14 @@ export async function updateTeamMembershipRole(
     throw new Error("Could not find the selected team member.");
   }
 
-  const nextTeamRole = mapLegacyMemberRoleToTeamRole(role);
-  const nextUserRole = mapLegacyMemberRoleToUserRole(role);
+  const nextLegacyRole = mapBusinessRoleToLegacyMembershipRole(role);
+  const nextUserRole = mapBusinessRoleToAppAuthRole(role);
 
   const { data, error } = await supabase
     .from("team_members")
     .update({
-      role,
-      team_role: nextTeamRole,
+      role: nextLegacyRole,
+      team_role: role,
       updated_at: new Date().toISOString()
     })
     .eq("id", memberId)
@@ -611,9 +711,12 @@ export async function updateTeamMembershipRole(
     }
   }
 
+  const permissions = await syncTeamMemberPermissions(access.teamId, memberId, role, access.user.id);
+
   return {
     memberId: typeof data.id === "string" ? data.id : memberId,
-    role: data.role === "admin" || data.role === "captain" ? data.role : "player"
+    role: normalizeTeamBusinessRole(data.team_role, data.role),
+    permissions
   } as const;
 }
 
@@ -621,7 +724,7 @@ export async function updateTeamMembershipSeason(
   memberId: string,
   seasonId: string | null
 ) {
-  const access = await requireAdminAccess();
+  const access = await requireMembershipManagementAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -935,7 +1038,7 @@ export async function updateTeamMembershipLinkedPlayer(
 }
 
 export async function createMembershipSeason(input: MembershipSeasonInput) {
-  const access = await requireAdminAccess();
+  const access = await requireOrganiserAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");

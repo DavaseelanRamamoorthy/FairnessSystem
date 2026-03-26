@@ -9,14 +9,21 @@ import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import ReleaseIntroDialog from "@/app/components/common/ReleaseIntroDialog";
 import SettingsDrawer from "@/app/components/settings/SettingsDrawer";
 import { useAuth } from "@/app/context/AuthContext";
-import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
+import {
+  getCurrentWorkspaceAccessSnapshot
+} from "@/app/services/accessControlService";
 import MobileBottomNav from "./MobileBottomNav";
 import MobileMoreSheet from "./MobileMoreSheet";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
 const PUBLIC_ROUTES = ["/login", "/signup", "/reset-password", "/accept-invite"];
-const ADMIN_ONLY_ROUTES = ["/configure", "/memberships", "/planner", "/analytics", "/validation", "/upload"];
+const ADMIN_ONLY_ROUTES = ["/configure"];
+const MEMBERSHIP_ONLY_ROUTES = ["/memberships"];
+const PLANNER_ONLY_ROUTES = ["/planner"];
+const ANALYTICS_ONLY_ROUTES = ["/analytics"];
+const VALIDATION_ONLY_ROUTES = ["/validation"];
+const MATCH_ADMIN_ONLY_ROUTES = ["/upload"];
 const FAIRNESS_ONLY_ROUTES = ["/fairness"];
 const RELEASE_INTRO_VERSION = "v1.0";
 
@@ -35,6 +42,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
   const [dontShowReleaseIntroAgain, setDontShowReleaseIntroAgain] = useState(false);
   const [canSeeFairness, setCanSeeFairness] = useState(false);
+  const [canAccessMemberships, setCanAccessMemberships] = useState(false);
+  const [canAccessPlanner, setCanAccessPlanner] = useState(false);
+  const [canAccessAnalytics, setCanAccessAnalytics] = useState(false);
+  const [canAccessValidation, setCanAccessValidation] = useState(false);
+  const [canManageMatches, setCanManageMatches] = useState(false);
+  const [hasResolvedWorkspaceAccess, setHasResolvedWorkspaceAccess] = useState(false);
   const [, setReleaseIntroVisibilityVersion] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
@@ -54,6 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const useDesktopMatchesLayout = !isMobileShell && isMatchesPage;
   const isEntryAuthRoute = pathname === "/login" || pathname === "/signup";
   const isProfileRoute = pathname === "/profile";
+  const hasTeam = Boolean(profile?.teamId);
   const isPublicRoute = useMemo(
     () => PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
     [pathname]
@@ -64,6 +78,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   );
   const isFairnessRoute = useMemo(
     () => FAIRNESS_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
+    [pathname]
+  );
+  const isMembershipRoute = useMemo(
+    () => MEMBERSHIP_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
+    [pathname]
+  );
+  const isPlannerRoute = useMemo(
+    () => PLANNER_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
+    [pathname]
+  );
+  const isAnalyticsRoute = useMemo(
+    () => ANALYTICS_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
+    [pathname]
+  );
+  const isValidationRoute = useMemo(
+    () => VALIDATION_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
+    [pathname]
+  );
+  const isMatchAdminRoute = useMemo(
+    () => MATCH_ADMIN_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
     [pathname]
   );
   const nextPath = searchParams.get("next");
@@ -80,21 +114,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       };
     }
 
-    const loadFairnessVisibility = async () => {
+    const loadWorkspaceVisibility = async () => {
       try {
-        const nextVisibility = await canAccessFairnessWorkspace();
+        const workspaceAccess = await getCurrentWorkspaceAccessSnapshot();
 
         if (isActive) {
-          setCanSeeFairness(nextVisibility);
+          setCanSeeFairness(workspaceAccess.canSeeFairness);
+          setCanAccessMemberships(workspaceAccess.canAccessMemberships);
+          setCanAccessPlanner(workspaceAccess.canAccessPlanner);
+          setCanAccessAnalytics(workspaceAccess.canAccessAnalytics);
+          setCanAccessValidation(workspaceAccess.canAccessValidation);
+          setCanManageMatches(workspaceAccess.canManageMatches);
+          setHasResolvedWorkspaceAccess(true);
         }
       } catch {
         if (isActive) {
           setCanSeeFairness(false);
+          setCanAccessMemberships(false);
+          setCanAccessPlanner(false);
+          setCanAccessAnalytics(false);
+          setCanAccessValidation(false);
+          setCanManageMatches(false);
+          setHasResolvedWorkspaceAccess(true);
         }
       }
     };
 
-    void loadFairnessVisibility();
+    void loadWorkspaceVisibility();
 
     return () => {
       isActive = false;
@@ -121,25 +167,61 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
+    if (isAuthenticated && hasResolvedWorkspaceAccess && isMembershipRoute && !canAccessMemberships) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (isAuthenticated && hasResolvedWorkspaceAccess && isPlannerRoute && !canAccessPlanner) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (isAuthenticated && hasResolvedWorkspaceAccess && isAnalyticsRoute && !canAccessAnalytics) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (isAuthenticated && hasResolvedWorkspaceAccess && isValidationRoute && !canAccessValidation) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (isAuthenticated && hasResolvedWorkspaceAccess && isMatchAdminRoute && !canManageMatches) {
+      router.replace("/dashboard");
+      return;
+    }
+
     if (isAuthenticated && isAdminRoute && !isAdmin) {
       router.replace("/dashboard");
       return;
     }
 
-    if (isAuthenticated && isFairnessRoute && !canSeeFairness) {
+    if (isAuthenticated && hasResolvedWorkspaceAccess && isFairnessRoute && !canSeeFairness) {
       router.replace("/dashboard");
     }
   }, [
+    canAccessAnalytics,
+    canAccessMemberships,
+    canAccessPlanner,
+    canAccessValidation,
+    canManageMatches,
     canSeeFairness,
+    hasResolvedWorkspaceAccess,
     isAdmin,
     isAdminRoute,
+    isAnalyticsRoute,
     isAuthenticated,
     isEntryAuthRoute,
     isFairnessRoute,
+    isMatchAdminRoute,
+    isMembershipRoute,
+    isPlannerRoute,
     isLoading,
     isProfileComplete,
     isProfileRoute,
     isPublicRoute,
+    isValidationRoute,
     profile?.teamId,
     router,
     safeNextPath
@@ -200,6 +282,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return null;
   }
 
+  if (!isPublicRoute && isAuthenticated && !hasResolvedWorkspaceAccess) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   if (profileError || !profile) {
     return (
       <Box
@@ -231,10 +328,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!profile.teamId) {
-    return <>{children}</>;
-  }
-
   return (
     <>
       <ReleaseIntroDialog
@@ -255,6 +348,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {!isMobileShell && (
           <Sidebar
             collapsed={collapsed}
+            hasTeam={hasTeam}
+            canSeeFairness={canSeeFairness}
+            canAccessMemberships={canAccessMemberships}
+            canAccessPlanner={canAccessPlanner}
+            canAccessAnalytics={canAccessAnalytics}
+            canAccessValidation={canAccessValidation}
             onOpenSettings={() => setIsSettingsDrawerOpen(true)}
           />
         )}
@@ -270,7 +369,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }}
         >
           {!isMobileShell && (
-    <Topbar toggleSidebar={() => setCollapsed(!collapsed)} />
+    <Topbar hasTeam={hasTeam} toggleSidebar={() => setCollapsed(!collapsed)} />
           )}
 
           <Box
@@ -299,14 +398,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <>
           {!isMobileMoreOpen && (
             <MobileBottomNav
-              isAdmin={isAdmin}
-              onOpenMore={() => setIsMobileMoreOpen(true)}
+            isAdmin={isAdmin}
+            hasTeam={hasTeam}
+            canAccessPlanner={canAccessPlanner}
+            onOpenMore={() => setIsMobileMoreOpen(true)}
             />
           )}
 
           <MobileMoreSheet
             open={isMobileMoreOpen}
             isAdmin={isAdmin}
+            hasTeam={hasTeam}
+            canSeeFairness={canSeeFairness}
+            canAccessMemberships={canAccessMemberships}
+            canAccessAnalytics={canAccessAnalytics}
+            canAccessValidation={canAccessValidation}
+            canAccessUpload={canManageMatches}
             onClose={() => setIsMobileMoreOpen(false)}
             onOpenSettings={() => setIsSettingsDrawerOpen(true)}
           />

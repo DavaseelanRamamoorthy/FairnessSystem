@@ -3,10 +3,11 @@ import {
 } from "@/app/services/accessControlService";
 import { normalizeAuthEmail, validateAuthEmail } from "@/app/services/authValidation";
 import { supabase } from "@/app/services/supabaseClient";
+import type { TeamBusinessRole } from "@/app/services/teamRoles";
 
 export type TeamInviteType = "existing_member" | "new_member";
 export type TeamInviteStatus = "pending" | "accepted" | "expired" | "cancelled";
-export type TeamInviteRole = "admin" | "captain" | "player";
+export type TeamInviteRole = TeamBusinessRole;
 
 export type TeamInviteRecord = {
   inviteId: string;
@@ -85,7 +86,22 @@ function normalizeNullableText(value: unknown) {
 }
 
 function normalizeTeamInviteRole(value: unknown): TeamInviteRole {
-  return value === "admin" || value === "captain" ? value : "player";
+  if (value === "admin") {
+    return "organiser";
+  }
+
+  if (
+    value === "organiser"
+    || value === "captain"
+    || value === "financer"
+    || value === "finance"
+    || value === "coordinator"
+    || value === "inventory_manager"
+  ) {
+    return value === "financer" ? "finance" : value;
+  }
+
+  return "player";
 }
 
 function normalizeTeamInviteStatus(value: unknown): TeamInviteStatus {

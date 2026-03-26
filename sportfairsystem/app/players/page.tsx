@@ -30,11 +30,9 @@ import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
-import { useAuth } from "@/app/context/AuthContext";
 import { formatName } from "@/app/services/formatname";
 import {
   MemberRosterSummary,
-  SeasonOption,
   getMemberRosterSummaries,
   getPlayerSeasons
 } from "@/app/services/playerProfileService";
@@ -108,10 +106,9 @@ function getPlayerCardIcon(player: MemberRosterSummary) {
 export default function PlayersPage() {
   const router = useRouter();
   const theme = useTheme();
-  const { isAdmin } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [players, setPlayers] = useState<MemberRosterSummary[]>([]);
-  const [seasons, setSeasons] = useState<SeasonOption[]>([]);
+  const [seasons, setSeasons] = useState<Array<{ value: string; label: string }>>([]);
   const [selectedSeason, setSelectedSeason] = useState("");
   const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<PlayerStatusFilter>("active");
@@ -251,26 +248,35 @@ export default function PlayersPage() {
         <Box sx={{ display: { xs: "block", md: "none" } }}>
           <TeamPageHeader
             eyebrow="Roster Directory"
-            description="Browse the member-first roster, review squad tags, and open linked player profiles where they are already available."
+            description="Browse the member-first roster and open linked player profiles. Manage roster setup and player details from Memberships."
             action={(
-              <Button
-                variant="outlined"
-                startIcon={<TuneRoundedIcon />}
-                onClick={() => setMobileFiltersOpen(true)}
-                sx={{
-                  width: { xs: "100%", sm: "auto" },
-                  alignSelf: "flex-start",
-                  color: "#FFFFFF",
-                  borderColor: alpha("#FFFFFF", 0.22),
-                  backgroundColor: alpha("#FFFFFF", 0.04),
-                  "&:hover": {
-                    borderColor: alpha("#FFFFFF", 0.34),
-                    backgroundColor: alpha("#FFFFFF", 0.08)
-                  }
-                }}
-              >
-                Filters
-              </Button>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<TuneRoundedIcon />}
+                  onClick={() => setMobileFiltersOpen(true)}
+                  sx={{
+                    width: { xs: "100%", sm: "auto" },
+                    alignSelf: "flex-start",
+                    color: "#FFFFFF",
+                    borderColor: alpha("#FFFFFF", 0.22),
+                    backgroundColor: alpha("#FFFFFF", 0.04),
+                    "&:hover": {
+                      borderColor: alpha("#FFFFFF", 0.34),
+                      backgroundColor: alpha("#FFFFFF", 0.08)
+                    }
+                  }}
+                >
+                  Filters
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => router.push("/memberships")}
+                  sx={{ width: { xs: "100%", sm: "auto" }, alignSelf: "flex-start" }}
+                >
+                  Open Memberships
+                </Button>
+              </Stack>
             )}
           />
         </Box>
@@ -281,7 +287,11 @@ export default function PlayersPage() {
           alignItems={{ xs: "flex-start", md: "center" }}
           spacing={2}
         >
-          <Box />
+          <Box>
+            <Alert severity="info" sx={{ display: { xs: "none", md: "flex" } }}>
+              Use Memberships to create players, edit player details, or archive roster records.
+            </Alert>
+          </Box>
 
           <Box sx={{ display: { xs: "none", md: "block" }, width: { md: "auto" } }}>
             {filterControls}
@@ -447,7 +457,7 @@ export default function PlayersPage() {
                                             {formatName(player.name)}
                                           </Typography>
 
-                                          {buildMetadataChips(player, isAdmin).map((chip) => (
+                                          {buildMetadataChips(player, false).map((chip) => (
                                             <Chip
                                               key={chip.key}
                                               label={chip.label}
@@ -502,9 +512,9 @@ export default function PlayersPage() {
                                         {player.matchesPlayed}
                                       </Typography>
 
-                                      {isAdmin && !player.hasLinkedPlayer && (
+                                      {!player.hasLinkedPlayer && (
                                         <Typography variant="caption" color="text.secondary">
-                                          Membership only
+                                          Link player details in Memberships
                                         </Typography>
                                       )}
                                     </Stack>

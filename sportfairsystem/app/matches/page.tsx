@@ -25,8 +25,8 @@ import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import MatchesTable from "@/app/components/matches/MatchesTable";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
 import MatchPreviewModal from "@/app/components/matches/MatchPreviewModal";
-import { useAuth } from "@/app/context/AuthContext";
 import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
+import { canManageMatchData } from "@/app/services/accessControlService";
 
 import { parseMatchFromBase64 } from "@/app/services/pdfParser";
 import { getCurrentTeamId } from "@/app/services/squadService";
@@ -93,8 +93,8 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function MatchesPage() {
-  const { isAdmin } = useAuth();
   const { teamName: activeTeamName, teamCode: activeTeamCode } = useActiveTeamBranding();
+  const [canManageWorkspace, setCanManageWorkspace] = useState(false);
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -247,11 +247,35 @@ export default function MatchesPage() {
   };
 
   useEffect(() => {
-    if (!isAdmin) {
+    let isActive = true;
+
+    const loadMatchManagementAccess = async () => {
+      try {
+        const nextCanManageWorkspace = await canManageMatchData();
+
+        if (isActive) {
+          setCanManageWorkspace(nextCanManageWorkspace);
+        }
+      } catch {
+        if (isActive) {
+          setCanManageWorkspace(false);
+        }
+      }
+    };
+
+    void loadMatchManagementAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canManageWorkspace) {
       clearPreviewQueue();
       setIsDeleteDialogOpen(false);
     }
-  }, [isAdmin]);
+  }, [canManageWorkspace]);
 
   const updateCurrentPreviewPlayers = (
     updater: (players: PreviewPlayer[]) => PreviewPlayer[]
@@ -596,7 +620,7 @@ export default function MatchesPage() {
 
               <MatchDetailPanel
                 match={selectedMatch}
-                onDelete={isAdmin ? openDeleteDialog : undefined}
+                onDelete={canManageWorkspace ? openDeleteDialog : undefined}
               />
 
             )}
@@ -609,7 +633,7 @@ export default function MatchesPage() {
 
       {/* UPLOAD BUTTON */}
 
-      {isAdmin && (
+      {canManageWorkspace && (
         <Box sx={{ position: "fixed", bottom: { xs: 92, md: 30 }, right: { xs: 16, md: 30 } }}>
 
           <Box
@@ -713,7 +737,7 @@ export default function MatchesPage() {
         message={toastMessage}
       />
 
-      {isAdmin && (
+      {canManageWorkspace && (
         <Dialog
           open={isDeleteDialogOpen}
           onClose={closeDeleteDialog}

@@ -760,7 +760,7 @@ export default function ProfilePage() {
                   <Typography color="text.secondary">
                     Share this Team ID with people who should request organiser approval to join
                     {resolvedTeamName !== "Not Assigned" ? ` ${resolvedTeamName}` : " your team"}.
-                    Use Memberships when you want to send direct invite links instead.
+                    Invite links remain available in Memberships only for exceptional admin cases like claiming an existing unlinked member.
                   </Typography>
                 </Stack>
 

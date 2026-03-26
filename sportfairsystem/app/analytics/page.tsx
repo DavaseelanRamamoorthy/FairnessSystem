@@ -45,12 +45,12 @@ import {
   YAxis
 } from "recharts";
 
-import { useAuth } from "@/app/context/AuthContext";
 import { formatName } from "@/app/services/formatname";
 import {
   AnalyticsSnapshot,
   getAnalyticsSnapshot
 } from "@/app/services/analyticsService";
+import { canAccessAnalyticsWorkspace } from "@/app/services/accessControlService";
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import PaginationFooter from "@/app/components/common/PaginationFooter";
 import {
@@ -137,7 +137,7 @@ function MetricCard({ label, value, helper, icon, accent }: MetricCardProps) {
 }
 
 export default function AnalyticsPage() {
-  const { isAdmin } = useAuth();
+  const [canAccessWorkspace, setCanAccessWorkspace] = useState<boolean | null>(null);
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null);
   const [selectedSeason, setSelectedSeason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -153,7 +153,31 @@ export default function AnalyticsPage() {
   });
 
   useEffect(() => {
-    if (!isAdmin) {
+    let isActive = true;
+
+    const loadAnalyticsAccess = async () => {
+      try {
+        const nextCanAccessWorkspace = await canAccessAnalyticsWorkspace();
+
+        if (isActive) {
+          setCanAccessWorkspace(nextCanAccessWorkspace);
+        }
+      } catch {
+        if (isActive) {
+          setCanAccessWorkspace(false);
+        }
+      }
+    };
+
+    void loadAnalyticsAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canAccessWorkspace) {
       setSnapshot(null);
       setIsLoading(false);
       return;
@@ -190,7 +214,7 @@ export default function AnalyticsPage() {
     };
 
     void loadAnalytics();
-  }, [isAdmin, selectedSeason]);
+  }, [canAccessWorkspace, selectedSeason]);
 
   useEffect(() => {
     if (selectedSeason) {
@@ -203,13 +227,13 @@ export default function AnalyticsPage() {
   return (
     <Container maxWidth="xl">
       <Stack spacing={4}>
-        {!isAdmin && (
+        {canAccessWorkspace === false && (
           <AutoHideAlert severity="info" variant="outlined">
-            Analytics is available to admin users only.
+            Analytics is available to organisers, captains, or members with stats access.
           </AutoHideAlert>
         )}
 
-        {isAdmin && (
+        {canAccessWorkspace && (
         <Stack direction="row" justifyContent="flex-end">
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="analytics-season-filter-label">Season</InputLabel>
@@ -232,7 +256,7 @@ export default function AnalyticsPage() {
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-        {isAdmin && isLoading ? (
+        {canAccessWorkspace && isLoading ? (
           <Box
             sx={{
               minHeight: 320,
@@ -243,7 +267,7 @@ export default function AnalyticsPage() {
           >
             <CircularProgress />
           </Box>
-        ) : isAdmin && snapshot ? (
+        ) : canAccessWorkspace && snapshot ? (
           <>
             <Grid container spacing={3} alignItems="stretch">
               <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: "flex" }}>

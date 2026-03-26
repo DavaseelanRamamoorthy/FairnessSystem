@@ -1,5 +1,5 @@
 import {
-  requireAdminAccess,
+  requirePlannerWorkspaceAccess,
   requireFairnessWorkspaceAccess
 } from "@/app/services/accessControlService";
 import {
@@ -151,7 +151,7 @@ export async function saveFriendlyPlannerBatch({
   preferredWicketKeeperPlayerId,
   matchAvailabilityOverrides
 }: SaveFriendlyPlannerBatchInput): Promise<SavedPlannerBatch> {
-  const access = await requireAdminAccess();
+  const access = await requirePlannerWorkspaceAccess();
 
   if (suggestion.matchPlans.length === 0 || suggestion.availablePlayers.length === 0) {
     throw new Error("Generate the friendly planner first before saving the matchday plan.");

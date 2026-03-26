@@ -120,6 +120,7 @@ export type MemberRosterSummary = PlayerSummary & {
   playerId: string | null;
   membershipStatus: "active" | "inactive" | "invited" | "archived";
   hasLinkedPlayer: boolean;
+  seasonId: string | null;
 };
 
 export type PlayerProfile = {
@@ -162,6 +163,7 @@ type TeamMemberRosterRow = {
   id?: unknown;
   name?: unknown;
   status?: unknown;
+  season_id?: unknown;
 };
 
 type MemberLinkedPlayerRow = {
@@ -866,7 +868,7 @@ export async function getMemberRosterSummaries(season?: string) {
     loadSharedPlayerData(teamId, teamName, season),
     supabase
       .from("team_members")
-      .select("id, name, status")
+      .select("id, name, status, season_id")
       .eq("team_id", teamId)
       .order("name", { ascending: true }),
     supabase
@@ -944,7 +946,8 @@ export async function getMemberRosterSummaries(season?: string) {
         memberId,
         playerId: linkedPlayer?.id ?? null,
         membershipStatus,
-        hasLinkedPlayer: Boolean(linkedPlayer)
+        hasLinkedPlayer: Boolean(linkedPlayer),
+        seasonId: typeof row.season_id === "string" ? row.season_id : null
       } satisfies MemberRosterSummary;
     })
     .sort((left, right) => {

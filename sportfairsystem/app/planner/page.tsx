@@ -30,7 +30,7 @@ import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
-import { useAuth } from "@/app/context/AuthContext";
+import { canAccessPlannerWorkspace } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import { saveFriendlyPlannerBatch } from "@/app/services/plannerHistoryService";
 import {
@@ -136,7 +136,7 @@ function buildFriendlyMatchAvailabilityOverrides(
 }
 
 export default function PlannerPage() {
-  const { isAdmin } = useAuth();
+  const [canAccessWorkspace, setCanAccessWorkspace] = useState<boolean | null>(null);
   const [plannerMode, setPlannerMode] = useState<PlannerMode>("friendly");
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
   const [selectedSeason, setSelectedSeason] = useState(() => readStoredSeasonFilter(PLANNER_SEASON_STORAGE_KEY) ?? "");
@@ -275,11 +275,35 @@ export default function PlannerPage() {
   }, [selectedSeason]);
 
   useEffect(() => {
+    let isActive = true;
+
+    const loadPlannerAccess = async () => {
+      try {
+        const nextCanAccessWorkspace = await canAccessPlannerWorkspace();
+
+        if (isActive) {
+          setCanAccessWorkspace(nextCanAccessWorkspace);
+        }
+      } catch {
+        if (isActive) {
+          setCanAccessWorkspace(false);
+        }
+      }
+    };
+
+    void loadPlannerAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasResolvedSeason && !selectedSeason) {
       return;
     }
 
-    if (!isAdmin) {
+    if (!canAccessWorkspace) {
       setPlayers([]);
       setIsLoadingPlayers(false);
       return;
@@ -321,7 +345,7 @@ export default function PlannerPage() {
     return () => {
       isActive = false;
     };
-  }, [hasResolvedSeason, isAdmin, selectedSeason]);
+  }, [canAccessWorkspace, hasResolvedSeason, selectedSeason]);
 
   useEffect(() => {
     if (players.length === 0) {
@@ -845,9 +869,9 @@ export default function PlannerPage() {
           )}
         />
 
-        {!isAdmin && (
+        {canAccessWorkspace === false && (
           <AutoHideAlert severity="info" variant="outlined">
-            Planner is available to admin users only.
+            Planner requires organiser access or explicit planning permission.
           </AutoHideAlert>
         )}
 
@@ -859,7 +883,7 @@ export default function PlannerPage() {
           </AutoHideAlert>
         )}
 
-        {isAdmin && (
+        {canAccessWorkspace && (
           <>
             <Card variant="outlined" sx={{ borderRadius: 3 }}>
               <CardContent sx={{ p: 3 }}>

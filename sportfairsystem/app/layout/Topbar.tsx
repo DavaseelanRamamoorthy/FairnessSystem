@@ -14,10 +14,25 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 
 interface Props {
+  hasTeam: boolean;
   toggleSidebar?: () => void;
 }
 
-function getPageHeader(pathname: string, teamName: string) {
+function getPageHeader(pathname: string, teamName: string, hasTeam: boolean) {
+  if (!hasTeam) {
+    if (pathname === "/profile") {
+      return {
+        title: "Account Setup",
+        subtitle: "Complete your profile, create a team, or request access with a Team ID to unlock the full workspace."
+      };
+    }
+
+    return {
+      title: "Profile Space",
+      subtitle: "This account is still teamless, so only profile and onboarding actions are available right now."
+    };
+  }
+
   if (pathname === "/dashboard") {
     return {
       title: `Welcome to ${teamName} Dashboard`,
@@ -115,10 +130,10 @@ function getPageHeader(pathname: string, teamName: string) {
   };
 }
 
-export default function Topbar({ toggleSidebar }: Props) {
+export default function Topbar({ hasTeam, toggleSidebar }: Props) {
   const pathname = usePathname();
   const { teamName } = useActiveTeamBranding();
-  const header = getPageHeader(pathname, teamName);
+  const header = getPageHeader(pathname, teamName, hasTeam);
 
   return (
     <Box

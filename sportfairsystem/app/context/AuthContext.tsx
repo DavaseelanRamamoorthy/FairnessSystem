@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
 
@@ -122,10 +123,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const sessionRef = useRef<Session | null>(null);
+  const profileRef = useRef<AuthProfile | null>(null);
 
   const loadProfile = useCallback(async (nextSession: Session | null) => {
     if (!nextSession?.user) {
       setProfile(null);
+      profileRef.current = null;
       setProfileError(null);
       return;
     }
@@ -138,11 +142,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       setProfile(null);
+      profileRef.current = null;
       setProfileError(getProfileLoadErrorMessage(error));
       return;
     }
 
-    setProfile(mapUserProfile(data as UserProfileRow, nextSession.user.email));
+    const nextProfile = mapUserProfile(data as UserProfileRow, nextSession.user.email);
+    setProfile(nextProfile);
+    profileRef.current = nextProfile;
     setProfileError(null);
   }, []);
 
@@ -152,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = await supabase.auth.getSession();
 
     setSession(nextSession);
+    sessionRef.current = nextSession;
     await loadProfile(nextSession);
   }, [loadProfile]);
 
@@ -168,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setSession(initialSession);
+      sessionRef.current = initialSession;
       await loadProfile(initialSession);
 
       if (isMounted) {
@@ -179,8 +188,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      const previousUserId = sessionRef.current?.user?.id ?? null;
+      const nextUserId = nextSession?.user?.id ?? null;
+      const isSameUserSession = Boolean(previousUserId && nextUserId && previousUserId === nextUserId);
+
       setSession(nextSession);
+      sessionRef.current = nextSession;
+
+      if (!nextSession?.user) {
+        setProfile(null);
+        profileRef.current = null;
+        setProfileError(null);
+        setIsLoading(false);
+        return;
+      }
+
+      if (event === "TOKEN_REFRESHED" && isSameUserSession) {
+        return;
+      }
+
+      if (isSameUserSession && profileRef.current) {
+        void loadProfile(nextSession);
+        return;
+      }
+
       setIsLoading(true);
 
       void loadProfile(nextSession).finally(() => {
@@ -225,6 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    profileRef.current = null;
     setProfileError(null);
   }, []);
 

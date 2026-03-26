@@ -20,8 +20,8 @@ import { varAlpha } from "minimal-shared/utils";
 import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
 import { useAuth } from "@/app/context/AuthContext";
 import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
-import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 import { getDesktopNavItems, isNavPathActive } from "@/app/layout/navigationConfig";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 
 interface Props {
   collapsed?: boolean;
@@ -33,6 +33,7 @@ export default function Sidebar({ collapsed, onOpenSettings }: Props) {
   const pathname = usePathname();
   const { isAdmin, profile } = useAuth();
   const [canSeeFairness, setCanSeeFairness] = useState(false);
+  const { teamName, teamCode } = useActiveTeamBranding();
   const navItems = getDesktopNavItems(isAdmin, canSeeFairness);
   const profileLetter = (profile?.firstName ?? profile?.email ?? "P").charAt(0).toUpperCase();
   const profileDisplayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim()
@@ -110,7 +111,7 @@ export default function Sidebar({ collapsed, onOpenSettings }: Props) {
             }}
           >
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              {currentTeamPrefix}
+              {teamCode}
             </Typography>
           </Box>
         ) : (
@@ -119,7 +120,7 @@ export default function Sidebar({ collapsed, onOpenSettings }: Props) {
               Team Space
             </Typography>
             <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
-              {currentTeamName}
+              {teamName}
             </Typography>
           </Box>
         )}

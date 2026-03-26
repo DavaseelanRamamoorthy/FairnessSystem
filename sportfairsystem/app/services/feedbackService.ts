@@ -11,7 +11,7 @@ export const FEEDBACK_MODULES = [
   "Planner",
   "Analytics",
   "Validation",
-  "Configure",
+  "Memberships",
   "Profile",
   "Upload",
   "Authentication"

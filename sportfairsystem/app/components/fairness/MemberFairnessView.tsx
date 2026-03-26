@@ -27,7 +27,7 @@ import { alpha } from "@mui/material/styles";
 
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
-import { currentTeamName } from "@/app/config/teamConfig";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import {
@@ -139,6 +139,7 @@ export default function MemberFairnessView({
   memberId
 }: MemberFairnessViewProps) {
   const { isAuthenticated, profile } = useAuth();
+  const { teamName } = useActiveTeamBranding();
   const [canSeeLeadership, setCanSeeLeadership] = useState(false);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
   const [selectedSeason, setSelectedSeason] = useState(() => readStoredSeasonFilter(MEMBER_FAIRNESS_SEASON_STORAGE_KEY) ?? "");
@@ -374,7 +375,7 @@ export default function MemberFairnessView({
                         {buildFairnessRoleLabel(member)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {currentTeamName} fairness history based on saved matchdays and authentic participation reconciliation when linked scorecards exist.
+                        {teamName} fairness history based on saved matchdays and authentic participation reconciliation when linked scorecards exist.
                       </Typography>
                     </Stack>
 

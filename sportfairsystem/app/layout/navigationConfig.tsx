@@ -8,7 +8,6 @@ import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import FeedbackRoundedIcon from "@mui/icons-material/FeedbackRounded";
 import GroupRoundedIcon from "@mui/icons-material/Group";
-import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import RuleRoundedIcon from "@mui/icons-material/RuleRounded";
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricket";
@@ -32,7 +31,6 @@ export const desktopBaseNavItems: ShellNavItem[] = [
 
 export const desktopAdminNavItems: ShellNavItem[] = [
   { key: "memberships", title: "Memberships", path: "/memberships", icon: <BadgeRoundedIcon /> },
-  { key: "configure", title: "Configure", path: "/configure", icon: <ManageAccountsRoundedIcon /> },
   { key: "planner", title: "Planner", path: "/planner", icon: <EventAvailableRoundedIcon /> },
   { key: "analytics", title: "Analytics", path: "/analytics", icon: <AnalyticsRoundedIcon /> },
   { key: "validation", title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> }
@@ -62,7 +60,6 @@ const mobileAdminMoreNavItems: ShellNavItem[] = [
   { key: "my-fairness", title: "My Fairness", path: "/my-fairness", icon: <FactCheckRoundedIcon /> },
   { key: "profile", title: "Profile", path: "/profile", icon: <AccountCircleRoundedIcon /> },
   { key: "memberships", title: "Memberships", path: "/memberships", icon: <BadgeRoundedIcon /> },
-  { key: "configure", title: "Configure", path: "/configure", icon: <ManageAccountsRoundedIcon /> },
   { key: "analytics", title: "Analytics", path: "/analytics", icon: <AnalyticsRoundedIcon /> },
   { key: "validation", title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> },
   { key: "upload", title: "Upload", path: "/upload", icon: <UploadFileRoundedIcon /> }

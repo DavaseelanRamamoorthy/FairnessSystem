@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -12,6 +15,7 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Divider,
   FormControl,
   FormControlLabel,
   Grid,
@@ -29,12 +33,34 @@ import {
   Typography
 } from "@mui/material";
 import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import EventRepeatRoundedIcon from "@mui/icons-material/EventRepeatRounded";
+import GroupAddRoundedIcon from "@mui/icons-material/GroupAddRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
+import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
 import { formatName } from "@/app/services/formatname";
+import {
+  cancelTeamInvite,
+  createExistingMemberInvite,
+  createNewMemberInvite,
+  listTeamInvites,
+  TeamInviteRecord,
+  TeamInviteRole
+} from "@/app/services/inviteService";
+import {
+  approveTeamJoinRequest,
+  listPendingTeamJoinRequests,
+  rejectTeamJoinRequest,
+  TeamJoinRequestRecord
+} from "@/app/services/teamJoinRequestService";
 import {
   canManageExternalNames,
   createTeamMemberAlias,
@@ -49,9 +75,12 @@ import {
   TeamMemberAliasRecord,
   TeamMembershipPlayerOption,
   TeamMembershipRecord,
+  TeamMembershipRole,
   TeamMembershipUserOption,
   TeamMembershipStatus,
   updateTeamMembershipLinkedPlayer,
+  updateTeamMemberAlias,
+  updateTeamMembershipRole,
   updateTeamMembershipLinkedUser,
   updateTeamMembershipSeason,
   updateTeamMembershipStatus
@@ -71,14 +100,509 @@ function MetricCard({ label, value, helper }: { label: string; value: string | n
   );
 }
 
-function getRoleChipColor(role: TeamMembershipRecord["role"]) {
-  if (role === "admin") return "primary" as const;
-  if (role === "captain") return "secondary" as const;
-  return "default" as const;
-}
-
 function normalizeExternalNameInput(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+type InviteManagementSectionProps = {
+  memberships: TeamMembershipRecord[];
+  seasons: MembershipSeasonRecord[];
+  invites: TeamInviteRecord[];
+  onInviteCreated: (invite: TeamInviteRecord) => void;
+  onInviteCancelled: (inviteId: string) => void;
+  onErrorMessage: (message: string | null) => void;
+  onSuccessMessage: (message: string | null) => void;
+};
+
+type JoinRequestManagementSectionProps = {
+  joinRequests: TeamJoinRequestRecord[];
+  onJoinRequestApproved: (requestId: string) => void;
+  onJoinRequestRejected: (requestId: string) => void;
+  onErrorMessage: (message: string | null) => void;
+  onSuccessMessage: (message: string | null) => void;
+};
+
+function JoinRequestManagementSection({
+  joinRequests,
+  onJoinRequestApproved,
+  onJoinRequestRejected,
+  onErrorMessage,
+  onSuccessMessage
+}: JoinRequestManagementSectionProps) {
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+
+  const handleApprove = async (request: TeamJoinRequestRecord) => {
+    try {
+      setProcessingRequestId(request.requestId);
+      onErrorMessage(null);
+      onSuccessMessage(null);
+      await approveTeamJoinRequest(request.requestId);
+      onJoinRequestApproved(request.requestId);
+      onSuccessMessage(`Approved ${request.requesterName} for ${request.teamName ?? "the selected team"}.`);
+    } catch (error) {
+      onErrorMessage(error instanceof Error ? error.message : "Could not approve the team join request.");
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  const handleReject = async (request: TeamJoinRequestRecord) => {
+    try {
+      setProcessingRequestId(request.requestId);
+      onErrorMessage(null);
+      onSuccessMessage(null);
+      await rejectTeamJoinRequest(request.requestId);
+      onJoinRequestRejected(request.requestId);
+      onSuccessMessage(`Rejected the join request from ${request.requesterName}.`);
+    } catch (error) {
+      onErrorMessage(error instanceof Error ? error.message : "Could not reject the team join request.");
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 3 }}>
+      <CardContent>
+        <Stack spacing={2.5}>
+          <Stack spacing={0.5}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>Pending Join Requests</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Teamless users can request access with a 6-character Team ID. Approve a request to create the
+              membership and assign the user to this team.
+            </Typography>
+          </Stack>
+
+          {joinRequests.length === 0 ? (
+            <Typography color="text.secondary">No pending join requests right now.</Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Requested User</TableCell>
+                    <TableCell>Requested At</TableCell>
+                    <TableCell>Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {joinRequests.map((request) => (
+                    <TableRow key={request.requestId}>
+                      <TableCell>
+                        <Stack spacing={0.25}>
+                          <Typography fontWeight={700}>{formatName(request.requesterName)}</Typography>
+                          <Typography variant="body2" color="text.secondary">{request.requesterEmail}</Typography>
+                          <Typography variant="caption" color="text.secondary">User ID: {request.requesterUserId}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {new Date(request.requestedAt).toLocaleString()}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => void handleApprove(request)}
+                            disabled={processingRequestId === request.requestId}
+                          >
+                            {processingRequestId === request.requestId ? "Working..." : "Approve"}
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => void handleReject(request)}
+                            disabled={processingRequestId === request.requestId}
+                          >
+                            Reject
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InviteManagementSection({
+  memberships,
+  seasons,
+  invites,
+  onInviteCreated,
+  onInviteCancelled,
+  onErrorMessage,
+  onSuccessMessage
+}: InviteManagementSectionProps) {
+  const [isCreatingExistingInvite, setIsCreatingExistingInvite] = useState(false);
+  const [isCreatingNewInvite, setIsCreatingNewInvite] = useState(false);
+  const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
+  const [existingInviteMemberId, setExistingInviteMemberId] = useState("");
+  const [existingInviteEmailInput, setExistingInviteEmailInput] = useState("");
+  const [newInviteNameInput, setNewInviteNameInput] = useState("");
+  const [newInviteEmailInput, setNewInviteEmailInput] = useState("");
+  const [newInviteSeasonId, setNewInviteSeasonId] = useState("");
+  const [newInviteRole, setNewInviteRole] = useState<TeamInviteRole>("player");
+  const [latestInviteUrl, setLatestInviteUrl] = useState<string | null>(null);
+
+  const pendingInvites = useMemo(
+    () => invites.filter((invite) => invite.status === "pending"),
+    [invites]
+  );
+  const invitableMemberships = useMemo(() => {
+    const pendingMemberIds = new Set(
+      pendingInvites
+        .map((invite) => invite.memberId)
+        .filter((memberId): memberId is string => Boolean(memberId))
+    );
+
+    return memberships.filter((membership) => !membership.userId && !pendingMemberIds.has(membership.memberId));
+  }, [memberships, pendingInvites]);
+
+  const handleExistingInviteMemberChange = (memberId: string) => {
+    setExistingInviteMemberId(memberId);
+    const selectedMembership = memberships.find((membership) => membership.memberId === memberId);
+    setExistingInviteEmailInput(selectedMembership?.userEmail ?? "");
+    setLatestInviteUrl(null);
+    onErrorMessage(null);
+    onSuccessMessage(null);
+  };
+
+  const handleCopyInviteUrl = async (inviteUrl: string) => {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard copy is not available in this browser.");
+      }
+
+      await navigator.clipboard.writeText(inviteUrl);
+      onSuccessMessage("Invite link copied to clipboard.");
+    } catch (error) {
+      onErrorMessage(error instanceof Error ? error.message : "Could not copy the invite link.");
+    }
+  };
+
+  const handleCreateExistingInvite = async () => {
+    if (!existingInviteMemberId || !existingInviteEmailInput.trim()) {
+      return;
+    }
+
+    try {
+      setIsCreatingExistingInvite(true);
+      onErrorMessage(null);
+      onSuccessMessage(null);
+
+      const result = await createExistingMemberInvite({
+        memberId: existingInviteMemberId,
+        email: existingInviteEmailInput
+      });
+
+      onInviteCreated(result.invite);
+      setLatestInviteUrl(result.inviteUrl);
+      setExistingInviteMemberId("");
+      setExistingInviteEmailInput("");
+      onSuccessMessage(`Created a claim invite for ${result.invite.inviteName}. Copy the link before leaving this page.`);
+    } catch (error) {
+      onErrorMessage(error instanceof Error ? error.message : "Could not create the existing member invite.");
+    } finally {
+      setIsCreatingExistingInvite(false);
+    }
+  };
+
+  const handleCreateNewInvite = async () => {
+    if (!newInviteNameInput.trim() || !newInviteEmailInput.trim()) {
+      return;
+    }
+
+    try {
+      setIsCreatingNewInvite(true);
+      onErrorMessage(null);
+      onSuccessMessage(null);
+
+      const result = await createNewMemberInvite({
+        inviteName: newInviteNameInput,
+        email: newInviteEmailInput,
+        seasonId: newInviteSeasonId || null,
+        invitedRole: newInviteRole
+      });
+
+      onInviteCreated(result.invite);
+      setLatestInviteUrl(result.inviteUrl);
+      setNewInviteNameInput("");
+      setNewInviteEmailInput("");
+      setNewInviteSeasonId("");
+      setNewInviteRole("player");
+      onSuccessMessage(`Created a new member invite for ${result.invite.inviteName}. Copy the link before leaving this page.`);
+    } catch (error) {
+      onErrorMessage(error instanceof Error ? error.message : "Could not create the new member invite.");
+    } finally {
+      setIsCreatingNewInvite(false);
+    }
+  };
+
+  const handleCancelInvite = async (inviteId: string) => {
+    try {
+      setCancellingInviteId(inviteId);
+      onErrorMessage(null);
+      onSuccessMessage(null);
+
+      await cancelTeamInvite(inviteId);
+      onInviteCancelled(inviteId);
+      onSuccessMessage("Cancelled the pending invite.");
+    } catch (error) {
+      onErrorMessage(error instanceof Error ? error.message : "Could not cancel the invite.");
+    } finally {
+      setCancellingInviteId(null);
+    }
+  };
+
+  return (
+    <>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
+            <CardContent>
+              <Stack spacing={2.5}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <GroupAddRoundedIcon color="primary" />
+                  <Stack spacing={0.25}>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Invite Existing Member</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Claim an existing roster member without creating duplicate people or players.
+                    </Typography>
+                  </Stack>
+                </Stack>
+
+                <FormControl fullWidth size="small">
+                  <InputLabel id="existing-invite-member-label">Member</InputLabel>
+                  <Select
+                    labelId="existing-invite-member-label"
+                    value={existingInviteMemberId}
+                    label="Member"
+                    onChange={(event) => handleExistingInviteMemberChange(event.target.value)}
+                  >
+                    <MenuItem value="">Select a member</MenuItem>
+                    {invitableMemberships.map((membership) => (
+                      <MenuItem key={membership.memberId} value={membership.memberId}>
+                        {formatName(membership.name)}
+                        {membership.seasonName ? ` - ${membership.seasonName}` : ""}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Invite Email"
+                  value={existingInviteEmailInput}
+                  onChange={(event) => setExistingInviteEmailInput(event.target.value)}
+                  placeholder="member@example.com"
+                />
+
+                <Button
+                  variant="contained"
+                  onClick={() => void handleCreateExistingInvite()}
+                  disabled={isCreatingExistingInvite || !existingInviteMemberId || !existingInviteEmailInput.trim()}
+                >
+                  {isCreatingExistingInvite ? "Creating Invite..." : "Create Claim Invite"}
+                </Button>
+
+                {invitableMemberships.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    Every unclaimed member already has an active claim invite or is already linked to a user.
+                  </Typography>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
+            <CardContent>
+              <Stack spacing={2.5}>
+                <Stack spacing={0.25}>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>Invite New Member</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Create an invite for someone who is not on the roster yet. Their team membership record will be created when they accept.
+                  </Typography>
+                </Stack>
+
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Member Name"
+                      value={newInviteNameInput}
+                      onChange={(event) => setNewInviteNameInput(event.target.value)}
+                      placeholder="John Doe"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Invite Email"
+                      value={newInviteEmailInput}
+                      onChange={(event) => setNewInviteEmailInput(event.target.value)}
+                      placeholder="john@example.com"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="new-invite-season-label">Season</InputLabel>
+                      <Select
+                        labelId="new-invite-season-label"
+                        value={newInviteSeasonId}
+                        label="Season"
+                        onChange={(event) => setNewInviteSeasonId(event.target.value)}
+                      >
+                        <MenuItem value="">Use acceptance-time default</MenuItem>
+                        {seasons.map((season) => (
+                          <MenuItem key={season.id} value={season.id}>{season.name}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="new-invite-role-label">Legacy Role</InputLabel>
+                      <Select
+                        labelId="new-invite-role-label"
+                        value={newInviteRole}
+                        label="Legacy Role"
+                        onChange={(event) => setNewInviteRole(event.target.value as TeamInviteRole)}
+                      >
+                        <MenuItem value="player">Player</MenuItem>
+                        <MenuItem value="captain">Captain</MenuItem>
+                        <MenuItem value="admin">Admin</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+
+                <Button
+                  variant="contained"
+                  onClick={() => void handleCreateNewInvite()}
+                  disabled={isCreatingNewInvite || !newInviteNameInput.trim() || !newInviteEmailInput.trim()}
+                >
+                  {isCreatingNewInvite ? "Creating Invite..." : "Create New Member Invite"}
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {latestInviteUrl && (
+        <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <CardContent>
+            <Stack spacing={2}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>Latest Invite Link</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Tokens are only shown when the invite is created. Copy this link now, then share it with the invited person.
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                value={latestInviteUrl}
+                slotProps={{ input: { readOnly: true } }}
+              />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <Button
+                  variant="contained"
+                  startIcon={<ContentCopyRoundedIcon />}
+                  onClick={() => void handleCopyInviteUrl(latestInviteUrl)}
+                >
+                  Copy Invite Link
+                </Button>
+                <Button variant="text" onClick={() => setLatestInviteUrl(null)}>
+                  Hide Link
+                </Button>
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card variant="outlined" sx={{ borderRadius: 3 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
+              <Stack spacing={0.25}>
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>Pending Invites</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Track outstanding claim and new-member onboarding links. Pending invite links cannot be recovered later, so cancelling and reissuing is the safe reset path.
+                </Typography>
+              </Stack>
+              <Chip
+                label={`${pendingInvites.length} pending`}
+                size="small"
+                color={pendingInvites.length > 0 ? "warning" : "default"}
+                variant="outlined"
+              />
+            </Stack>
+
+            {pendingInvites.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No pending invites yet.
+              </Typography>
+            ) : (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Season</TableCell>
+                      <TableCell>Expires</TableCell>
+                      <TableCell align="right">Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pendingInvites.map((invite) => (
+                      <TableRow key={invite.inviteId}>
+                        <TableCell>{formatName(invite.inviteName)}</TableCell>
+                        <TableCell>{invite.email}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={invite.inviteType === "existing_member" ? "Existing Member" : "New Member"}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>{seasons.find((season) => season.id === invite.seasonId)?.name ?? "Default"}</TableCell>
+                        <TableCell>{new Date(invite.tokenExpiresAt).toLocaleDateString()}</TableCell>
+                        <TableCell align="right">
+                          <Button
+                            color="error"
+                            variant="text"
+                            onClick={() => void handleCancelInvite(invite.inviteId)}
+                            disabled={cancellingInviteId === invite.inviteId}
+                          >
+                            {cancellingInviteId === invite.inviteId ? "Cancelling..." : "Cancel"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
+    </>
+  );
 }
 
 export default function MembershipsPage() {
@@ -86,22 +610,27 @@ export default function MembershipsPage() {
   const [memberships, setMemberships] = useState<TeamMembershipRecord[]>([]);
   const [seasons, setSeasons] = useState<MembershipSeasonRecord[]>([]);
   const [selectedSeason, setSelectedSeason] = useState("all");
+  const [hasInitializedSeasonFilter, setHasInitializedSeasonFilter] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("active");
   const [selectedRole, setSelectedRole] = useState("all");
+  const [draftRoles, setDraftRoles] = useState<Record<string, TeamMembershipRole>>({});
   const [draftStatuses, setDraftStatuses] = useState<Record<string, TeamMembershipStatus>>({});
   const [draftSeasonIds, setDraftSeasonIds] = useState<Record<string, string>>({});
   const [draftUserIds, setDraftUserIds] = useState<Record<string, string>>({});
   const [draftPlayerIds, setDraftPlayerIds] = useState<Record<string, string>>({});
   const [draftAliasInputs, setDraftAliasInputs] = useState<Record<string, string>>({});
   const [editingExternalNameMemberId, setEditingExternalNameMemberId] = useState<string | null>(null);
+  const [editingExternalAliasIdByMemberId, setEditingExternalAliasIdByMemberId] = useState<Record<string, string | null>>({});
   const [teamUserOptions, setTeamUserOptions] = useState<TeamMembershipUserOption[]>([]);
   const [teamPlayerOptions, setTeamPlayerOptions] = useState<TeamMembershipPlayerOption[]>([]);
+  const [invites, setInvites] = useState<TeamInviteRecord[]>([]);
+  const [joinRequests, setJoinRequests] = useState<TeamJoinRequestRecord[]>([]);
   const [canEditExternalNames, setCanEditExternalNames] = useState(false);
   const [membershipFoundationReady, setMembershipFoundationReady] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [savingAliasMemberId, setSavingAliasMemberId] = useState<string | null>(null);
-  const [deletingAliasId, setDeletingAliasId] = useState<string | null>(null);
+  const [expandedMemberId, setExpandedMemberId] = useState<string | false>(false);
   const [isCreatingSeason, setIsCreatingSeason] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -110,22 +639,15 @@ export default function MembershipsPage() {
   const [seasonEndDateInput, setSeasonEndDateInput] = useState("");
   const [seasonActiveInput, setSeasonActiveInput] = useState(false);
 
-  useEffect(() => {
-    if (!isAdmin) {
-      setIsLoading(false);
-      return;
-    }
-
-    let isActive = true;
-
-    const loadMembershipWorkspace = async () => {
+  const loadMembershipWorkspace = useMemo(() => {
+    return async (isActive: { current: boolean }) => {
       setIsLoading(true);
       setErrorMessage(null);
 
       try {
         const foundationReady = await hasMembershipFoundationSupport();
 
-        if (!isActive) return;
+        if (!isActive.current) return;
 
         setMembershipFoundationReady(foundationReady);
 
@@ -134,7 +656,10 @@ export default function MembershipsPage() {
           setSeasons([]);
           setTeamUserOptions([]);
           setTeamPlayerOptions([]);
+          setInvites([]);
+          setJoinRequests([]);
           setDraftAliasInputs({});
+          setDraftRoles({});
           setDraftStatuses({});
           setDraftSeasonIds({});
           setDraftUserIds({});
@@ -145,23 +670,31 @@ export default function MembershipsPage() {
 
         const nextCanEditExternalNames = await canManageExternalNames();
 
-        if (!isActive) return;
+        if (!isActive.current) return;
 
-        const [nextMemberships, nextSeasons, nextTeamUserOptions, nextTeamPlayerOptions] = await Promise.all([
+        const [nextMemberships, nextSeasons, nextTeamUserOptions, nextTeamPlayerOptions, nextInvites, nextJoinRequests] = await Promise.all([
           getTeamMembershipRecords(),
           getMembershipSeasons(),
           nextCanEditExternalNames ? getTeamMembershipUserOptions() : Promise.resolve([]),
-          nextCanEditExternalNames ? getTeamMembershipPlayerOptions() : Promise.resolve([])
+          nextCanEditExternalNames ? getTeamMembershipPlayerOptions() : Promise.resolve([]),
+          listTeamInvites(),
+          listPendingTeamJoinRequests()
         ]);
 
-        if (!isActive) return;
+        if (!isActive.current) return;
 
         setMemberships(nextMemberships);
         setSeasons(nextSeasons);
         setCanEditExternalNames(nextCanEditExternalNames);
         setTeamUserOptions(nextTeamUserOptions);
         setTeamPlayerOptions(nextTeamPlayerOptions);
+        setInvites(nextInvites);
+        setJoinRequests(nextJoinRequests);
         setDraftAliasInputs({});
+        setDraftRoles(nextMemberships.reduce<Record<string, TeamMembershipRole>>((acc, membership) => {
+          acc[membership.memberId] = membership.role;
+          return acc;
+        }, {}));
         setDraftStatuses(nextMemberships.reduce<Record<string, TeamMembershipStatus>>((acc, membership) => {
           acc[membership.memberId] = membership.status;
           return acc;
@@ -179,29 +712,56 @@ export default function MembershipsPage() {
           return acc;
         }, {}));
       } catch (error) {
-        if (!isActive) return;
+        if (!isActive.current) return;
         setMemberships([]);
         setSeasons([]);
         setTeamUserOptions([]);
         setTeamPlayerOptions([]);
+        setInvites([]);
+        setJoinRequests([]);
         setCanEditExternalNames(false);
         setDraftAliasInputs({});
+        setDraftRoles({});
         setDraftStatuses({});
         setDraftSeasonIds({});
         setDraftUserIds({});
         setDraftPlayerIds({});
         setErrorMessage(error instanceof Error ? error.message : "Could not load the membership workspace.");
       } finally {
-        if (isActive) setIsLoading(false);
+        if (isActive.current) setIsLoading(false);
       }
     };
+  }, []);
 
-    void loadMembershipWorkspace();
+  useEffect(() => {
+    if (!isAdmin) {
+      setIsLoading(false);
+      return;
+    }
+
+    const activity = { current: true };
+    void loadMembershipWorkspace(activity);
 
     return () => {
-      isActive = false;
+      activity.current = false;
     };
-  }, [isAdmin]);
+  }, [isAdmin, loadMembershipWorkspace]);
+
+  useEffect(() => {
+    if (hasInitializedSeasonFilter) {
+      return;
+    }
+
+    const activeSeason = seasons.find((season) => season.isActive);
+
+    if (activeSeason) {
+      setSelectedSeason(activeSeason.id);
+    }
+
+    if (seasons.length > 0) {
+      setHasInitializedSeasonFilter(true);
+    }
+  }, [hasInitializedSeasonFilter, seasons]);
 
   const filteredMemberships = useMemo(() => {
     return memberships.filter((membership) => {
@@ -212,10 +772,34 @@ export default function MembershipsPage() {
     });
   }, [memberships, selectedRole, selectedSeason, selectedStatus]);
 
+  const membershipColumns = useMemo(() => {
+    return filteredMemberships.reduce<[TeamMembershipRecord[], TeamMembershipRecord[]]>(
+      (columns, membership, index) => {
+        columns[index % 2].push(membership);
+        return columns;
+      },
+      [[], []]
+    );
+  }, [filteredMemberships]);
+
   const activeSeasonCount = seasons.filter((season) => season.isActive).length;
-  const activeMemberCount = memberships.filter((membership) => membership.status === "active").length;
-  const inactiveMemberCount = memberships.filter((membership) => membership.status === "inactive").length;
-  const fullyLinkedCount = memberships.filter((membership) => membership.userId && membership.playerId).length;
+  const activeMemberCount = filteredMemberships.filter((membership) => membership.status === "active").length;
+  const inactiveMemberCount = filteredMemberships.filter((membership) => membership.status === "inactive").length;
+  const fullyLinkedCount = filteredMemberships.filter((membership) => membership.userId && membership.playerId).length;
+
+  const hasMembershipPendingChanges = (membership: TeamMembershipRecord) => (
+    (draftRoles[membership.memberId] ?? membership.role) !== membership.role
+    || (draftStatuses[membership.memberId] ?? membership.status) !== membership.status
+    || (draftSeasonIds[membership.memberId] ?? membership.seasonId ?? "") !== (membership.seasonId ?? "")
+    || (draftUserIds[membership.memberId] ?? membership.userId ?? "") !== (membership.userId ?? "")
+    || (draftPlayerIds[membership.memberId] ?? membership.playerId ?? "") !== (membership.playerId ?? "")
+  );
+
+  useEffect(() => {
+    if (expandedMemberId && !filteredMemberships.some((membership) => membership.memberId === expandedMemberId)) {
+      setExpandedMemberId(false);
+    }
+  }, [expandedMemberId, filteredMemberships]);
 
   const handleAliasInputChange = (memberId: string, alias: string) => {
     setDraftAliasInputs((current) => ({ ...current, [memberId]: alias }));
@@ -227,6 +811,24 @@ export default function MembershipsPage() {
       ...current,
       [memberId]: currentExternalName ?? ""
     }));
+    setEditingExternalAliasIdByMemberId((current) => ({
+      ...current,
+      [memberId]: null
+    }));
+    setEditingExternalNameMemberId(memberId);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+  };
+
+  const openExistingExternalNameEditor = (memberId: string, alias: TeamMemberAliasRecord) => {
+    setDraftAliasInputs((current) => ({
+      ...current,
+      [memberId]: alias.alias
+    }));
+    setEditingExternalAliasIdByMemberId((current) => ({
+      ...current,
+      [memberId]: alias.aliasId
+    }));
     setEditingExternalNameMemberId(memberId);
     setSuccessMessage(null);
     setErrorMessage(null);
@@ -235,6 +837,15 @@ export default function MembershipsPage() {
   const closeExternalNameEditor = (memberId: string) => {
     setEditingExternalNameMemberId((current) => (current === memberId ? null : current));
     setDraftAliasInputs((current) => ({ ...current, [memberId]: "" }));
+    setEditingExternalAliasIdByMemberId((current) => ({
+      ...current,
+      [memberId]: null
+    }));
+  };
+
+  const handleRoleDraftChange = (memberId: string, role: TeamMembershipRole) => {
+    setDraftRoles((current) => ({ ...current, [memberId]: role }));
+    setSuccessMessage(null);
   };
 
   const handleStatusDraftChange = (memberId: string, status: TeamMembershipStatus) => {
@@ -257,8 +868,88 @@ export default function MembershipsPage() {
     setSuccessMessage(null);
   };
 
+  const resetMembershipDraft = (membership: TeamMembershipRecord) => {
+    setDraftRoles((current) => ({ ...current, [membership.memberId]: membership.role }));
+    setDraftStatuses((current) => ({ ...current, [membership.memberId]: membership.status }));
+    setDraftSeasonIds((current) => ({ ...current, [membership.memberId]: membership.seasonId ?? "" }));
+    setDraftUserIds((current) => ({ ...current, [membership.memberId]: membership.userId ?? "" }));
+    setDraftPlayerIds((current) => ({ ...current, [membership.memberId]: membership.playerId ?? "" }));
+    closeExternalNameEditor(membership.memberId);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+  };
+
+  const effectiveLinkedMemberIdByUserId = useMemo(() => {
+    const linkedMemberIdByUserId = new Map<string, string | null>();
+
+    teamUserOptions.forEach((option) => {
+      linkedMemberIdByUserId.set(option.userId, option.linkedMemberId);
+    });
+
+    memberships.forEach((membership) => {
+      const nextDraftUserId = draftUserIds[membership.memberId] ?? membership.userId ?? "";
+
+      if (membership.userId && membership.userId !== nextDraftUserId) {
+        linkedMemberIdByUserId.set(membership.userId, null);
+      }
+
+      if (nextDraftUserId) {
+        linkedMemberIdByUserId.set(nextDraftUserId, membership.memberId);
+      }
+    });
+
+    return linkedMemberIdByUserId;
+  }, [draftUserIds, memberships, teamUserOptions]);
+
+  const effectiveLinkedMemberIdByPlayerId = useMemo(() => {
+    const linkedMemberIdByPlayerId = new Map<string, string | null>();
+
+    teamPlayerOptions.forEach((option) => {
+      linkedMemberIdByPlayerId.set(option.playerId, option.linkedMemberId);
+    });
+
+    memberships.forEach((membership) => {
+      const nextDraftPlayerId = draftPlayerIds[membership.memberId] ?? membership.playerId ?? "";
+
+      if (membership.playerId && membership.playerId !== nextDraftPlayerId) {
+        linkedMemberIdByPlayerId.set(membership.playerId, null);
+      }
+
+      if (nextDraftPlayerId) {
+        linkedMemberIdByPlayerId.set(nextDraftPlayerId, membership.memberId);
+      }
+    });
+
+    return linkedMemberIdByPlayerId;
+  }, [draftPlayerIds, memberships, teamPlayerOptions]);
+
+  const handleInviteCreated = (invite: TeamInviteRecord) => {
+    setInvites((current) => [invite, ...current]);
+  };
+
+  const handleInviteCancelled = (inviteId: string) => {
+    setInvites((current) =>
+      current.map((invite) =>
+        invite.inviteId === inviteId
+          ? { ...invite, status: "cancelled", updatedAt: new Date().toISOString() }
+          : invite
+      )
+    );
+  };
+
+  const handleJoinRequestApproved = async (requestId: string) => {
+    setJoinRequests((current) => current.filter((request) => request.requestId !== requestId));
+    const activity = { current: true };
+    await loadMembershipWorkspace(activity);
+  };
+
+  const handleJoinRequestRejected = (requestId: string) => {
+    setJoinRequests((current) => current.filter((request) => request.requestId !== requestId));
+  };
+
   const handleSaveMembership = async (memberId: string) => {
     const currentMembership = memberships.find((membership) => membership.memberId === memberId);
+    const nextRole = draftRoles[memberId];
     const nextStatus = draftStatuses[memberId];
     const nextSeasonId = draftSeasonIds[memberId] || null;
     const nextUserId = draftUserIds[memberId] || null;
@@ -266,9 +957,11 @@ export default function MembershipsPage() {
 
     if (
       !currentMembership
+      || !nextRole
       || !nextStatus
       || (
-        nextStatus === currentMembership.status
+        nextRole === currentMembership.role
+        && nextStatus === currentMembership.status
         && nextSeasonId === currentMembership.seasonId
         && nextUserId === currentMembership.userId
         && nextPlayerId === currentMembership.playerId
@@ -281,6 +974,11 @@ export default function MembershipsPage() {
       setSavingMemberId(memberId);
       setErrorMessage(null);
       setSuccessMessage(null);
+
+      const roleUpdate =
+        nextRole !== currentMembership.role
+          ? updateTeamMembershipRole(memberId, nextRole)
+          : Promise.resolve(null);
 
       const statusUpdate =
         nextStatus !== currentMembership.status
@@ -301,6 +999,7 @@ export default function MembershipsPage() {
           ;
 
       await Promise.all([
+        roleUpdate,
         statusUpdate,
         seasonUpdate
       ]);
@@ -317,6 +1016,7 @@ export default function MembershipsPage() {
           membership.memberId === memberId
             ? {
               ...membership,
+              role: nextRole,
               status: nextStatus,
               seasonId: nextSeasonId,
               seasonName: nextSeasonId ? (seasons.find((season) => season.id === nextSeasonId)?.name ?? null) : null,
@@ -370,78 +1070,6 @@ export default function MembershipsPage() {
     }
   };
 
-  const handleCreateAlias = async (memberId: string) => {
-    const aliasInput = (draftAliasInputs[memberId] ?? "").trim();
-
-    if (!aliasInput) {
-      return;
-    }
-
-    try {
-      setSavingAliasMemberId(memberId);
-      setErrorMessage(null);
-      setSuccessMessage(null);
-
-      const result = await createTeamMemberAlias(memberId, aliasInput, "legacy");
-
-      setMemberships((current) =>
-        current.map((membership) => {
-          if (membership.memberId !== result.memberId) {
-            return membership;
-          }
-
-          return {
-            ...membership,
-            aliases: [...membership.aliases, result.alias].sort((left, right) => {
-              if (left.isPrimary !== right.isPrimary) {
-                return left.isPrimary ? -1 : 1;
-              }
-
-              if (left.aliasType !== right.aliasType) {
-                return left.aliasType.localeCompare(right.aliasType);
-              }
-
-              return left.alias.localeCompare(right.alias);
-            })
-          };
-        })
-      );
-      setDraftAliasInputs((current) => ({ ...current, [memberId]: "" }));
-      setEditingExternalNameMemberId((current) => (current === memberId ? null : current));
-      setSuccessMessage("Added the new external name.");
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not create the external name.");
-    } finally {
-      setSavingAliasMemberId(null);
-    }
-  };
-
-  const handleDeleteAlias = async (memberId: string, alias: TeamMemberAliasRecord) => {
-    try {
-      setDeletingAliasId(alias.aliasId);
-      setErrorMessage(null);
-      setSuccessMessage(null);
-
-      await deleteTeamMemberAlias(alias.aliasId);
-
-      setMemberships((current) =>
-        current.map((membership) =>
-          membership.memberId === memberId
-            ? {
-              ...membership,
-              aliases: membership.aliases.filter((entry) => entry.aliasId !== alias.aliasId)
-            }
-            : membership
-        )
-      );
-      setSuccessMessage(`Removed alias ${alias.alias}.`);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not delete the alias.");
-    } finally {
-      setDeletingAliasId(null);
-    }
-  };
-
   const handleSaveExternalName = async (
     membership: TeamMembershipRecord,
     existingAlias: TeamMemberAliasRecord | null
@@ -489,48 +1117,90 @@ export default function MembershipsPage() {
       }
 
       if (existingAlias) {
-        await deleteTeamMemberAlias(existingAlias.aliasId);
+        const result = await updateTeamMemberAlias(existingAlias.aliasId, nextExternalName);
         setMemberships((current) =>
           current.map((entry) =>
             entry.memberId === membership.memberId
               ? {
                 ...entry,
-                aliases: entry.aliases.filter((alias) => alias.aliasId !== existingAlias.aliasId)
+                aliases: entry.aliases.map((alias) =>
+                  alias.aliasId === existingAlias.aliasId ? result.alias : alias
+                ).sort((left, right) => {
+                  if (left.isPrimary !== right.isPrimary) {
+                    return left.isPrimary ? -1 : 1;
+                  }
+
+                  if (left.aliasType !== right.aliasType) {
+                    return left.aliasType.localeCompare(right.aliasType);
+                  }
+
+                  return left.alias.localeCompare(right.alias);
+                })
               }
               : entry
           )
         );
+      } else {
+        const result = await createTeamMemberAlias(membership.memberId, nextExternalName, "legacy");
+
+        setMemberships((current) =>
+          current.map((entry) => {
+            if (entry.memberId !== result.memberId) {
+              return entry;
+            }
+
+            return {
+              ...entry,
+              aliases: [...entry.aliases, result.alias].sort((left, right) => {
+                if (left.isPrimary !== right.isPrimary) {
+                  return left.isPrimary ? -1 : 1;
+                }
+
+                if (left.aliasType !== right.aliasType) {
+                  return left.aliasType.localeCompare(right.aliasType);
+                }
+
+                return left.alias.localeCompare(right.alias);
+              })
+            };
+          })
+        );
       }
-
-      const result = await createTeamMemberAlias(membership.memberId, nextExternalName, "legacy");
-
-      setMemberships((current) =>
-        current.map((entry) => {
-          if (entry.memberId !== result.memberId) {
-            return entry;
-          }
-
-          return {
-            ...entry,
-            aliases: [...entry.aliases, result.alias].sort((left, right) => {
-              if (left.isPrimary !== right.isPrimary) {
-                return left.isPrimary ? -1 : 1;
-              }
-
-              if (left.aliasType !== right.aliasType) {
-                return left.aliasType.localeCompare(right.aliasType);
-              }
-
-              return left.alias.localeCompare(right.alias);
-            })
-          };
-        })
-      );
 
       closeExternalNameEditor(membership.memberId);
       setSuccessMessage(existingAlias ? "Updated the external name." : "Added the new external name.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not save the external name.");
+    } finally {
+      setSavingAliasMemberId(null);
+    }
+  };
+
+  const handleDeleteExternalName = async (membership: TeamMembershipRecord, alias: TeamMemberAliasRecord) => {
+    try {
+      setSavingAliasMemberId(membership.memberId);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      await deleteTeamMemberAlias(alias.aliasId);
+      setMemberships((current) =>
+        current.map((entry) =>
+          entry.memberId === membership.memberId
+            ? {
+              ...entry,
+              aliases: entry.aliases.filter((entryAlias) => entryAlias.aliasId !== alias.aliasId)
+            }
+            : entry
+        )
+      );
+
+      if (editingExternalAliasIdByMemberId[membership.memberId] === alias.aliasId) {
+        closeExternalNameEditor(membership.memberId);
+      }
+
+      setSuccessMessage(`Removed external name from ${membership.name}.`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not delete the external name.");
     } finally {
       setSavingAliasMemberId(null);
     }
@@ -605,16 +1275,16 @@ export default function MembershipsPage() {
           <>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                <MetricCard label="Team Members" value={memberships.length} helper="V2 membership records for the current team" />
+                <MetricCard label="Team Members" value={filteredMemberships.length} helper="Membership records in the current filter" />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                <MetricCard label="Active Members" value={activeMemberCount} helper="Current players and active team members" />
+                <MetricCard label="Active Members" value={activeMemberCount} helper="Active members in the current filter" />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                <MetricCard label="Inactive Members" value={inactiveMemberCount} helper="Past players preserved for history" />
+                <MetricCard label="Inactive Members" value={inactiveMemberCount} helper="Inactive members in the current filter" />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                <MetricCard label="Fully Linked" value={fullyLinkedCount} helper="Members linked to both user and player" />
+                <MetricCard label="Fully Linked" value={fullyLinkedCount} helper="Members linked to both user and player in the current filter" />
               </Grid>
             </Grid>
 
@@ -648,6 +1318,24 @@ export default function MembershipsPage() {
                 </Stack>
               </CardContent>
             </Card>
+
+            <JoinRequestManagementSection
+              joinRequests={joinRequests}
+              onJoinRequestApproved={handleJoinRequestApproved}
+              onJoinRequestRejected={handleJoinRequestRejected}
+              onErrorMessage={setErrorMessage}
+              onSuccessMessage={setSuccessMessage}
+            />
+
+            <InviteManagementSection
+              memberships={memberships}
+              seasons={seasons}
+              invites={invites}
+              onInviteCreated={handleInviteCreated}
+              onInviteCancelled={handleInviteCancelled}
+              onErrorMessage={setErrorMessage}
+              onSuccessMessage={setSuccessMessage}
+            />
 
             <Card variant="outlined" sx={{ borderRadius: 3 }}>
               <CardContent sx={{ p: 0 }}>
@@ -708,226 +1396,357 @@ export default function MembershipsPage() {
                     <Typography color="text.secondary">No membership records match the current filters.</Typography>
                   </Box>
                 ) : (
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Member</TableCell>
-                          <TableCell>Role</TableCell>
-                          <TableCell>Status</TableCell>
-                          <TableCell>Season</TableCell>
-                          <TableCell>Linked User</TableCell>
-                          <TableCell>Linked Player</TableCell>
-                          <TableCell>External Names</TableCell>
-                          <TableCell>Action</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {filteredMemberships.map((membership) => {
-                          const visibleExternalNames = membership.aliases.filter((alias) => !alias.isPrimary);
-                          const existingExternalName = visibleExternalNames[0] ?? null;
-                          const effectiveCoveredName = formatName(membership.name);
-                          const isEditingExternalName = editingExternalNameMemberId === membership.memberId;
-                          const externalNameMatchesPrimaryName =
-                            normalizeExternalNameInput(draftAliasInputs[membership.memberId] ?? "")
-                            === normalizeExternalNameInput(membership.name);
+                  <Grid container spacing={1.5} alignItems="flex-start" sx={{ px: 2, pb: 2 }}>
+                    {membershipColumns.map((columnMemberships, columnIndex) => (
+                      <Grid key={`membership-column-${columnIndex}`} size={{ xs: 12, md: 6 }}>
+                        <Stack spacing={1.5}>
+                          {columnMemberships.map((membership) => {
+                      const visibleExternalNames = membership.aliases.filter((alias) => !alias.isPrimary);
+                      const isEditingExternalName = editingExternalNameMemberId === membership.memberId;
+                      const editingExternalAliasId = editingExternalAliasIdByMemberId[membership.memberId] ?? null;
+                      const editingExternalAlias = editingExternalAliasId
+                        ? visibleExternalNames.find((alias) => alias.aliasId === editingExternalAliasId) ?? null
+                        : null;
+                      const externalNameMatchesPrimaryName =
+                        normalizeExternalNameInput(draftAliasInputs[membership.memberId] ?? "")
+                        === normalizeExternalNameInput(membership.name);
+                      const hasPendingChanges = hasMembershipPendingChanges(membership);
+                      const resolvedUserLabel = membership.userDisplayName ?? membership.userEmail ?? "Not Linked";
+                      const resolvedPlayerLabel = membership.playerName ? formatName(membership.playerName) : "Not Linked";
 
-                          return (
-                          <TableRow key={membership.memberId}>
-                            <TableCell>
-                              <Stack spacing={0.35}>
-                                <Typography fontWeight={700}>{formatName(membership.name)}</Typography>
-                              </Stack>
-                            </TableCell>
-                            <TableCell>
-                              <Chip label={membership.role} color={getRoleChipColor(membership.role)} size="small" variant={membership.role === "player" ? "outlined" : "filled"} />
-                            </TableCell>
-                            <TableCell>
-                              <FormControl size="small" fullWidth>
-                                <InputLabel id={`membership-status-${membership.memberId}`}>Status</InputLabel>
-                                <Select
-                                  labelId={`membership-status-${membership.memberId}`}
-                                  value={draftStatuses[membership.memberId] ?? membership.status}
-                                  label="Status"
-                                  onChange={(event) => handleStatusDraftChange(membership.memberId, event.target.value as TeamMembershipStatus)}
-                                >
-                                  <MenuItem value="active">Active</MenuItem>
-                                  <MenuItem value="inactive">Inactive</MenuItem>
-                                  <MenuItem value="invited">Invited</MenuItem>
-                                  <MenuItem value="archived">Archived</MenuItem>
-                                </Select>
-                              </FormControl>
-                            </TableCell>
-                            <TableCell>
-                              <FormControl size="small" fullWidth>
-                                <InputLabel id={`membership-season-${membership.memberId}`}>Season</InputLabel>
-                                <Select
-                                  labelId={`membership-season-${membership.memberId}`}
-                                  value={draftSeasonIds[membership.memberId] ?? membership.seasonId ?? ""}
-                                  label="Season"
-                                  onChange={(event) => handleSeasonDraftChange(membership.memberId, event.target.value)}
-                                >
-                                  <MenuItem value="">Not Assigned</MenuItem>
-                                  {seasons.map((season) => (
-                                    <MenuItem key={season.id} value={season.id}>{season.name}</MenuItem>
-                                  ))}
-                                </Select>
-                              </FormControl>
-                            </TableCell>
-                            <TableCell>
-                              {canEditExternalNames ? (
-                                <FormControl size="small" fullWidth>
-                                  <InputLabel id={`membership-user-${membership.memberId}`}>Linked User</InputLabel>
-                                  <Select
-                                    labelId={`membership-user-${membership.memberId}`}
-                                    value={draftUserIds[membership.memberId] ?? membership.userId ?? ""}
-                                    label="Linked User"
-                                    onChange={(event) => handleUserDraftChange(membership.memberId, event.target.value)}
-                                  >
-                                    <MenuItem value="">Not Linked</MenuItem>
-                                    {teamUserOptions
-                                      .filter((option) =>
-                                        option.linkedMemberId === null
-                                        || option.linkedMemberId === membership.memberId
-                                      )
-                                      .map((option) => (
-                                        <MenuItem key={option.userId} value={option.userId}>
-                                          {option.displayName}{option.email ? ` (${option.email})` : ""}
-                                        </MenuItem>
-                                      ))}
-                                  </Select>
-                                </FormControl>
-                              ) : (
-                                <Stack spacing={0.35}>
-                                  <Typography variant="body2">{membership.userDisplayName ?? membership.userEmail ?? "Not Linked"}</Typography>
-                                  {membership.userEmail && membership.userDisplayName !== membership.userEmail && (
-                                    <Typography variant="caption" color="text.secondary">{membership.userEmail}</Typography>
-                                  )}
-                                </Stack>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {canEditExternalNames ? (
-                                <FormControl size="small" fullWidth>
-                                  <InputLabel id={`membership-player-${membership.memberId}`}>Linked Player</InputLabel>
-                                  <Select
-                                    labelId={`membership-player-${membership.memberId}`}
-                                    value={draftPlayerIds[membership.memberId] ?? membership.playerId ?? ""}
-                                    label="Linked Player"
-                                    onChange={(event) => handlePlayerDraftChange(membership.memberId, event.target.value)}
-                                  >
-                                    <MenuItem value="">Not Linked</MenuItem>
-                                    {teamPlayerOptions
-                                      .filter((option) =>
-                                        option.linkedMemberId === null
-                                        || option.linkedMemberId === membership.memberId
-                                      )
-                                      .map((option) => (
-                                        <MenuItem key={option.playerId} value={option.playerId}>
-                                          {option.displayName}{option.isGuest ? " (Guest)" : ""}
-                                        </MenuItem>
-                                      ))}
-                                  </Select>
-                                </FormControl>
-                              ) : (
-                                <Typography variant="body2">
-                                  {membership.playerName ? formatName(membership.playerName) : "Not Linked"}
+                            return (
+                        <Accordion
+                          key={membership.memberId}
+                          expanded={expandedMemberId === membership.memberId}
+                          onChange={(_, isExpanded) => setExpandedMemberId(isExpanded ? membership.memberId : false)}
+                          disableGutters
+                          sx={{
+                            borderRadius: "20px !important",
+                            overflow: "hidden",
+                            border: "1px solid",
+                            borderColor: hasPendingChanges ? "primary.main" : "divider",
+                            backgroundColor: "background.paper",
+                            boxShadow: hasPendingChanges ? "0 10px 26px rgba(25, 118, 210, 0.12)" : "none",
+                            "&::before": {
+                              display: "none"
+                            }
+                          }}
+                        >
+                          <AccordionSummary
+                            expandIcon={<ExpandMoreRoundedIcon />}
+                            sx={{
+                              px: 2,
+                              py: 1.25,
+                              "& .MuiAccordionSummary-content": {
+                                my: 0
+                              }
+                            }}
+                          >
+                            <Stack
+                              direction="row"
+                              spacing={1.25}
+                              justifyContent="space-between"
+                              alignItems="center"
+                              sx={{ width: "100%", minWidth: 0, pr: 1 }}
+                            >
+                              <Typography sx={{ fontWeight: 800, color: "text.primary" }}>
+                                {formatName(membership.name)}
+                              </Typography>
+                              <Chip
+                                size="small"
+                                label={membership.userId && membership.playerId ? "Fully linked" : "Needs linking"}
+                                color={membership.userId && membership.playerId ? "success" : "warning"}
+                                variant="outlined"
+                              />
+                            </Stack>
+                          </AccordionSummary>
+
+                          <AccordionDetails sx={{ px: 1.5, pb: 1.5, pt: 0 }}>
+                            <Divider sx={{ mb: 1.25 }} />
+
+                            <Grid container spacing={1}>
+                              <Grid size={{ xs: 12 }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                  Membership Details
                                 </Typography>
-                              )}
-                            </TableCell>
-                            <TableCell sx={{ minWidth: 320 }}>
-                              <Stack spacing={1.25}>
-                                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
-                                  {visibleExternalNames.length > 0 ? visibleExternalNames.map((alias) => (
-                                    <Chip
-                                      key={alias.aliasId}
-                                      label={alias.alias}
-                                      size="small"
-                                      color="default"
-                                      variant="outlined"
-                                      disabled={deletingAliasId === alias.aliasId}
-                                    />
-                                  )) : (
-                                    <Chip
-                                      label={effectiveCoveredName}
-                                      size="small"
-                                      color="default"
-                                      variant="outlined"
-                                    />
-                                  )}
+                              </Grid>
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <FormControl size="small" fullWidth>
+                                  <InputLabel id={`membership-role-${membership.memberId}`}>Role</InputLabel>
+                                  <Select
+                                    labelId={`membership-role-${membership.memberId}`}
+                                    value={draftRoles[membership.memberId] ?? membership.role}
+                                    label="Role"
+                                    onChange={(event) => handleRoleDraftChange(membership.memberId, event.target.value as TeamMembershipRole)}
+                                  >
+                                    <MenuItem value="admin">Admin</MenuItem>
+                                    <MenuItem value="captain">Captain</MenuItem>
+                                    <MenuItem value="player">Player</MenuItem>
+                                  </Select>
+                                </FormControl>
+                              </Grid>
 
-                                  {canEditExternalNames && !isEditingExternalName ? (
-                                    <Button
-                                      variant="text"
-                                      size="small"
-                                      onClick={() => openExternalNameEditor(membership.memberId, existingExternalName?.alias ?? "")}
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <FormControl size="small" fullWidth>
+                                  <InputLabel id={`membership-status-${membership.memberId}`}>Status</InputLabel>
+                                  <Select
+                                    labelId={`membership-status-${membership.memberId}`}
+                                    value={draftStatuses[membership.memberId] ?? membership.status}
+                                    label="Status"
+                                    onChange={(event) => handleStatusDraftChange(membership.memberId, event.target.value as TeamMembershipStatus)}
+                                  >
+                                    <MenuItem value="active">Active</MenuItem>
+                                    <MenuItem value="inactive">Inactive</MenuItem>
+                                    <MenuItem value="invited">Invited</MenuItem>
+                                    <MenuItem value="archived">Archived</MenuItem>
+                                  </Select>
+                                </FormControl>
+                              </Grid>
+
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <FormControl size="small" fullWidth>
+                                  <InputLabel id={`membership-season-${membership.memberId}`}>Season</InputLabel>
+                                  <Select
+                                    labelId={`membership-season-${membership.memberId}`}
+                                    value={draftSeasonIds[membership.memberId] ?? membership.seasonId ?? ""}
+                                    label="Season"
+                                    onChange={(event) => handleSeasonDraftChange(membership.memberId, event.target.value)}
+                                  >
+                                    <MenuItem value="">Not Assigned</MenuItem>
+                                    {seasons.map((season) => (
+                                      <MenuItem key={season.id} value={season.id}>{season.name}</MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              </Grid>
+
+                              <Grid size={{ xs: 12 }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                  Linking
+                                </Typography>
+                              </Grid>
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                {canEditExternalNames ? (
+                                  <FormControl size="small" fullWidth>
+                                    <InputLabel id={`membership-user-${membership.memberId}`}>Linked User</InputLabel>
+                                    <Select
+                                      labelId={`membership-user-${membership.memberId}`}
+                                      value={draftUserIds[membership.memberId] ?? membership.userId ?? ""}
+                                      label="Linked User"
+                                      onChange={(event) => handleUserDraftChange(membership.memberId, event.target.value)}
                                     >
-                                      Edit
-                                    </Button>
-                                  ) : null}
-                                </Stack>
-
-                                {canEditExternalNames && isEditingExternalName ? (
-                                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      label="External Name"
-                                      value={draftAliasInputs[membership.memberId] ?? ""}
-                                      onChange={(event) => handleAliasInputChange(membership.memberId, event.target.value)}
-                                      placeholder="Sharath"
-                                      helperText={
-                                        externalNameMatchesPrimaryName && existingExternalName
-                                          ? "Saving this will reset the row to the member name."
-                                          : undefined
-                                      }
-                                    />
-                                    <Stack direction="row" spacing={1}>
-                                      <Button
-                                        variant="outlined"
-                                        onClick={() => void handleSaveExternalName(membership, existingExternalName)}
-                                        disabled={
-                                          savingAliasMemberId === membership.memberId
-                                          || !(draftAliasInputs[membership.memberId] ?? "").trim()
-                                        }
-                                      >
-                                        {savingAliasMemberId === membership.memberId ? "Saving..." : "Save"}
-                                      </Button>
-                                      <Button
-                                        variant="text"
-                                        onClick={() => closeExternalNameEditor(membership.memberId)}
-                                        disabled={savingAliasMemberId === membership.memberId}
-                                      >
-                                        Cancel
-                                      </Button>
-                                    </Stack>
+                                      <MenuItem value="">Not Linked</MenuItem>
+                                      {teamUserOptions
+                                        .filter((option) =>
+                                          (effectiveLinkedMemberIdByUserId.get(option.userId) ?? null) === null
+                                          || effectiveLinkedMemberIdByUserId.get(option.userId) === membership.memberId
+                                        )
+                                        .map((option) => (
+                                          <MenuItem key={option.userId} value={option.userId}>
+                                            {option.displayName}{option.email ? ` (${option.email})` : ""}
+                                          </MenuItem>
+                                        ))}
+                                    </Select>
+                                  </FormControl>
+                                ) : (
+                                  <Stack spacing={0.5} sx={{ py: 0.75 }}>
+                                    <Typography variant="caption" color="text.secondary">Linked User</Typography>
+                                    <Typography variant="body2">{resolvedUserLabel}</Typography>
                                   </Stack>
-                                ) : null}
-                              </Stack>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="contained"
-                                onClick={() => void handleSaveMembership(membership.memberId)}
-                                disabled={
-                                  savingMemberId === membership.memberId
-                                  || (
-                                    (draftStatuses[membership.memberId] ?? membership.status) === membership.status
-                                    && (draftSeasonIds[membership.memberId] ?? membership.seasonId ?? "") === (membership.seasonId ?? "")
-                                    && (draftUserIds[membership.memberId] ?? membership.userId ?? "") === (membership.userId ?? "")
-                                    && (draftPlayerIds[membership.memberId] ?? membership.playerId ?? "") === (membership.playerId ?? "")
-                                  )
-                                }
-                              >
-                                {savingMemberId === membership.memberId ? "Saving..." : "Save"}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                                )}
+                              </Grid>
+
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                {canEditExternalNames ? (
+                                  <FormControl size="small" fullWidth>
+                                    <InputLabel id={`membership-player-${membership.memberId}`}>Linked Player</InputLabel>
+                                    <Select
+                                      labelId={`membership-player-${membership.memberId}`}
+                                      value={draftPlayerIds[membership.memberId] ?? membership.playerId ?? ""}
+                                      label="Linked Player"
+                                      onChange={(event) => handlePlayerDraftChange(membership.memberId, event.target.value)}
+                                    >
+                                      <MenuItem value="">Not Linked</MenuItem>
+                                      {teamPlayerOptions
+                                        .filter((option) =>
+                                          (effectiveLinkedMemberIdByPlayerId.get(option.playerId) ?? null) === null
+                                          || effectiveLinkedMemberIdByPlayerId.get(option.playerId) === membership.memberId
+                                        )
+                                        .map((option) => (
+                                          <MenuItem key={option.playerId} value={option.playerId}>
+                                            {option.displayName}{option.isGuest ? " (Guest)" : ""}
+                                          </MenuItem>
+                                        ))}
+                                    </Select>
+                                  </FormControl>
+                                ) : (
+                                  <Stack spacing={0.5} sx={{ py: 0.75 }}>
+                                    <Typography variant="caption" color="text.secondary">Linked Player</Typography>
+                                    <Typography variant="body2">{resolvedPlayerLabel}</Typography>
+                                  </Stack>
+                                )}
+                              </Grid>
+
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <Box
+                                  sx={{
+                                    borderRadius: 2,
+                                    border: "1px solid",
+                                    borderColor: "divider",
+                                    px: 1.25,
+                                    py: 1.25
+                                  }}
+                                >
+                                  <Stack spacing={1}>
+                                    <Stack
+                                      direction={{ xs: "column", sm: "row" }}
+                                      spacing={1}
+                                      justifyContent="space-between"
+                                      alignItems={{ xs: "flex-start", sm: "center" }}
+                                    >
+                                      <Typography variant="subtitle2" color="text.secondary">
+                                        External Names
+                                      </Typography>
+                                      {canEditExternalNames && !isEditingExternalName && (
+                                        <Button
+                                          variant="text"
+                                          size="small"
+                                          startIcon={<AddRoundedIcon />}
+                                          onClick={() => openExternalNameEditor(membership.memberId)}
+                                          sx={{ minWidth: 0, px: 0.5 }}
+                                        >
+                                          Add External
+                                        </Button>
+                                      )}
+                                    </Stack>
+
+                                    {visibleExternalNames.length > 0 ? (
+                                      <Stack spacing={1}>
+                                        {visibleExternalNames.map((alias) => (
+                                          <Stack
+                                            key={alias.aliasId}
+                                            direction={{ xs: "column", sm: "row" }}
+                                            spacing={0.75}
+                                            justifyContent="space-between"
+                                            alignItems={{ xs: "flex-start", sm: "center" }}
+                                            sx={{
+                                              px: 1,
+                                              py: 0.875,
+                                              borderRadius: 1.5,
+                                              backgroundColor: "action.hover"
+                                            }}
+                                          >
+                                            <Typography variant="body2">{alias.alias}</Typography>
+                                            {canEditExternalNames && (
+                                              <Stack direction="row" spacing={1}>
+                                                <Button
+                                                  variant="text"
+                                                  size="small"
+                                                  startIcon={<EditRoundedIcon />}
+                                                  onClick={() => openExistingExternalNameEditor(membership.memberId, alias)}
+                                                  sx={{ minWidth: 0, px: 0.5 }}
+                                                >
+                                                  Edit
+                                                </Button>
+                                                <Button
+                                                  variant="text"
+                                                  size="small"
+                                                  color="error"
+                                                  startIcon={<DeleteOutlineRoundedIcon />}
+                                                  onClick={() => void handleDeleteExternalName(membership, alias)}
+                                                  disabled={savingAliasMemberId === membership.memberId}
+                                                  sx={{ minWidth: 0, px: 0.5 }}
+                                                >
+                                                  Delete
+                                                </Button>
+                                              </Stack>
+                                            )}
+                                          </Stack>
+                                        ))}
+                                      </Stack>
+                                    ) : (
+                                      <Typography variant="body2" color="text.secondary">
+                                        No external names added yet.
+                                      </Typography>
+                                    )}
+
+                                    {canEditExternalNames && isEditingExternalName && (
+                                      <Stack spacing={1}>
+                                        <TextField
+                                          size="small"
+                                          fullWidth
+                                          label="External Name"
+                                          value={draftAliasInputs[membership.memberId] ?? ""}
+                                          onChange={(event) => handleAliasInputChange(membership.memberId, event.target.value)}
+                                          placeholder="Sharath"
+                                          helperText={
+                                            externalNameMatchesPrimaryName && editingExternalAlias
+                                              ? "Saving this will reset the row to the member name."
+                                              : "Use this for attendance sheets, scorecards, or legacy naming."
+                                          }
+                                        />
+                                        <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75}>
+                                          <Button
+                                            variant="outlined"
+                                            size="small"
+                                            onClick={() => void handleSaveExternalName(membership, editingExternalAlias)}
+                                            disabled={
+                                              savingAliasMemberId === membership.memberId
+                                              || !(draftAliasInputs[membership.memberId] ?? "").trim()
+                                            }
+                                          >
+                                            {savingAliasMemberId === membership.memberId
+                                              ? "Saving..."
+                                              : editingExternalAlias
+                                                ? "Update External Name"
+                                                : "Create External Name"}
+                                          </Button>
+                                          <Button
+                                            variant="text"
+                                            size="small"
+                                            onClick={() => closeExternalNameEditor(membership.memberId)}
+                                            disabled={savingAliasMemberId === membership.memberId}
+                                          >
+                                            Cancel
+                                          </Button>
+                                        </Stack>
+                                      </Stack>
+                                    )}
+                                  </Stack>
+                                </Box>
+                              </Grid>
+
+                              <Grid size={{ xs: 12, md: 6 }}>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75} justifyContent="flex-end">
+                                  <Button
+                                    variant="text"
+                                    size="small"
+                                    startIcon={<RestartAltRoundedIcon />}
+                                    onClick={() => resetMembershipDraft(membership)}
+                                    disabled={savingMemberId === membership.memberId || savingAliasMemberId === membership.memberId}
+                                  >
+                                    Reset
+                                  </Button>
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<SaveRoundedIcon />}
+                                    onClick={() => void handleSaveMembership(membership.memberId)}
+                                    disabled={savingMemberId === membership.memberId || !hasPendingChanges}
+                                  >
+                                    {savingMemberId === membership.memberId ? "Saving..." : "Save"}
+                                  </Button>
+                                </Stack>
+                              </Grid>
+                            </Grid>
+                          </AccordionDetails>
+                        </Accordion>
+                            );
+                          })}
+                        </Stack>
+                      </Grid>
+                    ))}
+                  </Grid>
                 )}
               </CardContent>
             </Card>

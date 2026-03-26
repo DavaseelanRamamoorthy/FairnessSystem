@@ -37,8 +37,8 @@ import FrontHandRoundedIcon from "@mui/icons-material/FrontHandRounded";
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import PaginationFooter from "@/app/components/common/PaginationFooter";
 import SquadMetadataDialog from "@/app/components/players/SquadMetadataDialog";
-import { currentTeamName } from "@/app/config/teamConfig";
 import { usePagination } from "@/app/hooks/usePagination";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 import { formatName } from "@/app/services/formatname";
 import {
   getPlayerProfile,
@@ -209,7 +209,8 @@ function buildPlayerSummaryText(
   profile: PlayerProfile,
   usagePercent: number,
   activeUsagePercent: number,
-  includeSelectionUsage: boolean
+  includeSelectionUsage: boolean,
+  teamName: string
 ) {
   const name = formatName(profile.name);
   const bestFit = getBestFitLabel(profile);
@@ -226,15 +227,15 @@ function buildPlayerSummaryText(
     : "";
 
   if (bestFit === "All-Rounder") {
-    return `${name} is currently profiling as an All-Rounder for ${currentTeamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the player has delivered ${battingLine} and ${bowlingLine}, making them a two-phase contributor in the current scope.`;
+    return `${name} is currently profiling as an All-Rounder for ${teamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the player has delivered ${battingLine} and ${bowlingLine}, making them a two-phase contributor in the current scope.`;
   }
 
   if (bestFit === "Bowler") {
-    return `${name} is currently profiling as a Bowler for ${currentTeamName}. The player has been selected in ${selectionLine}, with ${activeLine} and ${activeUsagePercent}% active usage. ${includeSelectionUsage ? `Selection usage currently sits at ${usagePercent}%. ` : ""}The strongest return is ${bowlingLine}, while batting impact is currently ${battingLine}.`;
+    return `${name} is currently profiling as a Bowler for ${teamName}. The player has been selected in ${selectionLine}, with ${activeLine} and ${activeUsagePercent}% active usage. ${includeSelectionUsage ? `Selection usage currently sits at ${usagePercent}%. ` : ""}The strongest return is ${bowlingLine}, while batting impact is currently ${battingLine}.`;
   }
 
   if (bestFit === "Batter") {
-    return `${name} is currently profiling as a Batter for ${currentTeamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the primary output is ${battingLine}, while bowling impact remains ${bowlingLine}.`;
+    return `${name} is currently profiling as a Batter for ${teamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the primary output is ${battingLine}, while bowling impact remains ${bowlingLine}.`;
   }
 
   return `${name} is still developing into a clearer role fit. The player has been selected in ${selectionLine}, with ${activeLine}, and currently shows ${battingLine} alongside ${bowlingLine}.`;
@@ -495,6 +496,7 @@ export default function PlayerProfilePage() {
   const playerId = Array.isArray(params.playerId) ? params.playerId[0] : params.playerId;
   const theme = useTheme();
   const { isAdmin } = useAuth();
+  const { teamName: activeTeamName } = useActiveTeamBranding();
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
@@ -647,7 +649,7 @@ export default function PlayerProfilePage() {
     ? Math.round((profile.activeMatches / profile.totalTeamMatches) * 100)
     : 0;
   const playerSummaryText = profile
-    ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, isAdmin)
+    ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, isAdmin, activeTeamName)
     : "";
   const bestFitLabel = profile ? getBestFitLabel(profile) : "";
   const canEditSquadMetadata = squadAdminEnabled && metadataColumnsReady === true && isAdmin;
@@ -838,7 +840,7 @@ export default function PlayerProfilePage() {
                                 : alpha(PLAYER_NAVY, 0.72)
                             }}
                           >
-                            {currentTeamName} player profile with batting, bowling, and recent-match contributions.
+                            {activeTeamName} player profile with batting, bowling, and recent-match contributions.
                           </Typography>
 
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
@@ -1092,7 +1094,7 @@ export default function PlayerProfilePage() {
                   value={profile.matchesPlayed}
                   icon={<SportsCricketRoundedIcon />}
                   tone="navy"
-                  footer="Moonwalkers appearances"
+                  footer={`${activeTeamName} appearances`}
                 />
               </Grid>
 

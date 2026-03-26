@@ -40,6 +40,7 @@ import {
 } from "@/app/components/common/tableCellStyles";
 import { useAuth } from "@/app/context/AuthContext";
 import { usePagination } from "@/app/hooks/usePagination";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 import { formatName } from "@/app/services/formatname";
 import { bridgeCurrentTeamPlayerIdentities } from "@/app/services/squadService";
 import {
@@ -143,7 +144,7 @@ const V1_IMPLEMENTATION_ITEMS: ScopeDetailItem[] = [
   {
     key: "identity-and-mapping",
     title: "Squad identity, player linkage, and admin user mapping",
-    detail: "The release includes player_id-first squad identity handling, planner-safe matching, and an admin configure workspace to map authenticated users to squad players."
+    detail: "The release includes player_id-first squad identity handling, planner-safe matching, and an admin membership workspace to map authenticated users to squad players."
   },
   {
     key: "planner-and-workflows",
@@ -158,7 +159,7 @@ const V1_IMPLEMENTATION_ITEMS: ScopeDetailItem[] = [
   {
     key: "auth-and-roles",
     title: "Authentication, role-aware access, and admin-only workspaces",
-    detail: "The live release supports sign-in flows, profile state handling, role-based workspace access, and protected admin surfaces such as Configure and Validation."
+    detail: "The live release supports sign-in flows, profile state handling, role-based workspace access, and protected admin surfaces such as Memberships and Validation."
   }
 ];
 
@@ -316,6 +317,7 @@ function buildHistoricalCleanupSteps(snapshot: ValidationSnapshot): HistoricalCl
 
 export default function ValidationPage() {
   const { isAdmin } = useAuth();
+  const { teamName } = useActiveTeamBranding();
   const [selectedSeason, setSelectedSeason] = useState("");
   const [snapshot, setSnapshot] = useState<ValidationSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -513,7 +515,7 @@ export default function ValidationPage() {
                 <MetricCard
                   label="Name Risks"
                   value={snapshot.metrics.duplicateNameRisks}
-                  helper="Moonwalkers names seen across team contexts"
+                  helper={`${teamName} names seen across team contexts`}
                   icon={<PersonSearchRoundedIcon />}
                   accent="#7C3AED"
                 />
@@ -887,7 +889,7 @@ export default function ValidationPage() {
                         <TableRow>
                           <TableCell colSpan={3}>
                             <Typography color="text.secondary">
-                              No cross-team name collisions found for Moonwalkers players.
+                              No cross-team name collisions found for current-team players.
                             </Typography>
                           </TableCell>
                         </TableRow>

@@ -1,13 +1,12 @@
-import { currentTeamName } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
 import {
   buildSquadIdentityBridge,
   getPrimarySquadRoleTag,
-  getCurrentTeamId,
   mapSquadPlayerRecord,
   SquadPlayerRecord
 } from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
+import { getActiveTeamContext } from "@/app/services/teamContextService";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 import { Innings } from "@/app/types/match.types";
 
@@ -352,7 +351,7 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
   };
 }
 
-async function loadSharedPlayerData(teamId: string, season?: string) {
+async function loadSharedPlayerData(teamId: string, teamName: string, season?: string) {
   const { data: squadData, error: squadError } = await supabase
     .from("players")
     .select("*")
@@ -399,7 +398,7 @@ async function loadSharedPlayerData(teamId: string, season?: string) {
     .from("match_players")
     .select("match_id, player_id, player_name, did_bat, did_bowl")
     .in("match_id", matchIds)
-    .eq("team_name", currentTeamName);
+    .eq("team_name", teamName);
 
   if (matchPlayersError) {
     throw new Error("Could not load squad appearances.");
@@ -492,7 +491,8 @@ function aggregatePlayerStats(
   matchPlayers: MatchPlayerRow[],
   inningsRows: InningsRow[],
   battingStats: BattingStatRow[],
-  bowlingStats: BowlingStatRow[]
+  bowlingStats: BowlingStatRow[],
+  teamName: string
 ) {
   const statsByPlayer = new Map<string, AggregatedPlayerStats>();
   const squadPlayerIds = new Set<string>();
@@ -537,7 +537,7 @@ function aggregatePlayerStats(
   battingStats.forEach((row) => {
     const innings = inningsById.get(row.innings_id);
     const fallbackPlayerId =
-      innings?.team_name === currentTeamName
+      innings?.team_name === teamName
         ? uniquePlayerIdByName.get(cleanName(row.player_name ?? ""))
         : null;
     const playerId = row.player_id && squadPlayerIds.has(row.player_id)
@@ -563,7 +563,7 @@ function aggregatePlayerStats(
   bowlingStats.forEach((row) => {
     const innings = inningsById.get(row.innings_id);
     const fallbackPlayerId =
-      innings?.team_name && innings.team_name !== currentTeamName
+      innings?.team_name && innings.team_name !== teamName
         ? uniquePlayerIdByName.get(cleanName(row.player_name ?? ""))
         : null;
     const playerId = row.player_id && squadPlayerIds.has(row.player_id)
@@ -591,7 +591,7 @@ function aggregatePlayerStats(
 }
 
 export async function getPlayerSeasons() {
-  const teamId = await getCurrentTeamId();
+  const { teamId } = await getActiveTeamContext();
   const { data: matchData, error: matchError } = await supabase
     .from("matches")
     .select("match_date")
@@ -610,21 +610,22 @@ export async function getSquadPlayerSummaries(
   season?: string,
   options?: SquadPlayerSummaryOptions
 ) {
-  const teamId = await getCurrentTeamId();
+  const { teamId, teamName } = await getActiveTeamContext();
   const {
     squadPlayers,
     matchPlayers,
     inningsRows,
     battingStats,
     bowlingStats
-  } = await loadSharedPlayerData(teamId, season);
+  } = await loadSharedPlayerData(teamId, teamName, season);
 
   const statsByPlayer = aggregatePlayerStats(
     squadPlayers,
     matchPlayers,
     inningsRows,
     battingStats,
-    bowlingStats
+    bowlingStats,
+    teamName
   );
 
   const summaries = squadPlayers
@@ -658,7 +659,7 @@ export async function getPlannerPlayerSummaries(
   season?: string,
   options?: SquadPlayerSummaryOptions
 ) {
-  const teamId = await getCurrentTeamId();
+  const { teamId, teamName } = await getActiveTeamContext();
   const [
     {
       squadPlayers,
@@ -670,7 +671,7 @@ export async function getPlannerPlayerSummaries(
     { data: seasonRows, error: seasonRowsError },
     { data: memberRows, error: memberRowsError }
   ] = await Promise.all([
-    loadSharedPlayerData(teamId, season),
+    loadSharedPlayerData(teamId, teamName, season),
     season
       ? supabase
         .from("membership_seasons")
@@ -733,7 +734,8 @@ export async function getPlannerPlayerSummaries(
     matchPlayers,
     inningsRows,
     battingStats,
-    bowlingStats
+    bowlingStats,
+    teamName
   );
   const squadPlayerById = new Map(
     squadPlayers.map((player) => [player.id, player] as const)
@@ -849,7 +851,7 @@ export async function getPlannerPlayerSummaries(
 }
 
 export async function getMemberRosterSummaries(season?: string) {
-  const teamId = await getCurrentTeamId();
+  const { teamId, teamName } = await getActiveTeamContext();
   const [
     {
       squadPlayers,
@@ -861,7 +863,7 @@ export async function getMemberRosterSummaries(season?: string) {
     { data: membersData, error: membersError },
     { data: linkedPlayersData, error: linkedPlayersError }
   ] = await Promise.all([
-    loadSharedPlayerData(teamId, season),
+    loadSharedPlayerData(teamId, teamName, season),
     supabase
       .from("team_members")
       .select("id, name, status")
@@ -888,7 +890,8 @@ export async function getMemberRosterSummaries(season?: string) {
     matchPlayers,
     inningsRows,
     battingStats,
-    bowlingStats
+    bowlingStats,
+    teamName
   );
   const squadPlayerById = new Map(
     squadPlayers.map((player) => [player.id, player] as const)
@@ -954,7 +957,7 @@ export async function getMemberRosterSummaries(season?: string) {
 }
 
 export async function getPlayerProfile(playerId: string, season?: string): Promise<PlayerProfile> {
-  const teamId = await getCurrentTeamId();
+  const { teamId, teamName } = await getActiveTeamContext();
   const {
     squadPlayers,
     matches,
@@ -962,7 +965,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     inningsRows,
     battingStats,
     bowlingStats
-  } = await loadSharedPlayerData(teamId, season);
+  } = await loadSharedPlayerData(teamId, teamName, season);
 
   const player = squadPlayers.find((item) => item.id === playerId);
 
@@ -975,7 +978,8 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     matchPlayers,
     inningsRows,
     battingStats,
-    bowlingStats
+    bowlingStats,
+    teamName
   );
 
   const stats = statsByPlayer.get(player.id) ?? createEmptyStats();
@@ -999,7 +1003,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     const innings = inningsById.get(row.innings_id);
     const isCurrentTeamFallbackMatch =
       !row.player_id
-      && innings?.team_name === currentTeamName
+      && innings?.team_name === teamName
       && cleanName(row.player_name ?? "") === normalizedPlayerName;
 
     if (row.player_id !== player.id && !isCurrentTeamFallbackMatch) {
@@ -1017,7 +1021,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
   battingStats.forEach((row) => {
     const innings = inningsById.get(row.innings_id);
 
-    if (!innings?.team_name || innings.team_name === currentTeamName) {
+    if (!innings?.team_name || innings.team_name === teamName) {
       return;
     }
 
@@ -1042,7 +1046,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     const isCurrentTeamFallbackMatch =
       !row.player_id
       && typeof innings?.team_name === "string"
-      && innings.team_name !== currentTeamName
+      && innings.team_name !== teamName
       && cleanName(row.player_name ?? "") === normalizedPlayerName;
 
     if (row.player_id !== player.id && !isCurrentTeamFallbackMatch) {
@@ -1115,7 +1119,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
   const recentMatchItems = recentMatches.map((match) => ({
     id: match.id,
     matchDate: match.match_date,
-    opponentName: getOpponentName(match.team_a, match.team_b, currentTeamName),
+    opponentName: getOpponentName(match.team_a, match.team_b, teamName),
     result: match.result,
     resultSummary: match.result_summary ?? null,
     matchCode: match.match_code,

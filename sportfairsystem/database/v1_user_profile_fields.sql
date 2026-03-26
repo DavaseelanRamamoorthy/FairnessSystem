@@ -16,7 +16,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if auth.uid() = old.id then
+  if auth.uid() = old.id and current_setting('app.bypass_user_admin_fields', true) <> 'on' then
     if new.role is distinct from old.role then
       raise exception 'role is admin-managed';
     end if;

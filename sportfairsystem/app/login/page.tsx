@@ -19,7 +19,6 @@ import { alpha } from "@mui/material/styles";
 import LoginRoundedIcon from "@mui/icons-material/LoginRounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
-import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
 import { normalizeAuthEmail, validateAuthEmail } from "@/app/services/authValidation";
 
@@ -64,10 +63,10 @@ function LoginPageShell({ children }: { children: ReactNode }) {
               SportFairSystem
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
-              Sign in to {currentTeamName}
+              Sign in to SportFairSystem
             </Typography>
             <Typography sx={{ color: alpha("#FFFFFF", 0.74) }}>
-              Use your team account to access match operations, player views, and admin tools.
+              Use your account to access your team workspace, player views, and admin tools.
             </Typography>
           </Stack>
         </Box>
@@ -89,6 +88,10 @@ function LoginPageContent() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const passwordResetSuccess = searchParams.get("passwordReset") === "success";
+  const nextPath = searchParams.get("next");
+  const safeNextPath = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+    ? nextPath
+    : null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -111,7 +114,7 @@ function LoginPageContent() {
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace(safeNextPath ?? "/dashboard");
   };
 
   return (
@@ -160,7 +163,7 @@ function LoginPageContent() {
         </Button>
 
         <MuiLink
-          href="/signup"
+          href={safeNextPath ? `/signup?next=${encodeURIComponent(safeNextPath)}` : "/signup"}
           underline="hover"
           sx={{
             alignSelf: "flex-start",

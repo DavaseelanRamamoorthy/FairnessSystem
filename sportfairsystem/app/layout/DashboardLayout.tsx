@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Box, Button, CircularProgress, Stack, Typography, useMediaQuery, useTheme } from "@mui/material";
 import { varAlpha } from "minimal-shared/utils";
 
@@ -15,7 +15,7 @@ import MobileMoreSheet from "./MobileMoreSheet";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
-const PUBLIC_ROUTES = ["/login", "/signup", "/reset-password"];
+const PUBLIC_ROUTES = ["/login", "/signup", "/reset-password", "/accept-invite"];
 const ADMIN_ONLY_ROUTES = ["/configure", "/memberships", "/planner", "/analytics", "/validation", "/upload"];
 const FAIRNESS_ONLY_ROUTES = ["/fairness"];
 const RELEASE_INTRO_VERSION = "v1.0";
@@ -38,6 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [, setReleaseIntroVisibilityVersion] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const theme = useTheme();
   const isMobileShell = useMediaQuery(theme.breakpoints.down("md"), { noSsr: true });
   const {
@@ -65,12 +66,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     () => FAIRNESS_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
     [pathname]
   );
+  const nextPath = searchParams.get("next");
+  const safeNextPath = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+    ? nextPath
+    : null;
 
   useEffect(() => {
     let isActive = true;
 
     if (!isAuthenticated) {
-      setCanSeeFairness(false);
       return () => {
         isActive = false;
       };
@@ -108,11 +112,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     if (isAuthenticated && isEntryAuthRoute) {
-      router.replace(isProfileComplete && profile?.teamId ? "/dashboard" : "/profile");
+      router.replace(safeNextPath ?? (isProfileComplete && profile?.teamId ? "/dashboard" : "/profile"));
       return;
     }
 
-    if (isAuthenticated && (!isProfileComplete || !profile?.teamId) && !isProfileRoute) {
+    if (isAuthenticated && (!isProfileComplete || !profile?.teamId) && !isProfileRoute && !isPublicRoute) {
       router.replace("/profile");
       return;
     }
@@ -137,7 +141,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     isProfileRoute,
     isPublicRoute,
     profile?.teamId,
-    router
+    router,
+    safeNextPath
   ]);
 
   const isReleaseIntroOpen = (() => {
@@ -224,6 +229,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Stack>
       </Box>
     );
+  }
+
+  if (!profile.teamId) {
+    return <>{children}</>;
   }
 
   return (

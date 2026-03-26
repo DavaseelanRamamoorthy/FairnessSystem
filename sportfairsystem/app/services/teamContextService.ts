@@ -1,10 +1,11 @@
-import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 import { getCurrentUserAccess } from "@/app/services/accessControlService";
 import { supabase } from "@/app/services/supabaseClient";
+import { resolveActiveTeamCode, resolveActiveTeamName } from "@/app/utils/teamBranding";
 
 type TeamRow = {
   id: string;
   name: string | null;
+  join_code: string | null;
 };
 
 export type ActiveTeamContext = {
@@ -12,16 +13,6 @@ export type ActiveTeamContext = {
   teamName: string;
   teamCode: string;
 };
-
-function getFallbackTeamName(value: string | null | undefined) {
-  const normalizedValue = value?.trim();
-  return normalizedValue && normalizedValue.length > 0 ? normalizedValue : currentTeamName;
-}
-
-function getFallbackTeamCode(value: string | null | undefined) {
-  const normalizedValue = value?.trim();
-  return normalizedValue && normalizedValue.length > 0 ? normalizedValue : currentTeamPrefix;
-}
 
 export async function getActiveTeamContext(): Promise<ActiveTeamContext> {
   const access = await getCurrentUserAccess();
@@ -32,15 +23,15 @@ export async function getActiveTeamContext(): Promise<ActiveTeamContext> {
 
   const { data, error } = await supabase
     .from("teams")
-    .select("id, name")
+    .select("id, name, join_code")
     .eq("id", access.teamId)
     .single();
 
   if (error || !data) {
     return {
       teamId: access.teamId,
-      teamName: currentTeamName,
-      teamCode: currentTeamPrefix
+      teamName: resolveActiveTeamName(null),
+      teamCode: resolveActiveTeamCode(null, null)
     };
   }
 
@@ -48,8 +39,8 @@ export async function getActiveTeamContext(): Promise<ActiveTeamContext> {
 
   return {
     teamId: team.id,
-    teamName: getFallbackTeamName(team.name),
-    teamCode: getFallbackTeamCode(null)
+    teamName: resolveActiveTeamName(team.name),
+    teamCode: resolveActiveTeamCode(team.name, team.join_code)
   };
 }
 

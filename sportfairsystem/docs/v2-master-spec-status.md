@@ -10,6 +10,12 @@ It is intended to answer one practical question:
 
 - where are we right now compared with the V2.0 spec?
 
+Important framing note for this repository:
+
+- this document compares the codebase against the original V2 master spec
+- for current release planning, first-class events, RSVP, posts, polls, and comments have been moved to V3.0 future scope
+- that means original-spec alignment and practical V2.0 release readiness are no longer the same number
+
 ## Overall Read
 
 SportFairSystem is on the right V2 track.
@@ -23,6 +29,12 @@ Practical phase position:
 - Team operations and planner/fairness workflows: strongly in progress
 - Communication module: not started as a first-class V2 module
 - Invite/event-centered team operations: partially prepared, not fully delivered
+
+Practical release read for the narrowed V2.0 scope:
+
+- V2.0 foundation: strong
+- V2.0 Team Core: in progress and moving toward closeout
+- V2.0 release hardening: still required before release
 
 ## Status Key
 
@@ -420,29 +432,34 @@ This is a healthy position because the hardest foundation work:
 
 has already been tackled first.
 
+If we instead read the project against the narrowed repository V2.0 release scope:
+
+- foundation and architecture are largely in place
+- Team Core is the main remaining product milestone
+- the project is in a late-foundation / mid-completion state rather than an early V2 state
+
 ---
 
-## 13. Biggest Remaining Milestones For Full V2.0 Alignment
+## 13. Biggest Remaining Milestones For Practical V2.0 Release
 
 ### Highest priority
 
 1. Finish scorecard identity unification
 2. Deliver invite flow
-3. Deliver events + RSVP as first-class V2 modules
+3. Finish team creation, join-request, and onboarding flow stability
 4. Finish replacing legacy role assumptions with V2 permission checks
 
 ### Next priority
 
-5. Add communication layer:
-   - posts
-   - polls
-   - comments
-6. Expand organiser/coordinator workflows around events and responses
+5. Complete active-team context cleanup across remaining pages and services
+6. Run full V2.0 regression and release-hardening passes
 
-### Later V2 expansion
+### Moved to V3.0 future scope
 
-7. finance and inventory modules
-8. broader multi-team runtime readiness
+7. events and RSVP as first-class modules
+8. posts, polls, and comments
+9. broader organiser/coordinator event workflows
+10. finance and inventory modules
 
 ---
 
@@ -466,4 +483,10 @@ The current implementation is weakest against the master spec in:
 - event/RSVP productization
 - posts/polls/comments
 
-That means the project is not drifting. It is building V2 from the right foundation, with some advanced fairness work already exceeding the original spec.
+That means the project is not drifting. It is building from the right foundation, with some advanced fairness work already exceeding the original spec.
+
+For the narrowed repository V2.0 release scope, the more practical summary is:
+
+- foundation is mostly there
+- Team Core is the main remaining delivery area
+- V2.0 is closer to release than the original-spec percentage alone suggests

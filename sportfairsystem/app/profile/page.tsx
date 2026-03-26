@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -20,6 +20,7 @@ import {
   Typography
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
@@ -28,8 +29,17 @@ import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
-import { currentTeamName } from "@/app/config/teamConfig";
 import { supabase } from "@/app/services/supabaseClient";
+import {
+  createTeamWorkspace,
+  normalizeJoinCodeInput
+} from "@/app/services/teamOnboardingService";
+import {
+  cancelMyTeamJoinRequest,
+  getMyPendingTeamJoinRequest,
+  submitTeamJoinRequest,
+  TeamJoinRequestRecord
+} from "@/app/services/teamJoinRequestService";
 
 const PROFILE_NAVY = "#0A1A49";
 const PROFILE_NAVY_DEEP = "#061230";
@@ -61,13 +71,56 @@ function buildProfileFormState(profile: ReturnType<typeof useAuth>["profile"]): 
   };
 }
 
+function buildPreferredMemberName(
+  profile: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    username: string | null;
+  },
+  formValues: ProfileFormState
+) {
+  const preferredFullName = [
+    normalizeProfileInput(formValues.firstName),
+    normalizeProfileInput(formValues.lastName)
+  ].filter(Boolean).join(" ");
+
+  if (preferredFullName) {
+    return preferredFullName;
+  }
+
+  const savedFullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
+
+  if (savedFullName) {
+    return savedFullName;
+  }
+
+  const preferredUsername = normalizeProfileInput(formValues.username);
+
+  if (preferredUsername) {
+    return preferredUsername;
+  }
+
+  if (profile.username) {
+    return profile.username;
+  }
+
+  return profile.email.split("@")[0] ?? profile.email;
+}
+
 export default function ProfilePage() {
   const { profile, isLoading, isProfileComplete, refreshProfile } = useAuth();
+  const hadPendingJoinRequestRef = useRef(false);
   const [teamName, setTeamName] = useState<string | null>(null);
+  const [teamJoinCode, setTeamJoinCode] = useState<string>("");
   const [mappedPlayerName, setMappedPlayerName] = useState<string | null>(null);
   const [isTeamLoading, setIsTeamLoading] = useState(false);
   const [profileColumnsReady, setProfileColumnsReady] = useState<boolean | null>(null);
   const [mappingColumnsReady, setMappingColumnsReady] = useState<boolean | null>(null);
+  const [createTeamNameInput, setCreateTeamNameInput] = useState("");
+  const [joinTeamIdInput, setJoinTeamIdInput] = useState("");
+  const [isTeamActionSubmitting, setIsTeamActionSubmitting] = useState(false);
+  const [pendingJoinRequest, setPendingJoinRequest] = useState<TeamJoinRequestRecord | null>(null);
   const [formValues, setFormValues] = useState<ProfileFormState>({
     firstName: "",
     lastName: "",
@@ -143,6 +196,7 @@ export default function ProfilePage() {
     const loadTeamName = async () => {
       if (!profile?.teamId) {
         setTeamName(null);
+        setTeamJoinCode("");
         setIsTeamLoading(false);
         return;
       }
@@ -151,12 +205,13 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("teams")
-        .select("name")
+        .select("name, join_code")
         .eq("id", profile.teamId)
         .maybeSingle();
 
       if (isActive) {
         setTeamName(data?.name ?? null);
+        setTeamJoinCode(normalizeJoinCodeInput(typeof data?.join_code === "string" ? data.join_code : ""));
         setIsTeamLoading(false);
       }
     };
@@ -195,6 +250,110 @@ export default function ProfilePage() {
     };
   }, [profile?.playerId]);
 
+  useEffect(() => {
+    hadPendingJoinRequestRef.current = Boolean(pendingJoinRequest);
+  }, [pendingJoinRequest]);
+
+  useEffect(() => {
+    if (profile?.teamId && hadPendingJoinRequestRef.current) {
+      setPendingJoinRequest(null);
+      setSuccessMessage("Your join request was approved. Team pages are now unlocked.");
+      hadPendingJoinRequestRef.current = false;
+    }
+  }, [profile?.teamId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadPendingJoinRequest = async () => {
+      if (!profile?.id || profile.teamId) {
+        setPendingJoinRequest(null);
+        return;
+      }
+
+      try {
+        const nextPendingJoinRequest = await getMyPendingTeamJoinRequest();
+
+        if (isActive) {
+          setPendingJoinRequest(nextPendingJoinRequest);
+        }
+      } catch {
+        if (isActive) {
+          setPendingJoinRequest(null);
+        }
+      }
+    };
+
+    void loadPendingJoinRequest();
+
+    return () => {
+      isActive = false;
+    };
+  }, [profile?.id, profile?.teamId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!profile?.id || profile.teamId || !pendingJoinRequest) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const syncPendingApproval = async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("team_id")
+        .eq("id", profile.id)
+        .single();
+
+      if (!isActive) {
+        return;
+      }
+
+      if (!error && typeof data?.team_id === "string" && data.team_id.trim()) {
+        await refreshProfile();
+        return;
+      }
+
+      try {
+        const nextPendingJoinRequest = await getMyPendingTeamJoinRequest();
+
+        if (isActive) {
+          setPendingJoinRequest(nextPendingJoinRequest);
+        }
+      } catch {
+        if (isActive) {
+          setPendingJoinRequest(null);
+        }
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void syncPendingApproval();
+    }, 15000);
+
+    const handleWindowFocus = () => {
+      void syncPendingApproval();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void syncPendingApproval();
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [pendingJoinRequest, profile?.id, profile?.teamId, refreshProfile]);
+
   if (isLoading || !profile) {
     return (
       <Box
@@ -213,7 +372,8 @@ export default function ProfilePage() {
   const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
   const profileHeading = displayName || "Complete Your Profile";
   const profileLetter = (profile.firstName ?? profile.email).charAt(0).toUpperCase();
-  const resolvedTeamName = teamName ?? (profile.teamId ? currentTeamName : "Not Assigned");
+  const resolvedTeamName = teamName ?? (profile.teamId ? "Assigned Team" : "Not Assigned");
+  const resolvedTeamJoinCode = teamJoinCode || (profile.teamId ? "Unavailable" : "Not assigned");
   const resolvedPlayerName = mappedPlayerName ?? (profile.playerId ? "Loading..." : "Pending assignment");
   const playerMappingSummary = mappingColumnsReady === null
     ? "Checking..."
@@ -228,7 +388,7 @@ export default function ProfilePage() {
     { label: "Role", value: profile.role === "admin" ? "Admin" : "Member" },
     { label: "Team", value: isTeamLoading ? "Loading..." : resolvedTeamName },
     { label: "Squad Player", value: playerMappingSummary },
-    { label: "Team ID", value: profile.teamId ?? "Not assigned" }
+    { label: "Team ID", value: resolvedTeamJoinCode }
   ];
 
   const handleFieldChange = (field: keyof ProfileFormState) => (
@@ -301,13 +461,109 @@ export default function ProfilePage() {
     }
   };
 
+  const handleCreateTeam = async () => {
+    setIsTeamActionSubmitting(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const result = await createTeamWorkspace(
+        createTeamNameInput,
+        buildPreferredMemberName(profile, formValues)
+      );
+
+      await refreshProfile();
+      setTeamName(result.teamName);
+      setTeamJoinCode(result.joinCode);
+      setCreateTeamNameInput("");
+      setSuccessMessage(`Team created successfully. Share Team ID ${result.joinCode} with people who need organiser approval to join.`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not create the team.");
+    } finally {
+      setIsTeamActionSubmitting(false);
+    }
+  };
+
+  const handleJoinTeam = async () => {
+    setIsTeamActionSubmitting(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const result = await submitTeamJoinRequest(
+        joinTeamIdInput,
+        buildPreferredMemberName(profile, formValues)
+      );
+
+      setPendingJoinRequest({
+        requestId: result.requestId,
+        teamId: result.teamId,
+        teamName: result.teamName,
+        requesterUserId: profile.id,
+        requesterEmail: profile.email,
+        requesterName: result.requesterName,
+        status: result.status,
+        requestedAt: result.requestedAt,
+        resolvedAt: null,
+        resolutionNote: null
+      });
+      setJoinTeamIdInput("");
+      setSuccessMessage(`Join request submitted for ${result.teamName ?? "the selected team"}.`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not submit the team join request.");
+    } finally {
+      setIsTeamActionSubmitting(false);
+    }
+  };
+
+  const handleCancelJoinRequest = async () => {
+    if (!pendingJoinRequest) {
+      return;
+    }
+
+    setIsTeamActionSubmitting(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await cancelMyTeamJoinRequest(pendingJoinRequest.requestId);
+      setPendingJoinRequest(null);
+      setSuccessMessage("Pending team join request cancelled.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not cancel the team join request.");
+    } finally {
+      setIsTeamActionSubmitting(false);
+    }
+  };
+
+  const handleCopyText = async (value: string, label: string) => {
+    const normalizedValue = value.trim();
+
+    if (!normalizedValue) {
+      return;
+    }
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard copy is not available in this browser.");
+      }
+
+      await navigator.clipboard.writeText(normalizedValue);
+      setErrorMessage(null);
+      setSuccessMessage(`${label} copied to clipboard.`);
+    } catch (error) {
+      setSuccessMessage(null);
+      setErrorMessage(error instanceof Error ? error.message : `Could not copy the ${label.toLowerCase()}.`);
+    }
+  };
+
   return (
     <Container maxWidth="lg">
       <Stack spacing={4}>
         <TeamPageHeader
           eyebrow="Account"
           title="Profile"
-          description="Complete your user profile so the workspace can identify you clearly across team operations."
+          description="Complete your user profile and connect this account to a team so team-scoped pages unlock cleanly."
         />
 
         {!isProfileComplete && (
@@ -316,17 +572,25 @@ export default function ProfilePage() {
           </AutoHideAlert>
         )}
 
-        {!profile.teamId && (
+        {!profile.teamId && !pendingJoinRequest && (
           <AutoHideAlert severity="warning" variant="outlined">
-            This account is still pending team assignment. An admin needs to set `team_id` in
-            `public.users` before team-scoped pages will unlock.
+            This account is not connected to a team yet. Create a new team or join an existing
+            team by its 6-character Team ID to unlock team-scoped pages.
+          </AutoHideAlert>
+        )}
+
+        {!profile.teamId && pendingJoinRequest && (
+          <AutoHideAlert severity="info" variant="outlined">
+            Your request to join {pendingJoinRequest.teamName ?? "the selected team"} is pending
+            organiser approval. Until then, this account stays limited to the profile page, and
+            approval is checked automatically when you return here.
           </AutoHideAlert>
         )}
 
         {profile.teamId && mappingColumnsReady && !profile.playerId && (
           <AutoHideAlert severity="info" variant="outlined">
             {profile.role === "admin"
-              ? "Your account is on the team, but it is still waiting for a squad-player mapping. Use Configure to finish the assignment."
+              ? "Your account is on the team, but it is still waiting for a squad-player mapping. Use Memberships to finish the assignment."
               : "Your account is on the team, but it is still waiting for an admin to map it to the matching squad player record."}
           </AutoHideAlert>
         )}
@@ -342,6 +606,221 @@ export default function ProfilePage() {
           <AutoHideAlert severity="success" resetKey={successMessage}>
             {successMessage}
           </AutoHideAlert>
+        )}
+
+        {!profile.teamId && (
+          <Card
+            variant="outlined"
+            sx={{
+              borderRadius: 4,
+              boxShadow: "0 14px 30px rgba(15, 23, 42, 0.05)"
+            }}
+          >
+            <CardContent sx={{ p: 3.5 }}>
+              <Stack spacing={3}>
+                <Stack spacing={0.75}>
+                  <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
+                    Team Access
+                  </Typography>
+                  <Typography color="text.secondary">
+                    Every account starts here in V2.0: create your own team, or request access to
+                    an existing team with its 6-character Team ID. Until approval happens, the account stays
+                    profile-only.
+                  </Typography>
+                </Stack>
+
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        borderRadius: 3,
+                        height: "100%"
+                      }}
+                    >
+                      <CardContent sx={{ p: 3 }}>
+                        <Stack spacing={2}>
+                          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                            Create Team
+                          </Typography>
+                          <Typography color="text.secondary">
+                            Use this if you are starting the workspace for your squad. You become
+                            the organiser and admin for the team.
+                          </Typography>
+                          <TextField
+                            label="Team Name"
+                            placeholder="Your Team Name"
+                            value={createTeamNameInput}
+                            onChange={(event) => setCreateTeamNameInput(event.target.value)}
+                            fullWidth
+                          />
+                          <Button
+                            variant="contained"
+                            onClick={() => void handleCreateTeam()}
+                            disabled={isTeamActionSubmitting || Boolean(pendingJoinRequest)}
+                            sx={{
+                              alignSelf: "flex-start",
+                              backgroundColor: PROFILE_NAVY,
+                              "&:hover": {
+                                backgroundColor: PROFILE_NAVY_DEEP
+                              }
+                            }}
+                          >
+                            {isTeamActionSubmitting ? "Creating Team..." : "Create Team"}
+                          </Button>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        borderRadius: 3,
+                        height: "100%"
+                      }}
+                    >
+                      <CardContent sx={{ p: 3 }}>
+                        <Stack spacing={2}>
+                          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                            Join Team
+                          </Typography>
+                          <Typography color="text.secondary">
+                            Enter the exact 6-character Team ID shared by the organiser. Access is granted only
+                            after organiser confirmation.
+                          </Typography>
+                          <TextField
+                            label="Team ID"
+                            placeholder="AB12CD"
+                            value={joinTeamIdInput}
+                            onChange={(event) => setJoinTeamIdInput(normalizeJoinCodeInput(event.target.value))}
+                            slotProps={{
+                              input: {
+                                inputProps: {
+                                  maxLength: 6
+                                }
+                              }
+                            }}
+                            helperText="6 letters and numbers"
+                            fullWidth
+                          />
+                          {pendingJoinRequest ? (
+                            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                              <Button
+                                variant="outlined"
+                                disabled
+                                sx={{ alignSelf: "flex-start" }}
+                              >
+                                Request Pending
+                              </Button>
+                              <Button
+                                variant="text"
+                                onClick={() => void handleCancelJoinRequest()}
+                                disabled={isTeamActionSubmitting}
+                                sx={{ alignSelf: "flex-start" }}
+                              >
+                                {isTeamActionSubmitting ? "Cancelling..." : "Cancel Request"}
+                              </Button>
+                            </Stack>
+                          ) : (
+                            <Button
+                              variant="outlined"
+                              onClick={() => void handleJoinTeam()}
+                              disabled={isTeamActionSubmitting}
+                              sx={{ alignSelf: "flex-start" }}
+                            >
+                              {isTeamActionSubmitting ? "Submitting Request..." : "Request to Join"}
+                            </Button>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {profile.teamId && (
+          <Card
+            variant="outlined"
+            sx={{
+              borderRadius: 4,
+              boxShadow: "0 14px 30px rgba(15, 23, 42, 0.05)"
+            }}
+          >
+            <CardContent sx={{ p: 3.5 }}>
+              <Stack spacing={2.25}>
+                <Stack spacing={0.75}>
+                  <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary" }}>
+                    Team Access
+                  </Typography>
+                  <Typography color="text.secondary">
+                    Share this Team ID with people who should request organiser approval to join
+                    {resolvedTeamName !== "Not Assigned" ? ` ${resolvedTeamName}` : " your team"}.
+                    Use Memberships when you want to send direct invite links instead.
+                  </Typography>
+                </Stack>
+
+                <Card
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 3,
+                    backgroundColor: (theme) => alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.08 : 0.04)
+                  }}
+                >
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Stack
+                      direction={{ xs: "column", md: "row" }}
+                      spacing={2}
+                      justifyContent="space-between"
+                      alignItems={{ xs: "flex-start", md: "center" }}
+                    >
+                      <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Team ID
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontWeight: 800,
+                            color: "text.primary",
+                            letterSpacing: 1.2
+                          }}
+                        >
+                          {resolvedTeamJoinCode}
+                        </Typography>
+                      </Stack>
+
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                        <Button
+                          variant="contained"
+                          startIcon={<ContentCopyRoundedIcon />}
+                          onClick={() => void handleCopyText(teamJoinCode, "Team ID")}
+                          disabled={!teamJoinCode}
+                          sx={{
+                            backgroundColor: PROFILE_NAVY,
+                            "&:hover": {
+                              backgroundColor: PROFILE_NAVY_DEEP
+                            }
+                          }}
+                        >
+                          Copy Team ID
+                        </Button>
+
+                        {profile.role === "admin" && (
+                          <Button component={Link} href="/memberships" variant="outlined">
+                            Open Memberships
+                          </Button>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Stack>
+            </CardContent>
+          </Card>
         )}
 
         <Grid container spacing={3}>
@@ -377,7 +856,9 @@ export default function ProfilePage() {
                       {profile.username ? `@${profile.username}` : profile.email}
                     </Typography>
                     <Typography color="text.secondary">
-                      Signed in to the {currentTeamName} workspace.
+                      {profile.teamId
+                        ? `Signed in to ${resolvedTeamName}.`
+                        : "Signed in to SportFairSystem. Connect this account to a team to continue."}
                     </Typography>
                   </Stack>
 
@@ -502,7 +983,7 @@ export default function ProfilePage() {
                       {isSaving ? "Saving..." : "Save Profile"}
                     </Button>
 
-                    {isProfileComplete && (
+                    {isProfileComplete && profile.teamId && (
                       <Button component={Link} href="/dashboard" variant="outlined">
                         Back to Dashboard
                       </Button>
@@ -515,8 +996,8 @@ export default function ProfilePage() {
                     )}
 
                     {profile.role === "admin" && profile.teamId && mappingColumnsReady && !profile.playerId && (
-                      <Button component={Link} href="/configure" variant="outlined">
-                        Open Configure
+                      <Button component={Link} href="/memberships" variant="outlined">
+                        Open Memberships
                       </Button>
                     )}
                   </Stack>

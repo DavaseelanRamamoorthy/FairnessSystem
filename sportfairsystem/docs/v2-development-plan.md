@@ -34,6 +34,20 @@ Do not build V2 by replacing V1 wholesale. Build V2 as a compatibility-first exp
 3. Migrate UI pages from hardcoded current-team assumptions to active-team context.
 4. Deliver new V2 modules phase by phase behind stable service boundaries.
 
+## Current Release Framing
+
+The original V2 master spec includes team operations and lightweight communication modules.
+
+For the current repository release plan, V2.0 is intentionally narrower so it can ship cleanly:
+
+- V2.0 focuses on team foundation, onboarding, membership lifecycle, roles, permissions, identity compatibility, planner/fairness continuity, and release hardening
+- events, RSVP, posts, polls, and comments are now treated as V3.0 future scope
+
+This means the plan below should be read in two layers:
+
+- Phases 0-2 plus the multi-team-readiness sweep are the active V2.0 release path
+- the former events and communication phases remain useful design references, but they no longer block V2.0 release
+
 ## Cross-Cutting Workstreams
 
 These workstreams run across all phases and should be treated as ongoing engineering tracks.
@@ -60,7 +74,7 @@ These workstreams run across all phases and should be treated as ongoing enginee
 ### 4. Quality Gates
 
 - Add migration rollback notes for every schema change
-- Add service-level tests for identity mapping, invite acceptance, role enforcement, and RSVP rules
+- Add service-level tests for identity mapping, invite acceptance, role enforcement, and onboarding rules
 - Add smoke tests for dashboard, matches, player profile, planner, analytics, and validation after every phase
 
 ## Phase Plan
@@ -181,6 +195,10 @@ Allow members to exist before accounts, then link them safely.
 - Duplicate acceptance or reused invite codes
 - Linking flows that bypass current access protections
 
+## V3.0 Future Scope Reference
+
+The following phases are retained as design references from the original master spec, but they are not required for V2.0 release.
+
 ## Phase 3: Events and Team Operations
 
 ### Goal
@@ -287,7 +305,6 @@ Make the architecture truly multi-team capable while keeping the UI simple.
 
 - Add membership tables and indexes
 - Add invite tables or invite token storage
-- Add event, RSVP, lineup, post, poll, and comment tables
 - Expand RLS to membership-driven access
 - Add backfill and verification scripts
 
@@ -297,19 +314,12 @@ Make the architecture truly multi-team capable while keeping the UI simple.
 - `membershipService`
 - `memberLinkService`
 - `inviteService`
-- `eventService`
-- `rsvpService`
-- `selectionService`
-- `communicationService`
 
 ### Frontend
 
 - Replace static `teamConfig` assumptions
 - Add membership admin UI
 - Add invite acceptance UI
-- Add event creation and RSVP UI
-- Add lineup and bench management UI
-- Add posts, polls, and comments UI
 
 ### QA and Data Safety
 
@@ -335,11 +345,10 @@ This is the most practical sequencing for development:
    - invite claim and linking
    - duplicate-link protection
 4. Sprint 4:
-   - events and RSVP
-   - lineup and bench selection
-   - planner interoperability
+   - final permission convergence
+   - dynamic active-team cleanup
+   - onboarding hardening
 5. Sprint 5:
-   - posts, polls, comments
    - final multi-team readiness sweep
    - regression and release prep
 

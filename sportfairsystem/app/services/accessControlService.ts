@@ -143,6 +143,80 @@ export async function requireFairnessWorkspaceAccess() {
   return access;
 }
 
+export async function canManageTeamInvites() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  if (!access.teamId || !access.memberId) {
+    return access.role === "admin" && Boolean(access.teamId);
+  }
+
+  if (access.role === "admin") {
+    return true;
+  }
+
+  if (access.teamRole === "organiser" || access.teamRole === "coordinator") {
+    return true;
+  }
+
+  return access.permissions.includes("invites_manage");
+}
+
+export async function requireInviteManagementAccess() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  const canAccess =
+    Boolean(access.teamId)
+    && (
+      access.role === "admin"
+      || access.teamRole === "organiser"
+      || access.teamRole === "coordinator"
+      || access.permissions.includes("invites_manage")
+    );
+
+  if (!canAccess) {
+    throw new Error("You do not have permission to manage team invites.");
+  }
+
+  return access;
+}
+
+export async function canManageIdentityWorkspace() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  if (!access.teamId || !access.memberId) {
+    return access.role === "admin" && Boolean(access.teamId);
+  }
+
+  if (access.role === "admin") {
+    return true;
+  }
+
+  if (access.teamRole === "organiser" || access.teamRole === "coordinator") {
+    return true;
+  }
+
+  return access.permissions.includes("identity_manage");
+}
+
+export async function requireIdentityManagementAccess() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  const canAccess =
+    Boolean(access.teamId)
+    && (
+      access.role === "admin"
+      || access.teamRole === "organiser"
+      || access.teamRole === "coordinator"
+      || access.permissions.includes("identity_manage")
+    );
+
+  if (!canAccess) {
+    throw new Error("You do not have permission to manage player identity and membership mapping.");
+  }
+
+  return access;
+}
+
 export async function hasCurrentTeamPermission(permission: TeamPermission) {
   const access = await getCurrentTeamMembershipAccess();
   return access.permissions.includes(permission);

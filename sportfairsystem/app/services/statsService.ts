@@ -333,9 +333,8 @@ export async function getTopWicketLeaders(limit = 5) {
   }
 }
 
-export async function getRunsPerMatch(teamName: string) {
+export async function getRunsPerMatch() {
   try {
-    void teamName;
     const { teamName: activeTeamName } = await getActiveTeamContext();
     const { battingInnings } = await getTeamMatchContext();
 
@@ -369,9 +368,8 @@ export async function getRunsPerMatch(teamName: string) {
   }
 }
 
-export async function getWicketsPerMatch(teamName: string) {
+export async function getWicketsPerMatch() {
   try {
-    void teamName;
     const { teamName: activeTeamName } = await getActiveTeamContext();
     const { bowlingInnings } = await getTeamMatchContext();
 

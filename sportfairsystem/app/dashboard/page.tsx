@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import Alert from "@mui/material/Alert";
 import Container from "@mui/material/Container";
@@ -23,7 +23,6 @@ import SportsCricketIcon from "@mui/icons-material/SportsCricket";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 
-import { currentTeamName } from "@/app/config/teamConfig";
 import DashboardCard from "@/app/components/dashboard/dashboardCard";
 import SectionHeader from "@/app/components/dashboard/SectionHeader";
 import RunsTrendChart from "@/app/components/dashboard/RunsTrendChart";
@@ -46,6 +45,7 @@ import {
   getRunsPerMatch,
   getWicketsPerMatch
 } from "@/app/services/statsService";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 import { getCurrentTeamId } from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
 import { getOpponentName } from "@/app/utils/matchOpponent";
@@ -118,6 +118,7 @@ function getDashboardResult(match: Match) {
 
 export default function DashboardPage() {
   const theme = useTheme();
+  const { teamName: activeTeamName } = useActiveTeamBranding();
   const [matchesPlayed, setMatchesPlayed] = useState(0);
   const [winRate, setWinRate] = useState(0);
   const [topRunScorer, setTopRunScorer] = useState<RunLeader | null>(null);
@@ -131,7 +132,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const loadDashboardStats = async () => {
+  const loadDashboardStats = useCallback(async () => {
     const matchesPlayedValue = await getMatchesPlayed();
     const winRateValue = await getWinRate();
     const runScorer = await getTopRunScorer();
@@ -140,8 +141,8 @@ export default function DashboardPage() {
     const leaders = await getTopRunLeaders(5);
     const wickets = await getTopWicketLeaders(5);
 
-    const runs = await getRunsPerMatch(currentTeamName);
-    const wicketsTrendData = await getWicketsPerMatch(currentTeamName);
+    const runs = await getRunsPerMatch();
+    const wicketsTrendData = await getWicketsPerMatch();
 
     setMatchesPlayed(matchesPlayedValue);
     setWinRate(winRateValue);
@@ -151,9 +152,9 @@ export default function DashboardPage() {
     setWicketLeaders(wickets);
     setRunsTrend(runs);
     setWicketsTrend(wicketsTrendData);
-  };
+  }, []);
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     const teamId = await getCurrentTeamId();
     const { data, error } = await supabase
       .from("matches")
@@ -168,10 +169,10 @@ export default function DashboardPage() {
     setMatches(
       (data || []).map((match) => ({
         ...match,
-        opponent_name: getOpponentName(match.team_a, match.team_b, currentTeamName)
+        opponent_name: getOpponentName(match.team_a, match.team_b, activeTeamName)
       }))
     );
-  };
+  }, [activeTeamName]);
 
   useEffect(() => {
     const initializeDashboard = async () => {
@@ -196,7 +197,7 @@ export default function DashboardPage() {
     };
 
     void initializeDashboard();
-  }, []);
+  }, [loadDashboardStats, loadMatches]);
 
   const recentMatches = matches.slice(0, 5);
   const sectionCardSx = {
@@ -472,7 +473,7 @@ export default function DashboardPage() {
                     <TableRow>
                       <TableCell colSpan={3}>
                         <Typography color="text.secondary">
-                          No recent matches found for {currentTeamName}.
+                          No recent matches found for {activeTeamName}.
                         </Typography>
                       </TableCell>
                     </TableRow>

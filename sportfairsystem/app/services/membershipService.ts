@@ -1,7 +1,7 @@
 import {
-  hasCurrentTeamPermission,
   requireAdminAccess,
-  requireCurrentTeamPermission
+  canManageIdentityWorkspace,
+  requireIdentityManagementAccess
 } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import { supabase } from "@/app/services/supabaseClient";
@@ -38,6 +38,7 @@ export type TeamMembershipRecord = {
   aliases: TeamMemberAliasRecord[];
 };
 
+export type TeamMembershipRole = TeamMembershipRecord["role"];
 export type TeamMembershipStatus = TeamMembershipRecord["status"];
 
 export type MembershipSeasonInput = {
@@ -211,7 +212,7 @@ export async function canManageExternalNames() {
   }
 
   try {
-    return await hasCurrentTeamPermission("identity_manage");
+    return await canManageIdentityWorkspace();
   } catch {
     return false;
   }
@@ -431,7 +432,7 @@ export async function getTeamMembershipRecords() {
 }
 
 export async function getTeamMembershipUserOptions() {
-  const access = await requireCurrentTeamPermission("identity_manage");
+  const access = await requireIdentityManagementAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -533,6 +534,89 @@ export async function updateTeamMembershipStatus(
   } as const;
 }
 
+function mapLegacyMemberRoleToTeamRole(role: TeamMembershipRole) {
+  if (role === "admin") {
+    return "organiser";
+  }
+
+  if (role === "captain") {
+    return "coordinator";
+  }
+
+  return "member";
+}
+
+function mapLegacyMemberRoleToUserRole(role: TeamMembershipRole) {
+  return role === "admin" ? "admin" : "member";
+}
+
+export async function updateTeamMembershipRole(
+  memberId: string,
+  role: TeamMembershipRole
+) {
+  const access = await requireAdminAccess();
+
+  if (!(await hasMembershipFoundationSupport())) {
+    throw new Error("Membership foundation is not available in this environment yet.");
+  }
+
+  if (!["admin", "captain", "player"].includes(role)) {
+    throw new Error("Invalid team member role.");
+  }
+
+  const { data: memberRow, error: memberError } = await supabase
+    .from("team_members")
+    .select("id, user_id")
+    .eq("id", memberId)
+    .eq("team_id", access.teamId)
+    .maybeSingle();
+
+  if (memberError || !memberRow) {
+    throw new Error("Could not find the selected team member.");
+  }
+
+  const nextTeamRole = mapLegacyMemberRoleToTeamRole(role);
+  const nextUserRole = mapLegacyMemberRoleToUserRole(role);
+
+  const { data, error } = await supabase
+    .from("team_members")
+    .update({
+      role,
+      team_role: nextTeamRole,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", memberId)
+    .eq("team_id", access.teamId)
+    .select("id, role, team_role")
+    .single();
+
+  if (error || !data) {
+    throw new Error("Could not update the team member role.");
+  }
+
+  const userId = typeof memberRow.user_id === "string" ? memberRow.user_id : null;
+
+  if (userId) {
+    const { error: userRoleError } = await supabase
+      .from("users")
+      .update({
+        role: nextUserRole,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", userId)
+      .eq("team_id", access.teamId);
+
+    if (userRoleError) {
+      throw new Error("Could not update the linked user's app role.");
+    }
+  }
+
+  return {
+    memberId: typeof data.id === "string" ? data.id : memberId,
+    role: data.role === "admin" || data.role === "captain" ? data.role : "player"
+  } as const;
+}
+
 export async function updateTeamMembershipSeason(
   memberId: string,
   seasonId: string | null
@@ -578,7 +662,7 @@ export async function updateTeamMembershipLinkedUser(
   memberId: string,
   userId: string | null
 ) {
-  const access = await requireCurrentTeamPermission("identity_manage");
+  const access = await requireIdentityManagementAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -679,7 +763,7 @@ export async function updateTeamMembershipLinkedUser(
 }
 
 export async function getTeamMembershipPlayerOptions() {
-  const access = await requireCurrentTeamPermission("identity_manage");
+  const access = await requireIdentityManagementAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -719,7 +803,7 @@ export async function updateTeamMembershipLinkedPlayer(
   memberId: string,
   playerId: string | null
 ) {
-  const access = await requireCurrentTeamPermission("identity_manage");
+  const access = await requireIdentityManagementAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -913,7 +997,7 @@ export async function createTeamMemberAlias(
   alias: string,
   aliasType: TeamMemberAliasType = "scorecard"
 ) {
-  const access = await requireCurrentTeamPermission("identity_manage");
+  const access = await requireIdentityManagementAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");
@@ -989,8 +1073,86 @@ export async function createTeamMemberAlias(
   } as const;
 }
 
+export async function updateTeamMemberAlias(
+  aliasId: string,
+  alias: string
+) {
+  const access = await requireIdentityManagementAccess();
+
+  if (!(await hasMembershipFoundationSupport())) {
+    throw new Error("Membership foundation is not available in this environment yet.");
+  }
+
+  const normalizedAlias = normalizeAlias(alias);
+
+  if (!normalizedAlias) {
+    throw new Error("Alias name is required.");
+  }
+
+  const { data: aliasRow, error: aliasError } = await supabase
+    .from("team_member_aliases")
+    .select("id, member_id, alias_type, is_primary")
+    .eq("id", aliasId)
+    .eq("team_id", access.teamId)
+    .maybeSingle();
+
+  if (aliasError || !aliasRow || typeof aliasRow.member_id !== "string") {
+    throw new Error("Could not find the selected alias.");
+  }
+
+  if (aliasRow.is_primary === true) {
+    throw new Error("Primary aliases cannot be updated here.");
+  }
+
+  const { data: memberRow, error: memberError } = await supabase
+    .from("team_members")
+    .select("id, name")
+    .eq("id", aliasRow.member_id)
+    .eq("team_id", access.teamId)
+    .maybeSingle();
+
+  if (memberError || !memberRow) {
+    throw new Error("Could not find the selected team member.");
+  }
+
+  const primaryMemberName = normalizeNullableText(memberRow.name);
+
+  if (primaryMemberName && normalizeAliasKey(primaryMemberName) === normalizeAliasKey(normalizedAlias)) {
+    throw new Error("That name is already the member's primary name. Reset the external name instead.");
+  }
+
+  const { data, error } = await supabase
+    .from("team_member_aliases")
+    .update({
+      alias: normalizedAlias,
+      normalized_alias: normalizeAliasKey(normalizedAlias)
+    })
+    .eq("id", aliasId)
+    .eq("team_id", access.teamId)
+    .select("id, member_id, alias, alias_type, is_primary")
+    .single();
+
+  if (error || !data) {
+    throw new Error(
+      error?.code === "23505"
+        ? "That external name already exists for this team."
+        : "Could not update the alias."
+    );
+  }
+
+  return {
+    memberId: typeof data.member_id === "string" ? data.member_id : aliasRow.member_id,
+    alias: {
+      aliasId: typeof data.id === "string" ? data.id : aliasId,
+      alias: typeof data.alias === "string" ? data.alias : normalizedAlias,
+      aliasType: mapAliasType(data.alias_type),
+      isPrimary: data.is_primary === true
+    } satisfies TeamMemberAliasRecord
+  } as const;
+}
+
 export async function deleteTeamMemberAlias(aliasId: string) {
-  const access = await requireCurrentTeamPermission("identity_manage");
+  const access = await requireIdentityManagementAccess();
 
   if (!(await hasMembershipFoundationSupport())) {
     throw new Error("Membership foundation is not available in this environment yet.");

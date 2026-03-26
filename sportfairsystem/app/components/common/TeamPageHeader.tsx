@@ -6,7 +6,7 @@ import { Box, Card, CardContent, Stack, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { varAlpha } from "minimal-shared/utils";
 
-import { currentTeamName } from "@/app/config/teamConfig";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 
 type TeamPageHeaderProps = {
   eyebrow: string;
@@ -18,9 +18,12 @@ type TeamPageHeaderProps = {
 export default function TeamPageHeader({
   eyebrow,
   description,
-  title = currentTeamName.toUpperCase(),
+  title,
   action
 }: TeamPageHeaderProps) {
+  const { teamName } = useActiveTeamBranding();
+  const resolvedTitle = title ?? teamName.toUpperCase();
+
   return (
     <Card
       variant="outlined"
@@ -151,7 +154,7 @@ export default function TeamPageHeader({
                 wordBreak: "break-word"
               }}
             >
-              {title}
+              {resolvedTitle}
             </Typography>
             <Typography
               variant="body2"

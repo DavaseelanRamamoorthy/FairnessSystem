@@ -10,11 +10,13 @@ import {
   Drawer,
   IconButton,
   Stack,
+  Tooltip,
   ToggleButton,
   ToggleButtonGroup,
   Typography
 } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import SettingsBrightnessRoundedIcon from "@mui/icons-material/SettingsBrightnessRounded";
@@ -29,7 +31,7 @@ import {
 } from "@/app/components/common/accountActionButtonStyles";
 import { useAuth } from "@/app/context/AuthContext";
 import { ThemeModePreference, useSettings } from "@/app/context/SettingsContext";
-import { currentTeamName } from "@/app/config/teamConfig";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 import { appearancePresetList } from "@/app/themes/minimal/appearance-presets";
 
 type SettingsDrawerProps = {
@@ -39,6 +41,7 @@ type SettingsDrawerProps = {
 
 export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
   const { profile, signOut } = useAuth();
+  const { joinCode, teamName } = useActiveTeamBranding();
   const {
     themeMode,
     setThemeMode,
@@ -49,6 +52,24 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
   } = useSettings();
   const profileDisplayName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || profile?.email || "-";
   const currentSeasonYear = new Date().getFullYear();
+
+  const handleCopyText = async (value: string, label: string) => {
+    const normalizedValue = value.trim();
+
+    if (!normalizedValue) {
+      return;
+    }
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard copy is not available in this browser.");
+      }
+
+      await navigator.clipboard.writeText(normalizedValue);
+    } catch (error) {
+      console.error(`Could not copy ${label.toLowerCase()}.`, error);
+    }
+  };
 
   const handleThemeModeChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -84,7 +105,7 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
         >
           <Stack spacing={0.5}>
             <Typography variant="h5" sx={{ fontWeight: 800, color: "text.primary", lineHeight: 1.1 }}>
-              Configure
+              Settings
             </Typography>
             <Typography color="text.secondary" variant="body2">
               Account and appearance.
@@ -162,9 +183,38 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
                   Team
                 </Typography>
                 <Typography sx={{ fontWeight: 700, color: "text.primary" }}>
-                  {currentTeamName}
+                  {profile?.teamId ? teamName : "No Team"}
                 </Typography>
               </Stack>
+
+              {profile?.teamId && joinCode && (
+                <Stack direction="row" justifyContent="space-between" spacing={2}>
+                  <Typography color="text.secondary" variant="body2">
+                    Team ID
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Typography
+                      sx={{
+                        fontWeight: 700,
+                        color: "text.primary",
+                        textAlign: "right",
+                        letterSpacing: 1.1
+                      }}
+                    >
+                      {joinCode}
+                    </Typography>
+                    <Tooltip title="Copy Team ID" arrow>
+                      <IconButton
+                        size="small"
+                        aria-label="Copy Team ID"
+                        onClick={() => void handleCopyText(joinCode, "Team ID")}
+                      >
+                        <ContentCopyRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </Stack>
+              )}
 
               <Stack direction="row" justifyContent="space-between" spacing={2}>
                 <Typography color="text.secondary" variant="body2">

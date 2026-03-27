@@ -24,7 +24,6 @@ import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 interface Props {
   collapsed?: boolean;
   hasTeam: boolean;
-  canSeeFairness: boolean;
   canAccessMemberships: boolean;
   canAccessPlanner: boolean;
   canAccessAnalytics: boolean;
@@ -35,7 +34,6 @@ interface Props {
 export default function Sidebar({
   collapsed,
   hasTeam,
-  canSeeFairness,
   canAccessMemberships,
   canAccessPlanner,
   canAccessAnalytics,
@@ -44,12 +42,9 @@ export default function Sidebar({
 }: Props) {
 
   const pathname = usePathname();
-  const { isAdmin, profile } = useAuth();
+  const { profile } = useAuth();
   const { teamName, teamCode } = useActiveTeamBranding();
-  const effectiveCanSeeFairness = hasTeam ? canSeeFairness : false;
   const navItems = getDesktopNavItems(
-    isAdmin,
-    effectiveCanSeeFairness,
     hasTeam,
     canAccessMemberships,
     canAccessPlanner,

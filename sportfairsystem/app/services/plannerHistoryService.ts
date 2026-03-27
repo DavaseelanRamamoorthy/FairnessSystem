@@ -1,4 +1,5 @@
 import {
+  getCurrentTeamMembershipAccess,
   requirePlannerWorkspaceAccess,
   requireFairnessWorkspaceAccess
 } from "@/app/services/accessControlService";
@@ -86,6 +87,21 @@ export type PlannerBatchDetail = PlannerBatchListItem & {
     actualListedPlayers: string[];
     actualBattedPlayers: string[];
     actualBowledPlayers: string[];
+  }>;
+};
+
+export type CurrentMemberPlannerWeekSnapshot = {
+  batchId: string;
+  createdAt: string;
+  weekendDate: string | null;
+  weekendLabel: string;
+  notes: string[];
+  matchCount: number;
+  matches: Array<{
+    matchNumber: number;
+    assignment: "xi" | "twelfth" | "bench" | "unavailable";
+    isCaptain: boolean;
+    isWicketKeeper: boolean;
   }>;
 };
 
@@ -359,6 +375,90 @@ export async function listFriendlyPlannerBatches(season?: string) {
   return ((data ?? []) as PlannerBatchListRow[])
     .map(mapPlannerBatchListItem)
     .filter((value): value is PlannerBatchListItem => Boolean(value));
+}
+
+export async function getCurrentMemberFriendlyPlannerWeekSnapshot() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  if (!access.teamId || !access.memberId) {
+    return null;
+  }
+
+  const { data: batchData, error: batchError } = await supabase
+    .from("planner_matchday_batches")
+    .select("id, weekend_date, weekend_label, match_count, notes, created_at")
+    .eq("team_id", access.teamId)
+    .eq("planner_mode", "friendly")
+    .order("weekend_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (batchError) {
+    if (isPlannerPersistenceMissingError(batchError)) {
+      throw new Error("Planner history tables are not available yet. Run the V2 planner persistence SQL first.");
+    }
+
+    throw new Error("Could not load the latest planner week.");
+  }
+
+  const latestBatch = ((batchData ?? []) as PlannerBatchListRow[])
+    .map(mapPlannerBatchListItem)
+    .find((value): value is PlannerBatchListItem => Boolean(value));
+
+  if (!latestBatch) {
+    return null;
+  }
+
+  const { data: assignmentData, error: assignmentError } = await supabase
+    .from("planner_matchday_assignments")
+    .select("match_number, assignment, is_captain, is_wicket_keeper")
+    .eq("team_id", access.teamId)
+    .eq("batch_id", latestBatch.id)
+    .eq("member_id", access.memberId)
+    .order("match_number", { ascending: true });
+
+  if (assignmentError) {
+    throw new Error("Could not load your current planner assignments.");
+  }
+
+  const matches: CurrentMemberPlannerWeekSnapshot["matches"] = (assignmentData ?? [])
+    .flatMap((row) => {
+      const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+      const assignment = typeof row.assignment === "string" ? row.assignment : null;
+
+      if (
+        !matchNumber
+        || (
+          assignment !== "xi"
+          && assignment !== "twelfth"
+          && assignment !== "bench"
+          && assignment !== "unavailable"
+        )
+      ) {
+        return [];
+      }
+
+      return [{
+        matchNumber,
+        assignment: assignment as CurrentMemberPlannerWeekSnapshot["matches"][number]["assignment"],
+        isCaptain: row.is_captain === true,
+        isWicketKeeper: row.is_wicket_keeper === true
+      }];
+    });
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return {
+    batchId: latestBatch.id,
+    createdAt: latestBatch.createdAt,
+    weekendDate: latestBatch.weekendDate,
+    weekendLabel: latestBatch.weekendLabel,
+    notes: latestBatch.notes,
+    matchCount: latestBatch.matchCount,
+    matches
+  } satisfies CurrentMemberPlannerWeekSnapshot;
 }
 
 export async function getFriendlyPlannerBatchDetail(batchId: string) {

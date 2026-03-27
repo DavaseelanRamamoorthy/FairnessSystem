@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Box,
   Button,
-  Chip,
   Divider,
   Drawer,
   IconButton,
@@ -129,16 +128,6 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
               <Typography sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.2 }}>
                 {profileDisplayName}
               </Typography>
-              <Chip
-                size="small"
-                label={profile?.role === "admin" ? "Admin Access" : "Member Access"}
-                sx={{
-                  alignSelf: "flex-start",
-                  fontWeight: 700,
-                  color: "text.primary",
-                  bgcolor: "background.neutral"
-                }}
-              />
             </Stack>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
@@ -218,7 +207,7 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
 
               <Stack direction="row" justifyContent="space-between" spacing={2}>
                 <Typography color="text.secondary" variant="body2">
-                  Access
+                  App Role
                 </Typography>
                 <Typography sx={{ fontWeight: 700, color: "text.primary", textTransform: "capitalize" }}>
                   {profile?.role ?? "member"}

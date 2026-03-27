@@ -41,7 +41,6 @@ type AuthContextValue = {
   profile: AuthProfile | null;
   profileError: string | null;
   isAuthenticated: boolean;
-  isAdmin: boolean;
   isMember: boolean;
   isProfileComplete: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
@@ -268,7 +267,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     profileError,
     isAuthenticated: Boolean(session?.user),
-    isAdmin: profile?.role === "admin",
     isMember: profile?.role === "member",
     isProfileComplete: isProfileComplete(profile),
     signIn,

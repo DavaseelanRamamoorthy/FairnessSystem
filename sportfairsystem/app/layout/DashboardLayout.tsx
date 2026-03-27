@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Box, Button, CircularProgress, Stack, Typography, useMediaQuery, useTheme } from "@mui/material";
 import { varAlpha } from "minimal-shared/utils";
@@ -24,7 +24,6 @@ const PLANNER_ONLY_ROUTES = ["/planner"];
 const ANALYTICS_ONLY_ROUTES = ["/analytics"];
 const VALIDATION_ONLY_ROUTES = ["/validation"];
 const MATCH_ADMIN_ONLY_ROUTES = ["/upload"];
-const FAIRNESS_ONLY_ROUTES = ["/fairness"];
 const RELEASE_INTRO_VERSION = "v1.0";
 
 function getReleaseIntroStorageKey(userId: string) {
@@ -35,7 +34,7 @@ function getReleaseIntroSessionKey(userId: string) {
   return `sportfairsystem:intro:${RELEASE_INTRO_VERSION}:seen:${userId}`;
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
@@ -57,7 +56,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const {
     isLoading,
     isAuthenticated,
-    isAdmin,
     isProfileComplete,
     profile,
     profileError,
@@ -76,8 +74,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     () => ADMIN_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
     [pathname]
   );
-  const isFairnessRoute = useMemo(
-    () => FAIRNESS_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
+  const isFairnessLeadershipDetailRoute = useMemo(
+    () => pathname.startsWith("/fairness/member/"),
     [pathname]
   );
   const isMembershipRoute = useMemo(
@@ -192,12 +190,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    if (isAuthenticated && isAdminRoute && !isAdmin) {
+    if (isAuthenticated && hasResolvedWorkspaceAccess && isAdminRoute && !canAccessMemberships) {
       router.replace("/dashboard");
       return;
     }
 
-    if (isAuthenticated && hasResolvedWorkspaceAccess && isFairnessRoute && !canSeeFairness) {
+    if (isAuthenticated && hasResolvedWorkspaceAccess && isFairnessLeadershipDetailRoute && !canSeeFairness) {
       router.replace("/dashboard");
     }
   }, [
@@ -208,12 +206,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     canManageMatches,
     canSeeFairness,
     hasResolvedWorkspaceAccess,
-    isAdmin,
     isAdminRoute,
     isAnalyticsRoute,
     isAuthenticated,
     isEntryAuthRoute,
-    isFairnessRoute,
+    isFairnessLeadershipDetailRoute,
     isMatchAdminRoute,
     isMembershipRoute,
     isPlannerRoute,
@@ -349,7 +346,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Sidebar
             collapsed={collapsed}
             hasTeam={hasTeam}
-            canSeeFairness={canSeeFairness}
             canAccessMemberships={canAccessMemberships}
             canAccessPlanner={canAccessPlanner}
             canAccessAnalytics={canAccessAnalytics}
@@ -398,7 +394,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <>
           {!isMobileMoreOpen && (
             <MobileBottomNav
-            isAdmin={isAdmin}
             hasTeam={hasTeam}
             canAccessPlanner={canAccessPlanner}
             onOpenMore={() => setIsMobileMoreOpen(true)}
@@ -407,9 +402,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <MobileMoreSheet
             open={isMobileMoreOpen}
-            isAdmin={isAdmin}
             hasTeam={hasTeam}
             canSeeFairness={canSeeFairness}
+            canAccessPlanner={canAccessPlanner}
             canAccessMemberships={canAccessMemberships}
             canAccessAnalytics={canAccessAnalytics}
             canAccessValidation={canAccessValidation}
@@ -425,5 +420,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onClose={() => setIsSettingsDrawerOpen(false)}
       />
     </>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={(
+        <Box
+          sx={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      )}
+    >
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </Suspense>
   );
 }

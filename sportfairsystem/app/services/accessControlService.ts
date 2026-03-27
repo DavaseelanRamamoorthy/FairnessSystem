@@ -124,6 +124,14 @@ function buildWorkspaceAccessSnapshot(access: CurrentTeamMembershipAccess): Work
   };
 }
 
+function withResolvedTeamMembershipAccess(access: CurrentTeamMembershipAccess) {
+  return {
+    ...access,
+    teamId: access.teamId!,
+    memberId: access.memberId!
+  };
+}
+
 export async function requireAuthenticatedUser() {
   const {
     data: { user },
@@ -301,7 +309,7 @@ export async function requireMembershipWorkspaceAccess() {
     throw new Error("You do not have permission to access the membership workspace.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canManageMembershipRecords() {
@@ -332,7 +340,7 @@ export async function requireMembershipManagementAccess() {
     throw new Error("You do not have permission to change team membership records.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canManageMembershipRoles() {
@@ -361,6 +369,36 @@ export async function canManageRosterPlayers() {
   );
 }
 
+export async function canManageFeedbackWorkspace() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  if (!access.teamId || !access.memberId) {
+    return false;
+  }
+
+  return (
+    access.teamRole === "organiser"
+    || access.permissions.includes("team_settings_manage")
+  );
+}
+
+export async function requireFeedbackManagementAccess() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  const canAccess =
+    Boolean(access.teamId && access.memberId)
+    && (
+      access.teamRole === "organiser"
+      || access.permissions.includes("team_settings_manage")
+    );
+
+  if (!canAccess) {
+    throw new Error("You do not have permission to review team feedback.");
+  }
+
+  return withResolvedTeamMembershipAccess(access);
+}
+
 export async function requireOrganiserAccess() {
   const access = await getCurrentTeamMembershipAccess();
 
@@ -375,7 +413,7 @@ export async function requireOrganiserAccess() {
     throw new Error("Only the organiser can perform this action.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canAccessFairnessWorkspace() {
@@ -399,7 +437,7 @@ export async function requireFairnessWorkspaceAccess() {
     throw new Error("Only the organiser or captain can access the fairness workspace.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canAccessPlannerWorkspace() {
@@ -421,7 +459,7 @@ export async function requirePlannerWorkspaceAccess() {
     throw new Error("You do not have permission to access the planner workspace.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canAccessAnalyticsWorkspace() {
@@ -445,7 +483,7 @@ export async function requireAnalyticsWorkspaceAccess() {
     throw new Error("You do not have permission to access analytics.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canAccessValidationWorkspace() {
@@ -470,7 +508,7 @@ export async function requireValidationWorkspaceAccess() {
     throw new Error("You do not have permission to access validation.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canManageValidationWorkspace() {
@@ -505,7 +543,7 @@ export async function requireValidationManagementAccess() {
     throw new Error("You do not have permission to change validation-related data.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canManageMatchData() {
@@ -527,7 +565,7 @@ export async function requireMatchDataManagementAccess() {
     throw new Error("You do not have permission to manage match data.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canManageTeamInvites() {
@@ -558,7 +596,7 @@ export async function requireInviteManagementAccess() {
     throw new Error("You do not have permission to manage team invites.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function canManageIdentityWorkspace() {
@@ -589,7 +627,7 @@ export async function requireIdentityManagementAccess() {
     throw new Error("You do not have permission to manage player identity and membership mapping.");
   }
 
-  return access;
+  return withResolvedTeamMembershipAccess(access);
 }
 
 export async function hasCurrentTeamPermission(permission: TeamPermission) {

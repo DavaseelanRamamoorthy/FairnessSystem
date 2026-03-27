@@ -29,6 +29,10 @@ import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import { useAuth } from "@/app/context/AuthContext";
+import {
+  getCurrentWorkspaceAccessSnapshot,
+  WorkspaceAccessSnapshot
+} from "@/app/services/accessControlService";
 import { supabase } from "@/app/services/supabaseClient";
 import {
   createTeamWorkspace,
@@ -121,6 +125,7 @@ export default function ProfilePage() {
   const [joinTeamIdInput, setJoinTeamIdInput] = useState("");
   const [isTeamActionSubmitting, setIsTeamActionSubmitting] = useState(false);
   const [pendingJoinRequest, setPendingJoinRequest] = useState<TeamJoinRequestRecord | null>(null);
+  const [workspaceAccess, setWorkspaceAccess] = useState<WorkspaceAccessSnapshot | null>(null);
   const [formValues, setFormValues] = useState<ProfileFormState>({
     firstName: "",
     lastName: "",
@@ -354,6 +359,35 @@ export default function ProfilePage() {
     };
   }, [pendingJoinRequest, profile?.id, profile?.teamId, refreshProfile]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadWorkspaceAccess = async () => {
+      if (!profile?.teamId) {
+        setWorkspaceAccess(null);
+        return;
+      }
+
+      try {
+        const snapshot = await getCurrentWorkspaceAccessSnapshot();
+
+        if (isActive) {
+          setWorkspaceAccess(snapshot);
+        }
+      } catch {
+        if (isActive) {
+          setWorkspaceAccess(null);
+        }
+      }
+    };
+
+    void loadWorkspaceAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, [profile?.teamId, profile?.id]);
+
   if (isLoading || !profile) {
     return (
       <Box
@@ -375,6 +409,23 @@ export default function ProfilePage() {
   const resolvedTeamName = teamName ?? (profile.teamId ? "Assigned Team" : "Not Assigned");
   const resolvedTeamJoinCode = teamJoinCode || (profile.teamId ? "Unavailable" : "Not assigned");
   const resolvedPlayerName = mappedPlayerName ?? (profile.playerId ? "Loading..." : "Pending assignment");
+  const canOpenMemberships = Boolean(profile.teamId && workspaceAccess?.canAccessMemberships);
+  const normalizedCreateTeamName = normalizeProfileInput(createTeamNameInput);
+  const normalizedJoinTeamId = normalizeJoinCodeInput(joinTeamIdInput);
+  const canCreateTeam = !profile.teamId && !pendingJoinRequest && !isTeamActionSubmitting && normalizedCreateTeamName.length > 0;
+  const canJoinTeam = !profile.teamId && !pendingJoinRequest && !isTeamActionSubmitting && normalizedJoinTeamId.length === 6;
+  const canCancelPendingJoinRequest = !profile.teamId && Boolean(pendingJoinRequest) && !isTeamActionSubmitting;
+  const workspaceAccessLabel = !profile.teamId
+    ? "Profile Only"
+    : workspaceAccess
+      ? [
+        workspaceAccess.canAccessMemberships ? "Memberships" : null,
+        workspaceAccess.canAccessPlanner ? "Planner" : null,
+        workspaceAccess.canAccessAnalytics ? "Analytics" : null,
+        workspaceAccess.canAccessValidation ? "Validation" : null,
+        workspaceAccess.canSeeFairness ? "Fairness" : null
+      ].filter(Boolean).join(", ") || "Team Member"
+      : "Checking...";
   const playerMappingSummary = mappingColumnsReady === null
     ? "Checking..."
     : mappingColumnsReady
@@ -385,7 +436,8 @@ export default function ProfilePage() {
     { label: "Email", value: profile.email },
     { label: "Username", value: profile.username ?? "Not set" },
     { label: "Contact", value: formattedPhone || "Not set" },
-    { label: "Role", value: profile.role === "admin" ? "Admin" : "Member" },
+    { label: "App Role", value: profile.role === "admin" ? "Admin" : "Member" },
+    { label: "Workspace Access", value: workspaceAccessLabel },
     { label: "Team", value: isTeamLoading ? "Loading..." : resolvedTeamName },
     { label: "Squad Player", value: playerMappingSummary },
     { label: "Team ID", value: resolvedTeamJoinCode }
@@ -462,13 +514,28 @@ export default function ProfilePage() {
   };
 
   const handleCreateTeam = async () => {
+    if (profile.teamId) {
+      setErrorMessage("This account is already connected to a team.");
+      return;
+    }
+
+    if (pendingJoinRequest) {
+      setErrorMessage("Cancel the pending team request before creating a new team.");
+      return;
+    }
+
+    if (!normalizedCreateTeamName) {
+      setErrorMessage("Enter a team name before creating the team.");
+      return;
+    }
+
     setIsTeamActionSubmitting(true);
     setErrorMessage(null);
     setSuccessMessage(null);
 
     try {
       const result = await createTeamWorkspace(
-        createTeamNameInput,
+        normalizedCreateTeamName,
         buildPreferredMemberName(profile, formValues)
       );
 
@@ -485,13 +552,28 @@ export default function ProfilePage() {
   };
 
   const handleJoinTeam = async () => {
+    if (profile.teamId) {
+      setErrorMessage("This account is already connected to a team.");
+      return;
+    }
+
+    if (pendingJoinRequest) {
+      setErrorMessage("A team request is already pending approval.");
+      return;
+    }
+
+    if (normalizedJoinTeamId.length !== 6) {
+      setErrorMessage("Enter the exact 6-character Team ID before requesting access.");
+      return;
+    }
+
     setIsTeamActionSubmitting(true);
     setErrorMessage(null);
     setSuccessMessage(null);
 
     try {
       const result = await submitTeamJoinRequest(
-        joinTeamIdInput,
+        normalizedJoinTeamId,
         buildPreferredMemberName(profile, formValues)
       );
 
@@ -518,6 +600,11 @@ export default function ProfilePage() {
 
   const handleCancelJoinRequest = async () => {
     if (!pendingJoinRequest) {
+      return;
+    }
+
+    if (profile.teamId) {
+      setPendingJoinRequest(null);
       return;
     }
 
@@ -589,9 +676,9 @@ export default function ProfilePage() {
 
         {profile.teamId && mappingColumnsReady && !profile.playerId && (
           <AutoHideAlert severity="info" variant="outlined">
-            {profile.role === "admin"
+            {canOpenMemberships
               ? "Your account is on the team, but it is still waiting for a squad-player mapping. Use Memberships to finish the assignment."
-              : "Your account is on the team, but it is still waiting for an admin to map it to the matching squad player record."}
+              : "Your account is on the team, but it is still waiting for an organiser or another membership manager to map it to the matching squad player record."}
           </AutoHideAlert>
         )}
 
@@ -657,7 +744,7 @@ export default function ProfilePage() {
                           <Button
                             variant="contained"
                             onClick={() => void handleCreateTeam()}
-                            disabled={isTeamActionSubmitting || Boolean(pendingJoinRequest)}
+                            disabled={!canCreateTeam}
                             sx={{
                               alignSelf: "flex-start",
                               backgroundColor: PROFILE_NAVY,
@@ -717,7 +804,7 @@ export default function ProfilePage() {
                               <Button
                                 variant="text"
                                 onClick={() => void handleCancelJoinRequest()}
-                                disabled={isTeamActionSubmitting}
+                                disabled={!canCancelPendingJoinRequest}
                                 sx={{ alignSelf: "flex-start" }}
                               >
                                 {isTeamActionSubmitting ? "Cancelling..." : "Cancel Request"}
@@ -727,7 +814,7 @@ export default function ProfilePage() {
                             <Button
                               variant="outlined"
                               onClick={() => void handleJoinTeam()}
-                              disabled={isTeamActionSubmitting}
+                              disabled={!canJoinTeam}
                               sx={{ alignSelf: "flex-start" }}
                             >
                               {isTeamActionSubmitting ? "Submitting Request..." : "Request to Join"}
@@ -760,7 +847,7 @@ export default function ProfilePage() {
                   <Typography color="text.secondary">
                     Share this Team ID with people who should request organiser approval to join
                     {resolvedTeamName !== "Not Assigned" ? ` ${resolvedTeamName}` : " your team"}.
-                    Invite links remain available in Memberships only for exceptional admin cases like claiming an existing unlinked member.
+                    Invite links remain available in Memberships only for exceptional claim-style cases like linking an existing unclaimed member.
                   </Typography>
                 </Stack>
 
@@ -809,7 +896,7 @@ export default function ProfilePage() {
                           Copy Team ID
                         </Button>
 
-                        {profile.role === "admin" && (
+                        {canOpenMemberships && (
                           <Button component={Link} href="/memberships" variant="outlined">
                             Open Memberships
                           </Button>
@@ -865,10 +952,10 @@ export default function ProfilePage() {
                   <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                     <Chip
                       icon={<ShieldRoundedIcon />}
-                      label={profile.role === "admin" ? "Admin Access" : "Member Access"}
+                      label={workspaceAccessLabel}
                       sx={(theme) => ({
-                        color: profile.role === "admin" ? "#FFFFFF" : "text.primary",
-                        backgroundColor: profile.role === "admin"
+                        color: canOpenMemberships ? "#FFFFFF" : "text.primary",
+                        backgroundColor: canOpenMemberships
                           ? PROFILE_RED
                           : (theme.palette.mode === "dark"
                             ? alpha("#FFFFFF", 0.08)
@@ -995,7 +1082,7 @@ export default function ProfilePage() {
                       </Button>
                     )}
 
-                    {profile.role === "admin" && profile.teamId && mappingColumnsReady && !profile.playerId && (
+                    {canOpenMemberships && mappingColumnsReady && !profile.playerId && (
                       <Button component={Link} href="/memberships" variant="outlined">
                         Open Memberships
                       </Button>

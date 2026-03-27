@@ -4,7 +4,10 @@ import {
 } from "@/app/services/accessControlService";
 import { normalizeJoinCodeInput } from "@/app/services/teamOnboardingService";
 import { supabase } from "@/app/services/supabaseClient";
-import type { TeamBusinessRole } from "@/app/services/teamRoles";
+import {
+  isTeamBusinessRole,
+  type TeamBusinessRole
+} from "@/app/services/teamRoles";
 
 export type TeamJoinRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 
@@ -135,8 +138,14 @@ export async function submitTeamJoinRequest(teamCode: string, preferredMemberNam
 }
 
 export async function cancelMyTeamJoinRequest(requestId: string) {
+  const normalizedRequestId = requestId.trim();
+
+  if (!normalizedRequestId) {
+    throw new Error("The pending join request is missing its identifier.");
+  }
+
   const { error } = await supabase.rpc("cancel_my_team_join_request", {
-    target_request_id: requestId
+    target_request_id: normalizedRequestId
   });
 
   if (error) {
@@ -162,17 +171,27 @@ export async function listPendingTeamJoinRequests() {
 }
 
 export async function approveTeamJoinRequest(requestId: string, input: ApproveTeamJoinRequestInput) {
+  const normalizedRequestId = requestId.trim();
   const normalizedSeasonId = input.seasonId.trim();
+  const normalizedExistingMemberId = input.existingMemberId?.trim() || null;
+
+  if (!normalizedRequestId) {
+    throw new Error("The selected join request is missing its identifier.");
+  }
+
+  if (!isTeamBusinessRole(input.role)) {
+    throw new Error("Select a valid membership role before approving the join request.");
+  }
 
   if (!normalizedSeasonId) {
     throw new Error("Select a season before approving the join request.");
   }
 
   const { error } = await supabase.rpc("approve_team_join_request", {
-    target_request_id: requestId,
+    target_request_id: normalizedRequestId,
     next_role: input.role,
     next_season_id: normalizedSeasonId,
-    existing_member_id: input.existingMemberId?.trim() || null
+    existing_member_id: normalizedExistingMemberId
   });
 
   if (error) {
@@ -181,8 +200,14 @@ export async function approveTeamJoinRequest(requestId: string, input: ApproveTe
 }
 
 export async function rejectTeamJoinRequest(requestId: string, resolutionNote?: string | null) {
+  const normalizedRequestId = requestId.trim();
+
+  if (!normalizedRequestId) {
+    throw new Error("The selected join request is missing its identifier.");
+  }
+
   const { error } = await supabase.rpc("reject_team_join_request", {
-    target_request_id: requestId,
+    target_request_id: normalizedRequestId,
     next_resolution_note: resolutionNote?.trim() || null
   });
 

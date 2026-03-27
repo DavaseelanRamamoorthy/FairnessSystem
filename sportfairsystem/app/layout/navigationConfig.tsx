@@ -24,9 +24,7 @@ export type ShellNavItem = {
 export const desktopBaseNavItems: ShellNavItem[] = [
   { key: "dashboard", title: "Dashboard", path: "/dashboard", icon: <DashboardRoundedIcon /> },
   { key: "matches", title: "Matches", path: "/matches", icon: <SportsCricketRoundedIcon /> },
-  { key: "players", title: "Players", path: "/players", icon: <GroupRoundedIcon /> },
-  { key: "my-fairness", title: "My Fairness", path: "/my-fairness", icon: <FactCheckRoundedIcon /> },
-  { key: "feedback", title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> }
+  { key: "players", title: "Squad", path: "/players", icon: <GroupRoundedIcon /> }
 ];
 
 const desktopProfileOnlyNavItems: ShellNavItem[] = [
@@ -34,23 +32,37 @@ const desktopProfileOnlyNavItems: ShellNavItem[] = [
 ];
 
 export const desktopAdminNavItems: ShellNavItem[] = [
-  { key: "memberships", title: "Memberships", path: "/memberships", icon: <BadgeRoundedIcon /> },
+  { key: "memberships", title: "Membership", path: "/memberships", icon: <BadgeRoundedIcon /> },
   { key: "planner", title: "Planner", path: "/planner", icon: <EventAvailableRoundedIcon /> },
   { key: "analytics", title: "Analytics", path: "/analytics", icon: <AnalyticsRoundedIcon /> },
   { key: "validation", title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> }
 ];
 
+const desktopFairnessNavItem: ShellNavItem = {
+  key: "fairness",
+  title: "Fairness",
+  path: "/fairness",
+  icon: <FactCheckRoundedIcon />
+};
+
+const desktopFeedbackNavItem: ShellNavItem = {
+  key: "feedback",
+  title: "Feedback",
+  path: "/feedback",
+  icon: <FeedbackRoundedIcon />
+};
+
 const mobileMemberPrimaryNavItems: ShellNavItem[] = [
   { key: "home", title: "Dashboard", mobileLabel: "Home", path: "/dashboard", icon: <DashboardRoundedIcon /> },
   { key: "matches", title: "Matches", path: "/matches", icon: <SportsCricketRoundedIcon /> },
-  { key: "players", title: "Players", path: "/players", icon: <GroupRoundedIcon /> },
-  { key: "feedback", title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> }
+  { key: "players", title: "Squad", path: "/players", icon: <GroupRoundedIcon /> },
+  { key: "fairness", title: "Fairness", path: "/fairness", icon: <FactCheckRoundedIcon /> }
 ];
 
 const mobileAdminPrimaryNavItems: ShellNavItem[] = [
   { key: "home", title: "Dashboard", mobileLabel: "Home", path: "/dashboard", icon: <DashboardRoundedIcon /> },
   { key: "matches", title: "Matches", path: "/matches", icon: <SportsCricketRoundedIcon /> },
-  { key: "players", title: "Players", path: "/players", icon: <GroupRoundedIcon /> },
+  { key: "players", title: "Squad", path: "/players", icon: <GroupRoundedIcon /> },
   { key: "planner", title: "Planner", path: "/planner", icon: <EventAvailableRoundedIcon /> }
 ];
 
@@ -65,36 +77,23 @@ const mobileProfileOnlyPrimaryNavItems: ShellNavItem[] = [
 ];
 
 const mobileMemberMoreNavItems: ShellNavItem[] = [
-  { key: "my-fairness", title: "My Fairness", path: "/my-fairness", icon: <FactCheckRoundedIcon /> },
-  { key: "profile", title: "Profile", path: "/profile", icon: <AccountCircleRoundedIcon /> }
+  { key: "profile", title: "Profile", path: "/profile", icon: <AccountCircleRoundedIcon /> },
+  { key: "feedback", title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> }
 ];
 
 const mobileAdminMoreNavItems: ShellNavItem[] = [
-  { key: "feedback", title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> },
-  { key: "my-fairness", title: "My Fairness", path: "/my-fairness", icon: <FactCheckRoundedIcon /> },
   { key: "profile", title: "Profile", path: "/profile", icon: <AccountCircleRoundedIcon /> },
-  { key: "memberships", title: "Memberships", path: "/memberships", icon: <BadgeRoundedIcon /> },
+  { key: "memberships", title: "Membership", path: "/memberships", icon: <BadgeRoundedIcon /> },
+  { key: "fairness", title: "Fairness", path: "/fairness", icon: <FactCheckRoundedIcon /> },
   { key: "analytics", title: "Analytics", path: "/analytics", icon: <AnalyticsRoundedIcon /> },
   { key: "validation", title: "Validation", path: "/validation", icon: <RuleRoundedIcon /> },
+  { key: "feedback", title: "Feedback", path: "/feedback", icon: <FeedbackRoundedIcon /> },
   { key: "upload", title: "Upload", path: "/upload", icon: <UploadFileRoundedIcon /> }
 ];
 
 const mobileProfileOnlyMoreNavItems: ShellNavItem[] = [];
 
-function maybeAppendFairnessNavItem(items: ShellNavItem[], canSeeFairness: boolean) {
-  if (!canSeeFairness) {
-    return items;
-  }
-
-  return [
-    ...items,
-    { key: "fairness", title: "Fairness", path: "/fairness", icon: <FactCheckRoundedIcon /> }
-  ];
-}
-
 export function getDesktopNavItems(
-  isAdmin: boolean,
-  canSeeFairness = false,
   hasTeam = true,
   canAccessMemberships = false,
   canAccessPlanner = false,
@@ -105,30 +104,32 @@ export function getDesktopNavItems(
     return desktopProfileOnlyNavItems;
   }
 
-  const elevatedItems = desktopAdminNavItems.filter((item) => {
-    if (item.key === "memberships") {
-      return canAccessMemberships;
-    }
+  const items: ShellNavItem[] = [...desktopBaseNavItems];
 
-    if (item.key === "planner") {
-      return canAccessPlanner;
-    }
+  if (canAccessMemberships) {
+    items.push(desktopAdminNavItems.find((item) => item.key === "memberships")!);
+  }
 
-    if (item.key === "analytics") {
-      return canAccessAnalytics;
-    }
+  if (canAccessPlanner) {
+    items.push(desktopAdminNavItems.find((item) => item.key === "planner")!);
+  }
 
-    if (item.key === "validation") {
-      return canAccessValidation;
-    }
+  items.push(desktopFairnessNavItem);
 
-    return isAdmin;
-  });
-  const items = [...desktopBaseNavItems, ...elevatedItems];
-  return maybeAppendFairnessNavItem(items, canSeeFairness);
+  if (canAccessAnalytics) {
+    items.push(desktopAdminNavItems.find((item) => item.key === "analytics")!);
+  }
+
+  if (canAccessValidation) {
+    items.push(desktopAdminNavItems.find((item) => item.key === "validation")!);
+  }
+
+  items.push(desktopFeedbackNavItem);
+
+  return items;
 }
 
-export function getMobilePrimaryNavItems(isAdmin: boolean, hasTeam = true, canAccessPlanner = false) {
+export function getMobilePrimaryNavItems(hasTeam = true, canAccessPlanner = false) {
   if (!hasTeam) {
     return mobileProfileOnlyPrimaryNavItems;
   }
@@ -137,13 +138,12 @@ export function getMobilePrimaryNavItems(isAdmin: boolean, hasTeam = true, canAc
     return mobileAdminPrimaryNavItems;
   }
 
-  return isAdmin ? mobileAdminPrimaryNavItems.filter((item) => item.key !== "planner") : mobileMemberPrimaryNavItems;
+  return mobileMemberPrimaryNavItems;
 }
 
 export function getMobileMoreNavItems(
-  isAdmin: boolean,
-  canSeeFairness = false,
   hasTeam = true,
+  canAccessPlanner = false,
   canAccessMemberships = false,
   canAccessAnalytics = false,
   canAccessValidation = false,
@@ -156,27 +156,10 @@ export function getMobileMoreNavItems(
   const membershipItem = mobileAdminMoreNavItems.find((item) => item.key === "memberships");
   const analyticsItem = mobileAdminMoreNavItems.find((item) => item.key === "analytics");
   const validationItem = mobileAdminMoreNavItems.find((item) => item.key === "validation");
+  const feedbackItem = mobileAdminMoreNavItems.find((item) => item.key === "feedback");
   const uploadItem = mobileAdminMoreNavItems.find((item) => item.key === "upload");
-  const items = isAdmin
-    ? [...mobileAdminMoreNavItems].filter((item) => {
-      if (item.key === "memberships") {
-        return canAccessMemberships;
-      }
-
-      if (item.key === "analytics") {
-        return canAccessAnalytics;
-      }
-
-      if (item.key === "validation") {
-        return canAccessValidation;
-      }
-
-      if (item.key === "upload") {
-        return canAccessUpload;
-      }
-
-      return true;
-    })
+  const items = canAccessPlanner
+    ? [...mobileAdminMoreNavItems].filter((item) => !["memberships", "analytics", "validation", "feedback", "upload"].includes(item.key))
     : [...mobileMemberMoreNavItems];
 
   if (canAccessMemberships && membershipItem && !items.some((item) => item.key === "memberships")) {
@@ -191,24 +174,31 @@ export function getMobileMoreNavItems(
     items.push(validationItem);
   }
 
+  if (feedbackItem && !items.some((item) => item.key === "feedback")) {
+    items.push(feedbackItem);
+  }
+
   if (canAccessUpload && uploadItem && !items.some((item) => item.key === "upload")) {
     items.push(uploadItem);
   }
 
-  return maybeAppendFairnessNavItem(items, canSeeFairness);
+  return items;
 }
 
 export function isNavPathActive(pathname: string, path: string) {
+  if (path === "/fairness" && pathname === "/my-fairness") {
+    return true;
+  }
+
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
 export function getMobileNavigationValue(
   pathname: string,
-  isAdmin: boolean,
   hasTeam = true,
   canAccessPlanner = false
 ) {
-  const activePrimaryItem = getMobilePrimaryNavItems(isAdmin, hasTeam, canAccessPlanner).find((item) =>
+  const activePrimaryItem = getMobilePrimaryNavItems(hasTeam, canAccessPlanner).find((item) =>
     isNavPathActive(pathname, item.path)
   );
 

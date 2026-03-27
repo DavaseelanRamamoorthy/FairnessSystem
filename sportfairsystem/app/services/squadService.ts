@@ -1,5 +1,10 @@
 import { squadAdminEnabled } from "@/app/config/teamConfig";
-import { getCurrentUserAccess, requireAdminAccess, requireOrganiserAccess } from "@/app/services/accessControlService";
+import {
+  getCurrentUserAccess,
+  requireIdentityManagementAccess,
+  requireOrganiserAccess,
+  requireValidationManagementAccess
+} from "@/app/services/accessControlService";
 import { cleanName } from "@/app/services/cleanName";
 import { normalizeTeamName } from "@/app/services/teamValidationService";
 import { getActiveTeamName } from "@/app/services/teamContextService";
@@ -259,7 +264,7 @@ export async function updateSquadPlayerMetadata(
   playerId: string,
   values: SquadMetadataValues
 ) {
-  await requireAdminAccess();
+  const access = await requireIdentityManagementAccess();
 
   if (!squadAdminEnabled) {
     throw new Error("Squad admin controls are disabled.");
@@ -271,7 +276,7 @@ export async function updateSquadPlayerMetadata(
     );
   }
 
-  const teamId = await getCurrentTeamId();
+  const teamId = access.teamId;
   const normalizedValues = {
     batting_style: normalizeBattingStyle(values.battingStyle),
     is_captain: values.isCaptain,
@@ -813,7 +818,7 @@ export async function bridgeCurrentTeamPlayerIdentities(
     playerIds?: string[];
   }
 ): Promise<SquadIdentityBridgeResult> {
-  await requireAdminAccess();
+  await requireValidationManagementAccess();
 
   const [teamId, activeTeamName] = await Promise.all([
     getCurrentTeamId(),

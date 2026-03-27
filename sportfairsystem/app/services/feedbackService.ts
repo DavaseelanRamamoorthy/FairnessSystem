@@ -1,4 +1,8 @@
-import { getCurrentUserAccess, requireAdminAccess } from "@/app/services/accessControlService";
+import {
+  canManageFeedbackWorkspace,
+  getCurrentUserAccess,
+  requireFeedbackManagementAccess
+} from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import { supabase } from "@/app/services/supabaseClient";
 
@@ -233,6 +237,7 @@ export async function hasFeedbackModuleSupport() {
 
 export async function getFeedbackWorkspace(filters: FeedbackFilters = {}): Promise<FeedbackWorkspaceData> {
   const access = await requireTeamScopedAccess();
+  const canReviewTeamFeedback = await canManageFeedbackWorkspace();
 
   if (!(await hasFeedbackModuleSupport())) {
     throw new Error("Feedback is not available in this environment yet.");
@@ -245,7 +250,7 @@ export async function getFeedbackWorkspace(filters: FeedbackFilters = {}): Promi
     .eq("user_id", access.user.id)
     .order("created_at", { ascending: false });
 
-  const teamFeedbackQuery = access.role === "admin"
+  const teamFeedbackQuery = canReviewTeamFeedback
     ? (() => {
       let query = supabase
         .from("feedback")
@@ -285,7 +290,7 @@ export async function getFeedbackWorkspace(filters: FeedbackFilters = {}): Promi
   const submitterIds = [...new Set(rawTeamFeedback.map((row) => normalizeRequiredText(row.user_id)).filter(Boolean))];
   let userDisplayNameById = new Map<string, string>();
 
-  if (access.role === "admin" && submitterIds.length > 0) {
+  if (canReviewTeamFeedback && submitterIds.length > 0) {
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id, email, username, first_name, last_name")
@@ -304,7 +309,7 @@ export async function getFeedbackWorkspace(filters: FeedbackFilters = {}): Promi
   return {
     myFeedback: ((myFeedbackData ?? []) as RawFeedbackRow[]).map((row) => mapFeedbackRow(row)),
     teamFeedback: rawTeamFeedback.map((row) => mapFeedbackRow(row, userDisplayNameById)),
-    canManageTeamFeedback: access.role === "admin"
+    canManageTeamFeedback: canReviewTeamFeedback
   };
 }
 
@@ -336,7 +341,7 @@ export async function submitFeedback(values: FeedbackFormValues) {
 }
 
 export async function updateFeedbackStatus(feedbackId: string, status: FeedbackStatus) {
-  const access = await requireAdminAccess();
+  const access = await requireFeedbackManagementAccess();
 
   if (!(await hasFeedbackModuleSupport())) {
     throw new Error("Feedback is not available in this environment yet.");

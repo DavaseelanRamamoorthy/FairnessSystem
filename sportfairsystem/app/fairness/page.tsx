@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -21,6 +22,8 @@ import {
   Select,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography
 } from "@mui/material";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
@@ -28,6 +31,7 @@ import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
+import MemberFairnessView from "@/app/components/fairness/MemberFairnessView";
 import { useAuth } from "@/app/context/AuthContext";
 import { canAccessFairnessWorkspace } from "@/app/services/accessControlService";
 import { cleanName } from "@/app/services/cleanName";
@@ -231,6 +235,7 @@ function buildMatchComparisonInsights(
 }
 
 export default function FairnessPage() {
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
@@ -764,20 +769,7 @@ export default function FairnessPage() {
   }
 
   if (!hasAccess) {
-    return (
-      <Container maxWidth="xl">
-        <Stack spacing={4}>
-          <TeamPageHeader
-            eyebrow="Leadership Workspace"
-            title="Fairness"
-            description="Organiser and captain workspace for fairness tracking, alerts, and saved matchday management."
-          />
-          <Alert severity="warning" variant="outlined">
-            Only the organiser or captain can access the fairness workspace.
-          </Alert>
-        </Stack>
-      </Container>
-    );
+    return <MemberFairnessView mode="self" />;
   }
 
   return (
@@ -788,22 +780,37 @@ export default function FairnessPage() {
           title="Fairness"
           description="Track authentic planner fairness across saved matchdays, review recent player opportunity history, and manage saved planner records in one place."
           action={(
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel id="fairness-season-label">Season</InputLabel>
-              <Select
-                labelId="fairness-season-label"
-                value={selectedSeason || "all"}
-                label="Season"
-                onChange={(event) => setSelectedSeason(event.target.value)}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+              <ToggleButtonGroup
+                exclusive
+                value="team"
+                onChange={(_event, nextValue) => {
+                  if (nextValue === "mine") {
+                    router.push("/my-fairness");
+                  }
+                }}
               >
-                <MenuItem value="all">All Seasons</MenuItem>
-                {seasons.map((season) => (
-                  <MenuItem key={season.value} value={season.value}>
-                    {season.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                <ToggleButton value="team">Team View</ToggleButton>
+                <ToggleButton value="mine">My View</ToggleButton>
+              </ToggleButtonGroup>
+
+              <FormControl size="small" sx={{ minWidth: 180 }}>
+                <InputLabel id="fairness-season-label">Season</InputLabel>
+                <Select
+                  labelId="fairness-season-label"
+                  value={selectedSeason || "all"}
+                  label="Season"
+                  onChange={(event) => setSelectedSeason(event.target.value)}
+                >
+                  <MenuItem value="all">All Seasons</MenuItem>
+                  {seasons.map((season) => (
+                    <MenuItem key={season.value} value={season.value}>
+                      {season.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
           )}
         />
 

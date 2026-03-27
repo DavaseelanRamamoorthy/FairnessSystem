@@ -36,6 +36,10 @@ import FrontHandRoundedIcon from "@mui/icons-material/FrontHandRounded";
 import PaginationFooter from "@/app/components/common/PaginationFooter";
 import { usePagination } from "@/app/hooks/usePagination";
 import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
+import {
+  canManageIdentityWorkspace,
+  getCurrentWorkspaceAccessSnapshot
+} from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import {
   getPlayerProfile,
@@ -43,7 +47,6 @@ import {
   PlayerProfile,
   SeasonOption
 } from "@/app/services/playerProfileService";
-import { useAuth } from "@/app/context/AuthContext";
 import {
   getPrimarySquadRoleTag
 } from "@/app/services/squadService";
@@ -488,7 +491,6 @@ export default function PlayerProfilePage() {
   const params = useParams<{ playerId: string }>();
   const playerId = Array.isArray(params.playerId) ? params.playerId[0] : params.playerId;
   const theme = useTheme();
-  const { isAdmin } = useAuth();
   const { teamName: activeTeamName } = useActiveTeamBranding();
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
@@ -500,6 +502,8 @@ export default function PlayerProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedMatchId, setExpandedMatchId] = useState<string | false>(false);
+  const [canSeeSelectionUsage, setCanSeeSelectionUsage] = useState(false);
+  const [canManagePlayerSetup, setCanManagePlayerSetup] = useState(false);
   const recentMatchesPagination = usePagination({
     items: profile?.recentMatches ?? [],
     pageSize: RECENT_MATCHES_PAGE_SIZE,
@@ -534,6 +538,35 @@ export default function PlayerProfilePage() {
       storeSeasonFilter(PLAYER_PROFILE_SEASON_STORAGE_KEY, selectedSeason);
     }
   }, [selectedSeason]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadPlayerWorkspaceAccess = async () => {
+      try {
+        const [workspaceAccess, canManageIdentity] = await Promise.all([
+          getCurrentWorkspaceAccessSnapshot(),
+          canManageIdentityWorkspace()
+        ]);
+
+        if (isActive) {
+          setCanSeeSelectionUsage(workspaceAccess.canAccessAnalytics);
+          setCanManagePlayerSetup(canManageIdentity);
+        }
+      } catch {
+        if (isActive) {
+          setCanSeeSelectionUsage(false);
+          setCanManagePlayerSetup(false);
+        }
+      }
+    };
+
+    void loadPlayerWorkspaceAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasResolvedSeason && !selectedSeason) {
@@ -605,7 +638,7 @@ export default function PlayerProfilePage() {
     ? Math.round((profile.activeMatches / profile.totalTeamMatches) * 100)
     : 0;
   const playerSummaryText = profile
-    ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, isAdmin, activeTeamName)
+    ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, canSeeSelectionUsage, activeTeamName)
     : "";
   const bestFitLabel = profile ? getBestFitLabel(profile) : "";
 
@@ -798,7 +831,7 @@ export default function PlayerProfilePage() {
                         </Select>
                       </FormControl>
 
-                      {isAdmin && (
+                      {canManagePlayerSetup && (
                         <Alert severity="info" variant="outlined">
                           Manage player setup in Memberships.
                         </Alert>
@@ -1120,7 +1153,7 @@ export default function PlayerProfilePage() {
                           </Typography>
                         </Stack>
 
-                        {isAdmin && (
+                        {canSeeSelectionUsage && (
                           <Stack direction="row" justifyContent="space-between" spacing={2}>
                             <Typography color="text.secondary">Selection Usage</Typography>
                             <Typography sx={{ color: "text.primary", fontWeight: 700 }}>

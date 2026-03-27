@@ -4,7 +4,8 @@ import {
 } from "@/app/services/accessControlService";
 import {
   getPlannerActualMatchLinkMap,
-  getPlannerActualParticipationByMatch
+  getPlannerActualParticipationByMatch,
+  PlannerActualParticipation
 } from "@/app/services/plannerActualService";
 import { cleanName } from "@/app/services/cleanName";
 import { getPlannerPlayerSummaries } from "@/app/services/playerProfileService";
@@ -36,6 +37,9 @@ export type PlannerFairnessPlayerSummary = {
   xiCount: number;
   twelfthCount: number;
   benchCount: number;
+  unusedInXiCount: number;
+  batCount: number;
+  bowlCount: number;
   unavailableCount: number;
   trackedMatchdays: number;
   availableMatchdays: number;
@@ -107,11 +111,7 @@ function mapBatchDate(row: PlannerBatchRow) {
 
 function didPlayerActuallyParticipate(
   row: PlannerAssignmentRow,
-  actualParticipation:
-    | Awaited<ReturnType<typeof getPlannerActualParticipationByMatch>> extends Map<string, infer T>
-      ? T
-      : never
-    | null
+  actualParticipation: PlannerActualParticipation | null
 ) {
   if (!actualParticipation) {
     return false;
@@ -134,6 +134,43 @@ function didPlayerActuallyParticipate(
       || actualParticipation.bowledNameKeys.has(normalizedPlayerName)
     ))
   );
+}
+
+function getPlayerActualParticipationFlags(
+  row: PlannerAssignmentRow,
+  actualParticipation: PlannerActualParticipation | null
+) {
+  if (!actualParticipation) {
+    return {
+      listed: false,
+      batted: false,
+      bowled: false
+    };
+  }
+
+  const normalizedPlayerName = typeof row.player_name === "string"
+    ? cleanName(row.player_name)
+    : "";
+  const playerId = typeof row.player_id === "string" ? row.player_id : null;
+
+  const listed = Boolean(
+    (playerId && actualParticipation.listedPlayerIds.has(playerId))
+    || (normalizedPlayerName && actualParticipation.listedNameKeys.has(normalizedPlayerName))
+  );
+  const batted = Boolean(
+    (playerId && actualParticipation.battedPlayerIds.has(playerId))
+    || (normalizedPlayerName && actualParticipation.battedNameKeys.has(normalizedPlayerName))
+  );
+  const bowled = Boolean(
+    (playerId && actualParticipation.bowledPlayerIds.has(playerId))
+    || (normalizedPlayerName && actualParticipation.bowledNameKeys.has(normalizedPlayerName))
+  );
+
+  return {
+    listed,
+    batted,
+    bowled
+  };
 }
 
 async function buildPlannerFairnessDashboard(
@@ -321,7 +358,7 @@ async function buildPlannerFairnessDashboard(
         const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
         const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
         const actualLink = batchId && matchNumber
-          ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null
+            ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null
           : null;
         const actualParticipation = actualLink
           ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
@@ -332,6 +369,43 @@ async function buildPlannerFairnessDashboard(
         }
 
         return row.assignment === "bench";
+      }).length;
+      const unusedInXiCount = playerAssignments.filter((row) => {
+        const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
+        const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+        const actualLink = batchId && matchNumber
+          ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null
+          : null;
+        const actualParticipation = actualLink
+          ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
+          : null;
+        const flags = getPlayerActualParticipationFlags(row, actualParticipation);
+
+        return flags.listed && !flags.batted && !flags.bowled;
+      }).length;
+      const batCount = playerAssignments.filter((row) => {
+        const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
+        const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+        const actualLink = batchId && matchNumber
+          ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null
+          : null;
+        const actualParticipation = actualLink
+          ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
+          : null;
+
+        return getPlayerActualParticipationFlags(row, actualParticipation).batted;
+      }).length;
+      const bowlCount = playerAssignments.filter((row) => {
+        const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
+        const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+        const actualLink = batchId && matchNumber
+          ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null
+          : null;
+        const actualParticipation = actualLink
+          ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
+          : null;
+
+        return getPlayerActualParticipationFlags(row, actualParticipation).bowled;
       }).length;
       const unavailableCount = playerAssignments.filter((row) => row.assignment === "unavailable" || row.is_available === false).length;
       const trackedBatchIds = new Set(
@@ -474,6 +548,9 @@ async function buildPlannerFairnessDashboard(
         xiCount,
         twelfthCount,
         benchCount,
+        unusedInXiCount,
+        batCount,
+        bowlCount,
         unavailableCount,
         trackedMatchdays: trackedBatchIds.size,
         availableMatchdays: availableBatchIds.size,

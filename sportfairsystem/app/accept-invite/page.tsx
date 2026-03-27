@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -35,7 +35,7 @@ function buildNextPath(rawToken: string) {
   return `/accept-invite?token=${encodeURIComponent(rawToken)}`;
 }
 
-export default function AcceptInvitePage() {
+function AcceptInvitePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, profile, refreshProfile } = useAuth();
@@ -291,5 +291,27 @@ export default function AcceptInvitePage() {
         </CardContent>
       </Card>
     </Box>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense
+      fallback={(
+        <Box
+          sx={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: `linear-gradient(145deg, ${alpha(INVITE_NAVY, 0.98)} 0%, ${alpha(INVITE_NAVY_MID, 0.96)} 58%, #14337A 100%)`
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      )}
+    >
+      <AcceptInvitePageContent />
+    </Suspense>
   );
 }

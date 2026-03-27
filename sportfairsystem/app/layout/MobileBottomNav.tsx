@@ -16,22 +16,20 @@ import {
 } from "@/app/layout/navigationConfig";
 
 type MobileBottomNavProps = {
-  isAdmin: boolean;
   hasTeam: boolean;
   canAccessPlanner: boolean;
   onOpenMore: () => void;
 };
 
 export default function MobileBottomNav({
-  isAdmin,
   hasTeam,
   canAccessPlanner,
   onOpenMore
 }: MobileBottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const navigationValue = getMobileNavigationValue(pathname, isAdmin, hasTeam, canAccessPlanner);
-  const primaryItems = getMobilePrimaryNavItems(isAdmin, hasTeam, canAccessPlanner);
+  const navigationValue = getMobileNavigationValue(pathname, hasTeam, canAccessPlanner);
+  const primaryItems = getMobilePrimaryNavItems(hasTeam, canAccessPlanner);
 
   return (
     <Paper

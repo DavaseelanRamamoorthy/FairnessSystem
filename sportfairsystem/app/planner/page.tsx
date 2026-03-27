@@ -42,6 +42,7 @@ import {
 } from "@/app/services/playerProfileService";
 import {
   buildPlannerSuggestion,
+  buildPlannerSuggestionForRelease,
   FriendlyMatchAvailabilityOverrides,
   parseAttendanceWorkbook,
   PlannerSuggestion,
@@ -473,24 +474,33 @@ export default function PlannerPage() {
     setGeneratedMode(null);
   };
 
-  const handleFriendlyGenerate = () => {
+  const handleFriendlyGenerate = async () => {
     if (!selectedWeekend) {
       setErrorMessage("Upload the attendance workbook and choose a weekend before generating the friendly matchday plans.");
       return;
     }
 
-    setErrorMessage(null);
-    const nextSuggestion = buildPlannerSuggestion(
-      players,
-      selectedWeekend.availableNames,
-      selectedMatchCount,
-      undefined,
-      selectedFriendlyWicketKeeperId || undefined,
-      "friendly",
-      buildFriendlyMatchAvailabilityOverrides(manualFriendlyMatchAvailability, selectedMatchCount)
-    );
-    setGeneratedSuggestion(nextSuggestion);
-    setGeneratedMode("friendly");
+    try {
+      setErrorMessage(null);
+      const nextSuggestion = await buildPlannerSuggestionForRelease(
+        players,
+        selectedWeekend.availableNames,
+        selectedMatchCount,
+        undefined,
+        selectedFriendlyWicketKeeperId || undefined,
+        "friendly",
+        buildFriendlyMatchAvailabilityOverrides(manualFriendlyMatchAvailability, selectedMatchCount),
+        selectedSeason || undefined
+      );
+      setGeneratedSuggestion(nextSuggestion);
+      setGeneratedMode("friendly");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not generate the friendly planner."
+      );
+      setGeneratedSuggestion(null);
+      setGeneratedMode(null);
+    }
   };
 
   const handleFriendlySave = async () => {

@@ -22,6 +22,7 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
+  FormHelperText,
   Grid,
   InputLabel,
   MenuItem,
@@ -42,11 +43,11 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import EventRepeatRoundedIcon from "@mui/icons-material/EventRepeatRounded";
 import GroupAddRoundedIcon from "@mui/icons-material/GroupAddRounded";
-import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
+import CreatePlayerIconButton from "@/app/components/common/CreatePlayerIconButton";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import PlayerRosterDialog, { CreateRosterPlayerValues } from "@/app/components/players/PlayerRosterDialog";
 import {
@@ -105,6 +106,7 @@ import {
   updateSquadPlayerMetadata
 } from "@/app/services/squadService";
 import {
+  getTeamBusinessRoleLabel,
   TEAM_BUSINESS_ROLE_OPTIONS
 } from "@/app/services/teamRoles";
 
@@ -292,6 +294,7 @@ function JoinRequestManagementSection({
   const [approvalRole, setApprovalRole] = useState<TeamMembershipRole>("player");
   const [approvalSeasonId, setApprovalSeasonId] = useState("");
   const [approvalExistingMemberId, setApprovalExistingMemberId] = useState("");
+  const [approvalLinkDecisionMade, setApprovalLinkDecisionMade] = useState(false);
 
   const unclaimedMembershipOptions = useMemo(
     () => memberships.filter((membership) => !membership.userId),
@@ -304,6 +307,8 @@ function JoinRequestManagementSection({
   const selectedSuggestedMembership = suggestedExistingMembers.find(
     (candidate) => candidate.membership.memberId === approvalExistingMemberId
   ) ?? null;
+  const approvalRoleOption = TEAM_BUSINESS_ROLE_OPTIONS.find((option) => option.value === approvalRole) ?? null;
+  const requiresExplicitLinkDecision = suggestedExistingMembers.length > 0 && !approvalLinkDecisionMade;
 
   const openApproveDialog = (request: TeamJoinRequestRecord) => {
     const activeSeason = seasons.find((season) => season.isActive) ?? seasons[0] ?? null;
@@ -313,6 +318,7 @@ function JoinRequestManagementSection({
     setApprovalRole(defaultSuggestedMembership?.role ?? "player");
     setApprovalSeasonId(defaultSuggestedMembership?.seasonId ?? activeSeason?.id ?? "");
     setApprovalExistingMemberId(defaultSuggestedMembership?.memberId ?? "");
+    setApprovalLinkDecisionMade(Boolean(defaultSuggestedMembership) || defaultSuggestions.length === 0);
     onErrorMessage(null);
     onSuccessMessage(null);
   };
@@ -326,10 +332,12 @@ function JoinRequestManagementSection({
     setApprovalRole("player");
     setApprovalSeasonId("");
     setApprovalExistingMemberId("");
+    setApprovalLinkDecisionMade(false);
   };
 
   const handleExistingMemberDraftChange = (memberId: string) => {
     setApprovalExistingMemberId(memberId);
+    setApprovalLinkDecisionMade(true);
 
     if (!memberId) {
       return;
@@ -358,6 +366,11 @@ function JoinRequestManagementSection({
       return;
     }
 
+    if (requiresExplicitLinkDecision) {
+      onErrorMessage("Choose whether to link this request to an existing member or create a new member before approving.");
+      return;
+    }
+
     const approvalInput: ApproveTeamJoinRequestInput = {
       role: approvalRole,
       seasonId: approvalSeasonId,
@@ -375,6 +388,7 @@ function JoinRequestManagementSection({
       setApprovalRole("player");
       setApprovalSeasonId("");
       setApprovalExistingMemberId("");
+      setApprovalLinkDecisionMade(false);
     } catch (error) {
       onErrorMessage(error instanceof Error ? error.message : "Could not approve the team join request.");
     } finally {
@@ -516,6 +530,12 @@ function JoinRequestManagementSection({
               </Alert>
             )}
 
+            {requiresExplicitLinkDecision && (
+              <Alert severity="warning">
+                Choose whether this requester should link to an existing unclaimed member or create a new member before approval continues.
+              </Alert>
+            )}
+
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl size="small" fullWidth>
@@ -532,6 +552,9 @@ function JoinRequestManagementSection({
                       </MenuItem>
                     ))}
                   </Select>
+                  <FormHelperText>
+                    {approvalRoleOption?.helper ?? `${getTeamBusinessRoleLabel(approvalRole)} access will be applied during approval.`}
+                  </FormHelperText>
                 </FormControl>
               </Grid>
 
@@ -570,6 +593,13 @@ function JoinRequestManagementSection({
                       </MenuItem>
                     ))}
                   </Select>
+                  <FormHelperText>
+                    {requiresExplicitLinkDecision
+                      ? "Review the suggested matches and explicitly choose Create new member or a linked member."
+                      : approvalExistingMemberId
+                        ? "This request will attach to the selected unclaimed member."
+                        : "Leave this on Create new member to approve the requester as a brand-new member."}
+                  </FormHelperText>
                 </FormControl>
               </Grid>
             </Grid>
@@ -588,7 +618,13 @@ function JoinRequestManagementSection({
           <Button
             variant="contained"
             onClick={() => void handleApprove()}
-            disabled={Boolean(processingRequestId) || !approvalRequest || !approvalSeasonId || seasons.length === 0}
+            disabled={
+              Boolean(processingRequestId)
+              || !approvalRequest
+              || !approvalSeasonId
+              || seasons.length === 0
+              || requiresExplicitLinkDecision
+            }
           >
             {processingRequestId ? "Approving..." : "Approve Request"}
           </Button>
@@ -2013,14 +2049,7 @@ export default function MembershipsPage() {
                         <Chip icon={<EventRepeatRoundedIcon />} label={`${seasons.length} season${seasons.length === 1 ? "" : "s"}`} size="small" variant="outlined" />
                         <Chip label={`${activeSeasonCount} active season${activeSeasonCount === 1 ? "" : "s"}`} size="small" color={activeSeasonCount > 0 ? "success" : "default"} variant="outlined" />
                         {canManageRosterPlayerCreation && (
-                          <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<PersonAddAlt1RoundedIcon />}
-                            onClick={handleOpenCreateRosterPlayerDialog}
-                          >
-                            Create Player
-                          </Button>
+                          <CreatePlayerIconButton onClick={handleOpenCreateRosterPlayerDialog} />
                         )}
                       </Stack>
                     </Stack>
@@ -2283,14 +2312,9 @@ export default function MembershipsPage() {
                                     {canManageRosterPlayerCreation
                                       && !(draftPlayerIds[membership.memberId] ?? membership.playerId ?? "")
                                       && isEditingMember && (
-                                        <Button
-                                          variant="outlined"
-                                          size="small"
-                                          startIcon={<PersonAddAlt1RoundedIcon />}
+                                        <CreatePlayerIconButton
                                           onClick={() => handleOpenLinkedPlayerDialog(membership.memberId)}
-                                        >
-                                          Create Player
-                                        </Button>
+                                        />
                                       )}
                                   </Stack>
                                 </Box>
@@ -2356,15 +2380,11 @@ export default function MembershipsPage() {
                                         </>
                                       ) : (
                                         canManageRosterPlayerCreation && isEditingMember && (
-                                          <Button
-                                            variant="outlined"
-                                            size="small"
-                                            startIcon={<PersonAddAlt1RoundedIcon />}
-                                            onClick={() => handleOpenLinkedPlayerDialog(membership.memberId)}
-                                            sx={{ alignSelf: "flex-start" }}
-                                          >
-                                            Create Player
-                                          </Button>
+                                          <Box sx={{ alignSelf: "flex-start" }}>
+                                            <CreatePlayerIconButton
+                                              onClick={() => handleOpenLinkedPlayerDialog(membership.memberId)}
+                                            />
+                                          </Box>
                                         )
                                       )}
                                     </Stack>

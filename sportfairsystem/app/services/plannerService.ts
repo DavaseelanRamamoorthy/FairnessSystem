@@ -3,6 +3,13 @@ import * as XLSX from "xlsx";
 import { PlannerPlayerSummary, PlayerSummary } from "@/app/services/playerProfileService";
 import { cleanName } from "@/app/services/cleanName";
 import { CricketRulebook, inferCricketRulebook } from "@/app/services/cricketRulebook";
+import {
+  PlannerActualParticipation,
+  getPlannerActualMatchLinkMap,
+  getPlannerActualParticipationByMatch
+} from "@/app/services/plannerActualService";
+import { getActiveTeamContext } from "@/app/services/teamContextService";
+import { supabase } from "@/app/services/supabaseClient";
 
 export type PlannerWeekendOption = {
   id: string;
@@ -25,6 +32,8 @@ export type PlannerPlayer = PlayerSummary & {
   normalizedInitial: string | null;
   plannerRole: "batter" | "bowler" | "all-rounder";
   plannerScore: number;
+  previousOpportunityStatus: PlannerOpportunityStatus;
+  previousOpportunityBoost: number;
 };
 
 export type MatchPlan = {
@@ -57,6 +66,37 @@ export type PlannerSuggestion = {
 
 export type PlannerGenerationMode = "friendly" | "tournament";
 export type FriendlyMatchAvailabilityOverrides = Record<string, number[]>;
+export type PlannerOpportunityStatus =
+  | "fully_utilized"
+  | "unused_in_xi"
+  | "bench_or_12th"
+  | "not_selected"
+  | "unavailable"
+  | "unknown";
+
+type PlannerBatchLookupRow = {
+  id?: unknown;
+  weekend_date?: unknown;
+  weekend_label?: unknown;
+  created_at?: unknown;
+};
+
+type PlannerAssignmentLookupRow = {
+  batch_id?: unknown;
+  match_number?: unknown;
+  player_id?: unknown;
+  member_id?: unknown;
+  player_name?: unknown;
+  assignment?: unknown;
+  is_available?: unknown;
+};
+
+type FriendlyOpportunityCorrectionContext = {
+  source: "actual" | "planned";
+  statusesByPlayerId: Map<string, PlannerOpportunityStatus>;
+  boostedPlayers: string[];
+  reprioritizedPlayers: string[];
+};
 
 function excelSerialToIsoDate(value: number) {
   const parsed = XLSX.SSF.parse_date_code(value);
@@ -219,6 +259,78 @@ function getPlannerScore(player: PlayerSummary) {
   return score;
 }
 
+function isPlannerPersistenceMissingError(error: { code?: string | null } | null) {
+  return error?.code === "42P01" || error?.code === "42703";
+}
+
+function getOpportunityBoost(status: PlannerOpportunityStatus) {
+  switch (status) {
+    case "unused_in_xi":
+      return 20;
+    case "bench_or_12th":
+      return 10;
+    case "not_selected":
+      return 5;
+    default:
+      return 0;
+  }
+}
+
+function getOpportunityPriority(status: PlannerOpportunityStatus) {
+  switch (status) {
+    case "unused_in_xi":
+      return 0;
+    case "bench_or_12th":
+      return 1;
+    case "not_selected":
+      return 2;
+    case "fully_utilized":
+      return 3;
+    case "unknown":
+      return 4;
+    case "unavailable":
+      return 5;
+    default:
+      return 6;
+  }
+}
+
+function compareOpportunityForSelection(left: PlannerPlayer, right: PlannerPlayer) {
+  const priorityDelta =
+    getOpportunityPriority(left.previousOpportunityStatus)
+    - getOpportunityPriority(right.previousOpportunityStatus);
+
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+
+  if (right.previousOpportunityBoost !== left.previousOpportunityBoost) {
+    return right.previousOpportunityBoost - left.previousOpportunityBoost;
+  }
+
+  if (right.plannerScore !== left.plannerScore) {
+    return right.plannerScore - left.plannerScore;
+  }
+
+  return left.name.localeCompare(right.name);
+}
+
+function compareOpportunityForBenching(left: PlannerPlayer, right: PlannerPlayer) {
+  const priorityDelta =
+    getOpportunityPriority(right.previousOpportunityStatus)
+    - getOpportunityPriority(left.previousOpportunityStatus);
+
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+
+  if (left.previousOpportunityBoost !== right.previousOpportunityBoost) {
+    return left.previousOpportunityBoost - right.previousOpportunityBoost;
+  }
+
+  return 0;
+}
+
 function normalizePlannerToken(token: string) {
   return token.replace(/[^A-Z0-9]/g, "").trim();
 }
@@ -358,6 +470,269 @@ function findPlannerIdentityMatch(
 
 function getUniquePlannerPlayer(candidates: PlannerPlayer[]) {
   return candidates.length === 1 ? candidates[0] : null;
+}
+
+function didPlayerActuallyAppearInXi(
+  row: PlannerAssignmentLookupRow,
+  actualParticipation: PlannerActualParticipation | null
+) {
+  if (!actualParticipation) {
+    return false;
+  }
+
+  const normalizedPlayerName = typeof row.player_name === "string"
+    ? cleanName(row.player_name)
+    : "";
+  const playerId = typeof row.player_id === "string" ? row.player_id : null;
+
+  return Boolean(
+    (playerId && actualParticipation.listedPlayerIds.has(playerId))
+    || (normalizedPlayerName && actualParticipation.listedNameKeys.has(normalizedPlayerName))
+  );
+}
+
+function didPlayerActuallyUtilizeOpportunity(
+  row: PlannerAssignmentLookupRow,
+  actualParticipation: PlannerActualParticipation | null
+) {
+  if (!actualParticipation) {
+    return false;
+  }
+
+  const normalizedPlayerName = typeof row.player_name === "string"
+    ? cleanName(row.player_name)
+    : "";
+  const playerId = typeof row.player_id === "string" ? row.player_id : null;
+
+  return Boolean(
+    (playerId && (
+      actualParticipation.battedPlayerIds.has(playerId)
+      || actualParticipation.bowledPlayerIds.has(playerId)
+    ))
+    || (normalizedPlayerName && (
+      actualParticipation.battedNameKeys.has(normalizedPlayerName)
+      || actualParticipation.bowledNameKeys.has(normalizedPlayerName)
+    ))
+  );
+}
+
+function classifyFriendlyPlannedOpportunity(
+  rows: PlannerAssignmentLookupRow[]
+): PlannerOpportunityStatus {
+  if (rows.length === 0) {
+    return "unknown";
+  }
+
+  const hasAvailableAssignment = rows.some(
+    (row) => row.is_available !== false && row.assignment !== "unavailable"
+  );
+
+  if (!hasAvailableAssignment) {
+    return "unavailable";
+  }
+
+  if (rows.some((row) => row.assignment === "xi")) {
+    return "fully_utilized";
+  }
+
+  if (rows.some((row) => row.assignment === "twelfth" || row.assignment === "bench")) {
+    return "bench_or_12th";
+  }
+
+  if (hasAvailableAssignment) {
+    return "not_selected";
+  }
+
+  return "unknown";
+}
+
+function classifyFriendlyActualOpportunity(
+  rows: PlannerAssignmentLookupRow[],
+  actualLinkMap: Map<string, { matchId: string }>,
+  actualParticipationByMatchId: Map<string, PlannerActualParticipation>
+): PlannerOpportunityStatus {
+  if (rows.length === 0) {
+    return "unknown";
+  }
+
+  const availableRows = rows.filter((row) => row.is_available !== false && row.assignment !== "unavailable");
+
+  if (availableRows.length === 0) {
+    return "unavailable";
+  }
+
+  const utilizedActualRows = availableRows.filter((row) => {
+    const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
+    const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+    const actualLink = batchId && matchNumber ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null : null;
+    const actualParticipation = actualLink
+      ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
+      : null;
+
+    return didPlayerActuallyUtilizeOpportunity(row, actualParticipation);
+  });
+
+  if (utilizedActualRows.length > 0) {
+    return "fully_utilized";
+  }
+
+  const listedActualRows = availableRows.filter((row) => {
+    const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
+    const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+    const actualLink = batchId && matchNumber ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null : null;
+    const actualParticipation = actualLink
+      ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
+      : null;
+
+    return didPlayerActuallyAppearInXi(row, actualParticipation);
+  });
+
+  if (listedActualRows.length > 0) {
+    return "unused_in_xi";
+  }
+
+  if (availableRows.some((row) => row.assignment === "twelfth" || row.assignment === "bench")) {
+    return "bench_or_12th";
+  }
+
+  if (availableRows.length > 0) {
+    return "not_selected";
+  }
+
+  return "unknown";
+}
+
+async function getFriendlyOpportunityCorrectionContext(
+  players: PlannerPlayerSummary[],
+  season?: string
+): Promise<FriendlyOpportunityCorrectionContext | null> {
+  if (players.length === 0) {
+    return null;
+  }
+
+  const { teamId } = await getActiveTeamContext();
+  let batchesQuery = supabase
+    .from("planner_matchday_batches")
+    .select("id, weekend_date, weekend_label, created_at")
+    .eq("team_id", teamId)
+    .eq("planner_mode", "friendly")
+    .order("weekend_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  if (season) {
+    batchesQuery = batchesQuery.eq("season", season);
+  }
+
+  const { data: batchData, error: batchError } = await batchesQuery;
+
+  if (batchError) {
+    if (isPlannerPersistenceMissingError(batchError)) {
+      return null;
+    }
+
+    throw new Error("Could not load the previous planner matchday for fairness correction.");
+  }
+
+  const batchRows = (batchData ?? []) as PlannerBatchLookupRow[];
+  const orderedBatchIds = batchRows
+    .flatMap((row) => (typeof row.id === "string" ? [row.id] : []));
+
+  if (orderedBatchIds.length === 0) {
+    return null;
+  }
+
+  const actualLinkMap = await getPlannerActualMatchLinkMap(teamId, orderedBatchIds);
+  const firstBatchWithActual = orderedBatchIds.find((batchId) =>
+    Array.from(actualLinkMap.keys()).some((key) => key.startsWith(`${batchId}:`))
+  ) ?? null;
+  const targetBatchId = firstBatchWithActual ?? orderedBatchIds[0];
+  const source = firstBatchWithActual ? "actual" as const : "planned" as const;
+
+  const { data: assignmentData, error: assignmentError } = await supabase
+    .from("planner_matchday_assignments")
+    .select("batch_id, match_number, player_id, member_id, player_name, assignment, is_available")
+    .eq("team_id", teamId)
+    .eq("batch_id", targetBatchId);
+
+  if (assignmentError) {
+    if (isPlannerPersistenceMissingError(assignmentError)) {
+      return null;
+    }
+
+    throw new Error("Could not load the previous planner assignments for fairness correction.");
+  }
+
+  const assignmentRows = (assignmentData ?? []) as PlannerAssignmentLookupRow[];
+
+  if (assignmentRows.length === 0) {
+    return null;
+  }
+
+  const targetLinkMap = new Map(
+    Array.from(actualLinkMap.entries()).filter(([key]) => key.startsWith(`${targetBatchId}:`))
+  );
+  const targetMatchIds = Array.from(new Set(Array.from(targetLinkMap.values()).map((row) => row.matchId)));
+  const actualParticipationByMatchId = source === "actual"
+    ? await getPlannerActualParticipationByMatch(teamId, targetMatchIds)
+    : new Map<string, PlannerActualParticipation>();
+  const assignmentsByIdentityId = new Map<string, PlannerAssignmentLookupRow[]>();
+
+  assignmentRows.forEach((row) => {
+    const identityId = typeof row.member_id === "string"
+      ? row.member_id
+      : typeof row.player_id === "string"
+        ? row.player_id
+        : null;
+
+    if (!identityId) {
+      return;
+    }
+
+    const currentRows = assignmentsByIdentityId.get(identityId) ?? [];
+    currentRows.push(row);
+    assignmentsByIdentityId.set(identityId, currentRows);
+  });
+
+  const statusesByPlayerId = new Map<string, PlannerOpportunityStatus>();
+  const boostedPlayers: string[] = [];
+  const reprioritizedPlayers: string[] = [];
+
+  players.forEach((player) => {
+    const rows = [
+      ...(assignmentsByIdentityId.get(player.memberId) ?? []),
+      ...(player.playerId ? (assignmentsByIdentityId.get(player.playerId) ?? []) : [])
+    ].filter((row, index, currentRows) =>
+      currentRows.findIndex((candidate) =>
+        candidate.batch_id === row.batch_id
+        && candidate.match_number === row.match_number
+        && candidate.assignment === row.assignment
+        && candidate.member_id === row.member_id
+        && candidate.player_id === row.player_id
+      ) === index
+    );
+
+    const status = source === "actual"
+      ? classifyFriendlyActualOpportunity(rows, targetLinkMap, actualParticipationByMatchId)
+      : classifyFriendlyPlannedOpportunity(rows);
+
+    statusesByPlayerId.set(player.id, status);
+
+    if (getOpportunityBoost(status) > 0) {
+      boostedPlayers.push(player.name);
+    }
+
+    if (status === "unused_in_xi") {
+      reprioritizedPlayers.push(player.name);
+    }
+  });
+
+  return {
+    source,
+    statusesByPlayerId,
+    boostedPlayers,
+    reprioritizedPlayers
+  };
 }
 
 function findPlannerPlayerMatchForTokens(players: PlannerPlayer[], attendanceTokens: string[]) {
@@ -576,6 +951,12 @@ function sortFriendlyBenchCandidates(
   statsByPlayerId: Map<string, FriendlyRotationStats>
 ) {
   return [...candidates].sort((left, right) => {
+    const opportunityDelta = compareOpportunityForBenching(left, right);
+
+    if (opportunityDelta !== 0) {
+      return opportunityDelta;
+    }
+
     const leftStats = statsByPlayerId.get(left.id);
     const rightStats = statsByPlayerId.get(right.id);
     const leftBenchCount = leftStats?.benchCount ?? 0;
@@ -606,11 +987,7 @@ function sortFriendlyBenchCandidates(
       return leftLastAppearance - rightLastAppearance;
     }
 
-    if (right.plannerScore !== left.plannerScore) {
-      return right.plannerScore - left.plannerScore;
-    }
-
-    return left.name.localeCompare(right.name);
+    return compareOpportunityForSelection(left, right);
   });
 }
 
@@ -619,6 +996,12 @@ function sortFriendlyTwelfthCandidates(
   statsByPlayerId: Map<string, FriendlyRotationStats>
 ) {
   return [...candidates].sort((left, right) => {
+    const opportunityDelta = compareOpportunityForSelection(left, right);
+
+    if (opportunityDelta !== 0) {
+      return opportunityDelta;
+    }
+
     const leftStats = statsByPlayerId.get(left.id);
     const rightStats = statsByPlayerId.get(right.id);
     const leftTwelfthCount = leftStats?.twelfthCount ?? 0;
@@ -642,7 +1025,7 @@ function sortFriendlyTwelfthCandidates(
       return rightXiCount - leftXiCount;
     }
 
-    return left.name.localeCompare(right.name);
+    return compareOpportunityForSelection(left, right);
   });
 }
 
@@ -710,27 +1093,32 @@ function buildFriendlyMatchPlans(
   };
 
   for (let matchNumber = 1; matchNumber <= matchCount; matchNumber += 1) {
-    const eligiblePlayers = players.filter((player) => {
-      const eligibleMatches = matchAvailabilityOverrides?.[player.id];
+    const eligiblePlayers = players
+      .filter((player) => {
+        const eligibleMatches = matchAvailabilityOverrides?.[player.id];
 
-      if (!eligibleMatches) {
-        return true;
-      }
+        if (!eligibleMatches) {
+          return true;
+        }
 
-      if (eligibleMatches.length === 0) {
-        return false;
-      }
+        if (eligibleMatches.length === 0) {
+          return false;
+        }
 
-      return eligibleMatches.includes(matchNumber);
-    });
+        return eligibleMatches.includes(matchNumber);
+      })
+      .sort(compareOpportunityForSelection);
     const captain = eligiblePlayers.find((player) => player.isCaptain) ?? null;
     const wicketKeeper = eligiblePlayers.find((player) => player.id === preferredWicketKeeperId)
       ?? eligiblePlayers.find((player) => player.isWicketKeeper)
       ?? null;
+    const lockedIds = new Set<string>(
+      [captain?.id, wicketKeeper?.id].filter((value): value is string => Boolean(value))
+    );
     const benchSlots = Math.max(0, eligiblePlayers.length - 11);
     const benchIds = new Set<string>();
     const benchCandidates = sortFriendlyBenchCandidates(
-      eligiblePlayers.filter((player) => !player.isCaptain),
+      eligiblePlayers.filter((player) => !lockedIds.has(player.id)),
       statsByPlayerId
     );
 
@@ -754,8 +1142,23 @@ function buildFriendlyMatchPlans(
       });
     }
 
-    const playingXi = eligiblePlayers.filter((player) => !benchIds.has(player.id)).slice(0, 11);
-    const selectedIds = new Set(playingXi.map((player) => player.id));
+    const lockedPlayingXi = [
+      captain,
+      wicketKeeper
+    ].filter((player, index, currentPlayers): player is PlannerPlayer => {
+      if (!player) {
+        return false;
+      }
+
+      return (
+        !benchIds.has(player.id)
+        && currentPlayers.findIndex((candidate) => candidate?.id === player.id) === index
+      );
+    });
+    const nonLockedPlayingXi = eligiblePlayers
+      .filter((player) => !benchIds.has(player.id) && !lockedIds.has(player.id))
+      .sort(compareOpportunityForSelection);
+    const playingXi = [...lockedPlayingXi, ...nonLockedPlayingXi].slice(0, 11);
     const benchPlayers = eligiblePlayers.filter((player) => benchIds.has(player.id));
     const twelfthCandidates = sortFriendlyTwelfthCandidates(benchPlayers, statsByPlayerId);
     const twelfthMan = twelfthCandidates[0] ?? null;
@@ -787,14 +1190,15 @@ function buildFriendlyMatchPlans(
   return matchPlans;
 }
 
-export function buildPlannerSuggestion(
+function buildPlannerSuggestionInternal(
   players: PlannerPlayerSummary[],
   availableNames: string[],
   maxMatches: number,
   manualAvailabilityOverrides?: Record<string, boolean>,
   preferredWicketKeeperId?: string,
   plannerMode: PlannerGenerationMode = "friendly",
-  friendlyMatchAvailabilityOverrides?: FriendlyMatchAvailabilityOverrides
+  friendlyMatchAvailabilityOverrides?: FriendlyMatchAvailabilityOverrides,
+  opportunityContext?: FriendlyOpportunityCorrectionContext | null
 ): PlannerSuggestion {
   const rulebook = inferCricketRulebook("T10", "T10");
   const enhancedPlayers: PlannerPlayer[] = players
@@ -806,9 +1210,24 @@ export function buildPlannerSuggestion(
       normalizedTokens: tokenizePlannerName(player.name),
       normalizedInitial: getPlannerInitial(tokenizePlannerName(player.name)),
       plannerRole: getPlannerRole(player),
+      previousOpportunityStatus: plannerMode === "friendly"
+        ? (opportunityContext?.statusesByPlayerId.get(player.id) ?? "unknown")
+        : "unknown",
+      previousOpportunityBoost: plannerMode === "friendly"
+        ? getOpportunityBoost(opportunityContext?.statusesByPlayerId.get(player.id) ?? "unknown")
+        : 0,
       plannerScore: getPlannerScore(player)
+        + (
+          plannerMode === "friendly"
+            ? getOpportunityBoost(opportunityContext?.statusesByPlayerId.get(player.id) ?? "unknown")
+            : 0
+        )
     }))
     .sort((left, right) => {
+      if (plannerMode === "friendly") {
+        return compareOpportunityForSelection(left, right);
+      }
+
       if (right.plannerScore !== left.plannerScore) {
         return right.plannerScore - left.plannerScore;
       }
@@ -935,6 +1354,18 @@ export function buildPlannerSuggestion(
     notes.push(`Only ${bowlingCoverage} bowling option${bowlingCoverage === 1 ? "" : "s"} were matched. The generated XI may be light on bowling coverage.`);
   }
 
+  if (plannerMode === "friendly" && opportunityContext) {
+    if (opportunityContext.source === "actual") {
+      notes.push(
+        "Previous actual-result correction applied for available unused_in_xi players."
+      );
+    } else {
+      notes.push(
+        "No linked actual result exists for the previous friendly matchday. The planner fell back to the saved fairness history ordering."
+      );
+    }
+  }
+
   return {
     rulebook,
     availablePlayers,
@@ -945,4 +1376,51 @@ export function buildPlannerSuggestion(
     reserves,
     notes
   };
+}
+
+export function buildPlannerSuggestion(
+  players: PlannerPlayerSummary[],
+  availableNames: string[],
+  maxMatches: number,
+  manualAvailabilityOverrides?: Record<string, boolean>,
+  preferredWicketKeeperId?: string,
+  plannerMode: PlannerGenerationMode = "friendly",
+  friendlyMatchAvailabilityOverrides?: FriendlyMatchAvailabilityOverrides
+): PlannerSuggestion {
+  return buildPlannerSuggestionInternal(
+    players,
+    availableNames,
+    maxMatches,
+    manualAvailabilityOverrides,
+    preferredWicketKeeperId,
+    plannerMode,
+    friendlyMatchAvailabilityOverrides,
+    null
+  );
+}
+
+export async function buildPlannerSuggestionForRelease(
+  players: PlannerPlayerSummary[],
+  availableNames: string[],
+  maxMatches: number,
+  manualAvailabilityOverrides?: Record<string, boolean>,
+  preferredWicketKeeperId?: string,
+  plannerMode: PlannerGenerationMode = "friendly",
+  friendlyMatchAvailabilityOverrides?: FriendlyMatchAvailabilityOverrides,
+  season?: string
+): Promise<PlannerSuggestion> {
+  const opportunityContext = plannerMode === "friendly"
+    ? await getFriendlyOpportunityCorrectionContext(players, season)
+    : null;
+
+  return buildPlannerSuggestionInternal(
+    players,
+    availableNames,
+    maxMatches,
+    manualAvailabilityOverrides,
+    preferredWicketKeeperId,
+    plannerMode,
+    friendlyMatchAvailabilityOverrides,
+    opportunityContext
+  );
 }

@@ -30,9 +30,9 @@ import { getMobileMoreNavItems, isNavPathActive } from "@/app/layout/navigationC
 
 type MobileMoreSheetProps = {
   open: boolean;
-  isAdmin: boolean;
   hasTeam: boolean;
   canSeeFairness: boolean;
+  canAccessPlanner: boolean;
   canAccessMemberships: boolean;
   canAccessAnalytics: boolean;
   canAccessValidation: boolean;
@@ -43,9 +43,9 @@ type MobileMoreSheetProps = {
 
 export default function MobileMoreSheet({
   open,
-  isAdmin,
   hasTeam,
   canSeeFairness,
+  canAccessPlanner,
   canAccessMemberships,
   canAccessAnalytics,
   canAccessValidation,
@@ -55,11 +55,9 @@ export default function MobileMoreSheet({
 }: MobileMoreSheetProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
-  const effectiveCanSeeFairness = hasTeam ? canSeeFairness : false;
   const moreItems = getMobileMoreNavItems(
-    isAdmin,
-    effectiveCanSeeFairness,
     hasTeam,
+    canAccessPlanner,
     canAccessMemberships,
     canAccessAnalytics,
     canAccessValidation,
@@ -70,6 +68,14 @@ export default function MobileMoreSheet({
     || profile?.username
     || profile?.email
     || "Profile";
+  const accessLabel = !hasTeam
+    ? "Profile Only"
+    : [
+      canAccessMemberships ? "Memberships" : null,
+      canAccessValidation ? "Validation" : null,
+      canAccessAnalytics ? "Analytics" : null,
+      canSeeFairness ? "Fairness" : null
+    ].filter(Boolean).join(", ") || "Team Member";
 
   return (
     <Drawer
@@ -120,9 +126,7 @@ export default function MobileMoreSheet({
               {profileDisplayName}
             </Typography>
             <Chip
-              label={hasTeam
-                ? (profile?.role === "admin" ? "Admin Access" : "Member Access")
-                : "Profile Only"}
+              label={accessLabel}
               size="small"
               sx={{
                 alignSelf: "flex-start",

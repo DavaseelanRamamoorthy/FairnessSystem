@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
-import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import {
   Alert,
   Box,
@@ -21,6 +21,8 @@ import {
   MenuItem,
   Select,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
@@ -138,6 +140,7 @@ export default function MemberFairnessView({
   mode,
   memberId
 }: MemberFairnessViewProps) {
+  const router = useRouter();
   const { isAuthenticated, profile } = useAuth();
   const { teamName } = useActiveTeamBranding();
   const [canSeeLeadership, setCanSeeLeadership] = useState(false);
@@ -293,6 +296,21 @@ export default function MemberFairnessView({
           description={pageDescription}
           action={(
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+              {mode === "self" && canSeeLeadership ? (
+                <ToggleButtonGroup
+                  exclusive
+                  value="mine"
+                  onChange={(_event, nextValue) => {
+                    if (nextValue === "team") {
+                      router.push("/fairness");
+                    }
+                  }}
+                >
+                  <ToggleButton value="team">Team View</ToggleButton>
+                  <ToggleButton value="mine">My View</ToggleButton>
+                </ToggleButtonGroup>
+              ) : null}
+
               <FormControl size="small">
                 <InputLabel id={`${mode}-fairness-season-label`}>Season</InputLabel>
                 <Select
@@ -323,15 +341,7 @@ export default function MemberFairnessView({
               ) : null}
 
               {mode === "self" && canSeeLeadership ? (
-                <Button
-                  component={Link}
-                  href="/fairness"
-                  variant="outlined"
-                  startIcon={<OpenInNewRoundedIcon />}
-                  sx={headerActionButtonSx}
-                >
-                  Leadership Workspace
-                </Button>
+                null
               ) : null}
             </Stack>
           )}

@@ -1,0 +1,220 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]
+  - alert [ref=e32]
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e40]:
+        - text: Team Space
+        - heading [level=5] [ref=e41]: Moonwalkers
+      - list [ref=e42]:
+        - link [ref=e43] [cursor=pointer]:
+          - /url: /dashboard
+          - button [ref=e44]:
+            - img [ref=e46]
+            - generic [ref=e49]: Dashboard
+        - link [ref=e50] [cursor=pointer]:
+          - /url: /matches
+          - button [ref=e51]:
+            - img [ref=e53]
+            - generic [ref=e57]: Matches
+        - link [ref=e58] [cursor=pointer]:
+          - /url: /players
+          - button [ref=e59]:
+            - img [ref=e61]
+            - generic [ref=e64]: Squad
+        - link [ref=e65] [cursor=pointer]:
+          - /url: /fairness
+          - button [ref=e66]:
+            - img [ref=e68]
+            - generic [ref=e71]: Fairness
+        - link [ref=e72] [cursor=pointer]:
+          - /url: /feedback
+          - button [ref=e73]:
+            - img [ref=e75]
+            - generic [ref=e78]: Feedback
+      - button [ref=e80] [cursor=pointer]:
+        - generic [ref=e82]: D
+        - generic [ref=e84]: deshpandeketan8@gmail.com
+    - generic [ref=e85]:
+      - generic [ref=e88]:
+        - button [ref=e89] [cursor=pointer]:
+          - img [ref=e90]
+        - generic [ref=e92]:
+          - heading [level=4] [ref=e93]: Profile
+          - paragraph [ref=e94]: Your account details, role access, and team assignment.
+      - generic [ref=e97]:
+        - generic [ref=e101]:
+          - generic [ref=e102]: Account
+          - heading [level=3] [ref=e103]: Profile
+          - paragraph [ref=e104]: Complete your user profile and connect this account to a team so team-scoped pages unlock cleanly.
+        - alert [ref=e108]:
+          - img [ref=e110]
+          - generic [ref=e112]: Complete your profile details before continuing to the rest of the workspace.
+        - generic [ref=e115]:
+          - generic [ref=e116]:
+            - heading [level=5] [ref=e117]: Team Access
+            - paragraph [ref=e118]: Share this Team ID with people who should request organiser approval to join Moonwalkers. Invite links remain available in Memberships only for exceptional claim-style cases like linking an existing unclaimed member.
+          - generic [ref=e121]:
+            - generic [ref=e122]:
+              - paragraph [ref=e123]: Team ID
+              - paragraph [ref=e124]: AE8C84
+            - button [ref=e126] [cursor=pointer]:
+              - img [ref=e128]
+              - text: Copy Team ID
+        - generic [ref=e130]:
+          - generic [ref=e134]:
+            - generic [ref=e135]: D
+            - generic [ref=e136]:
+              - heading [level=4] [ref=e137]: Complete Your Profile
+              - paragraph [ref=e138]: deshpandeketan8@gmail.com
+              - paragraph [ref=e139]: Signed in to Moonwalkers.
+            - generic [ref=e140]:
+              - generic [ref=e141]:
+                - img [ref=e142]
+                - generic [ref=e144]: Team Member
+              - generic [ref=e145]:
+                - img [ref=e146]
+                - generic [ref=e149]: Moonwalkers
+          - generic [ref=e153]:
+            - generic [ref=e154]:
+              - heading [level=5] [ref=e155]: Profile Details
+              - paragraph [ref=e156]: These fields are required after sign-in and are editable by the signed-in user only.
+            - generic [ref=e157]:
+              - generic [ref=e159]:
+                - generic:
+                  - text: First Name
+                  - generic: "*"
+                - generic [ref=e160]:
+                  - textbox [ref=e161]
+                  - group:
+                    - generic: First Name *
+              - generic [ref=e163]:
+                - generic:
+                  - text: Last Name
+                  - generic: "*"
+                - generic [ref=e164]:
+                  - textbox [ref=e165]
+                  - group:
+                    - generic: Last Name *
+              - generic [ref=e167]:
+                - generic:
+                  - text: Username
+                  - generic: "*"
+                - generic [ref=e168]:
+                  - textbox [ref=e169]
+                  - group:
+                    - generic: Username *
+              - generic [ref=e171]:
+                - generic:
+                  - text: Country Code
+                  - generic: "*"
+                - generic [ref=e172]:
+                  - textbox [ref=e173]:
+                    - /placeholder: "+49"
+                  - group:
+                    - generic: Country Code *
+              - generic [ref=e175]:
+                - generic:
+                  - text: Contact Number
+                  - generic: "*"
+                - generic [ref=e176]:
+                  - textbox [ref=e177]
+                  - group:
+                    - generic: Contact Number *
+            - generic [ref=e178]:
+              - button [ref=e179] [cursor=pointer]:
+                - img [ref=e181]
+                - text: Save Profile
+              - link [ref=e183] [cursor=pointer]:
+                - /url: /my-fairness
+                - text: Open My Fairness
+        - generic [ref=e184]:
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - paragraph [ref=e190]: Email
+              - paragraph [ref=e191]: deshpandeketan8@gmail.com
+            - separator [ref=e192]
+            - generic [ref=e193]:
+              - paragraph [ref=e194]: Username
+              - paragraph [ref=e195]: Not set
+            - separator [ref=e196]
+            - generic [ref=e197]:
+              - paragraph [ref=e198]: Contact
+              - paragraph [ref=e199]: Not set
+            - separator [ref=e200]
+            - generic [ref=e201]:
+              - paragraph [ref=e202]: App Role
+              - paragraph [ref=e203]: Member
+            - separator [ref=e204]
+            - generic [ref=e205]:
+              - paragraph [ref=e206]: Workspace Access
+              - paragraph [ref=e207]: Team Member
+            - separator [ref=e208]
+            - generic [ref=e209]:
+              - paragraph [ref=e210]: Team
+              - paragraph [ref=e211]: Moonwalkers
+            - separator [ref=e212]
+            - generic [ref=e213]:
+              - paragraph [ref=e214]: Squad Player
+              - paragraph [ref=e215]: ketan deshpande
+            - separator [ref=e216]
+            - generic [ref=e217]:
+              - paragraph [ref=e218]: Team ID
+              - paragraph [ref=e219]: AE8C84
+          - generic [ref=e223]:
+            - generic [ref=e224]:
+              - heading [level=5] [ref=e225]: Security
+              - paragraph [ref=e226]: Use the reset password flow any time you want to rotate your account password.
+            - link [ref=e227] [cursor=pointer]:
+              - /url: /reset-password
+              - img [ref=e229]
+              - text: Reset Password
+  - dialog "Introducing SportFairSystem v1.0 After months of building, refining, and real-world validation, SportFairSystem v1.0 is live, stable, and ready for real usage." [ref=e233]:
+    - heading "Introducing SportFairSystem v1.0 After months of building, refining, and real-world validation, SportFairSystem v1.0 is live, stable, and ready for real usage." [level=2] [ref=e234]:
+      - generic [ref=e235]:
+        - heading "Introducing SportFairSystem v1.0" [level=4] [ref=e236]
+        - paragraph [ref=e237]: After months of building, refining, and real-world validation, SportFairSystem v1.0 is live, stable, and ready for real usage.
+    - generic [ref=e239]:
+      - paragraph [ref=e240]: SportFairSystem started as a simple scorecard parser. Today, it has evolved into a complete, role-aware team system that connects match data, player insights, and team decision-making into one unified platform.
+      - generic [ref=e241]:
+        - heading "What SportFairSystem v1.0 offers" [level=6] [ref=e242]
+        - generic [ref=e243]:
+          - paragraph [ref=e244]: Scorecard Ingestion
+          - paragraph [ref=e245]: Upload and parse cricket scorecards into structured match data.
+        - generic [ref=e246]:
+          - paragraph [ref=e247]: Squad & Player Management
+          - paragraph [ref=e248]: Build and manage your team with identity-linked player profiles.
+        - generic [ref=e249]:
+          - paragraph [ref=e250]: Player Intelligence & Analytics
+          - paragraph [ref=e251]: Track performance, trends, and usage across matches and seasons.
+        - generic [ref=e252]:
+          - paragraph [ref=e253]: Planner Workflows
+          - paragraph [ref=e254]: Plan matches using attendance data, generate Playing XI, and manage bench decisions.
+        - generic [ref=e255]:
+          - paragraph [ref=e256]: Validation & Data Integrity
+          - paragraph [ref=e257]: Detect missing links, duplicates, and inconsistencies with built-in validation tools.
+        - generic [ref=e258]:
+          - paragraph [ref=e259]: Authentication & Role-Based Access
+          - paragraph [ref=e260]: Secure, role-aware system with admin controls and protected workflows.
+      - generic [ref=e261]:
+        - heading "Built for Real Teams" [level=6] [ref=e262]
+        - paragraph [ref=e263]: SportFairSystem is currently designed as an internal platform for real team workflows, with a focus on simplicity, transparency, and data-driven decisions.
+      - generic [ref=e264]:
+        - heading "Version 1.0 Scope" [level=6] [ref=e265]
+        - paragraph [ref=e266]: This release is intentionally focused and stable. Features like multi-team support, live scoring, and tournament management are planned for future versions.
+      - generic [ref=e267]:
+        - heading "Why this matters" [level=6] [ref=e268]
+        - paragraph [ref=e269]: "Most amateur teams rely on scattered tools or manual tracking. SportFairSystem brings everything together:"
+        - paragraph [ref=e271]: Match Data -> Player Insights -> Team Decisions
+      - generic [ref=e273]:
+        - paragraph [ref=e274]: Responsive Fit Disclaimer
+        - paragraph [ref=e275]: SportFairSystem is responsive across desktop, tablet, and mobile, but the best experience is still on desktop or larger tablet screens. A few dense analytics and admin workflows may feel tighter on smaller phones.
+      - paragraph [ref=e276]: This is just the beginning. More to come.
+    - generic [ref=e277]:
+      - generic [ref=e278] [cursor=pointer]:
+        - generic [ref=e279]:
+          - checkbox "Don't show me again" [ref=e280]
+          - img [ref=e281]
+        - generic [ref=e283]: Don't show me again
+      - button "Continue" [ref=e284] [cursor=pointer]

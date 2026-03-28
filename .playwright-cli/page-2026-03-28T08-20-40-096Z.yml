@@ -1,0 +1,210 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e7] [cursor=pointer]:
+    - img [ref=e8]
+  - alert [ref=e11]
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e15]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e120]
+      - list [ref=e17]:
+        - link "Dashboard" [ref=e18] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e19]:
+            - img [ref=e21]
+            - generic [ref=e24]: Dashboard
+        - link "Matches" [ref=e25] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e26]:
+            - img [ref=e28]
+            - generic [ref=e32]: Matches
+        - link "Squad" [ref=e33] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e34]:
+            - img [ref=e36]
+            - generic [ref=e39]: Squad
+        - link "Membership" [ref=e40] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [ref=e41]:
+            - img [ref=e43]
+            - generic [ref=e46]: Membership
+        - link "Planner" [ref=e47] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e48]:
+            - img [ref=e50]
+            - generic [ref=e53]: Planner
+        - link "Fairness" [ref=e54] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e55]:
+            - img [ref=e57]
+            - generic [ref=e60]: Fairness
+        - link "Analytics" [ref=e61] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e62]:
+            - img [ref=e64]
+            - generic [ref=e67]: Analytics
+        - link "Validation" [ref=e68] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e69]:
+            - img [ref=e71]
+            - generic [ref=e74]: Validation
+        - link "Feedback" [ref=e75] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e76]:
+            - img [ref=e78]
+            - generic [ref=e81]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e83] [cursor=pointer]:
+        - generic [ref=e85]: D
+        - generic [ref=e87]: Davaseelan Ramamoorthy
+    - generic [ref=e88]:
+      - generic [ref=e91]:
+        - button [ref=e92] [cursor=pointer]:
+          - img [ref=e93]
+        - generic [ref=e95]:
+          - heading "Moonwalkers Feedback" [level=4] [ref=e121]
+          - paragraph [ref=e97]: Structured product feedback from real team usage, with admin review and status tracking.
+      - generic [ref=e100]:
+        - generic [ref=e104]:
+          - generic [ref=e105]: Team Workspace
+          - heading "Feedback" [level=3] [ref=e106]
+          - paragraph [ref=e107]: Share bugs, suggestions, improvements, and questions from real team usage so the product can improve from actual workflows.
+        - generic [ref=e122]:
+          - generic [ref=e126]:
+            - generic [ref=e128]:
+              - img [ref=e130]
+              - heading "My Feedback" [level=6] [ref=e132]
+            - generic [ref=e134]:
+              - heading "0" [level=3] [ref=e135]
+              - paragraph [ref=e136]: Items you have submitted in this team workspace
+          - generic [ref=e140]:
+            - generic [ref=e142]:
+              - img [ref=e144]
+              - heading "Open Items" [level=6] [ref=e146]
+            - generic [ref=e148]:
+              - heading "0" [level=3] [ref=e149]
+              - paragraph [ref=e150]: Your submitted items that are still active
+          - generic [ref=e154]:
+            - generic [ref=e156]:
+              - img [ref=e158]
+              - heading "Team Queue" [level=6] [ref=e160]
+            - generic [ref=e162]:
+              - heading "1" [level=3] [ref=e163]
+              - paragraph [ref=e164]: Team feedback items that are not closed
+        - generic [ref=e166]:
+          - generic [ref=e168]:
+            - heading "Submit Feedback" [level=5] [ref=e169]
+            - paragraph [ref=e170]: Capture real bugs, suggestions, improvements, and questions from actual usage without leaving the app.
+          - generic [ref=e172]:
+            - generic [ref=e174]:
+              - generic [ref=e175]: Category
+              - generic [ref=e176]:
+                - combobox "Category" [ref=e177] [cursor=pointer]: Bug
+                - textbox: Bug
+                - img
+                - group:
+                  - generic: Category
+            - generic [ref=e179]:
+              - generic [ref=e180]: Module
+              - generic [ref=e181]:
+                - combobox "Module" [ref=e182] [cursor=pointer]: General
+                - textbox: General
+                - img
+                - group:
+                  - generic: Module
+            - generic [ref=e184]:
+              - generic [ref=e185]: Priority
+              - generic [ref=e186]:
+                - combobox "Priority" [ref=e187] [cursor=pointer]: Medium
+                - textbox: Medium
+                - img
+                - group:
+                  - generic: Priority
+            - generic [ref=e189]:
+              - generic: Title
+              - generic [ref=e190]:
+                - textbox "Title" [ref=e191]
+                - group:
+                  - generic: Title
+              - paragraph [ref=e192]: 0/120 characters
+            - generic [ref=e194]:
+              - generic: Description
+              - generic [ref=e195]:
+                - textbox "Description" [ref=e196]
+                - group:
+                  - generic: Description
+              - paragraph [ref=e197]: Describe the problem, suggestion, or question in enough detail for the team to act on it.
+            - generic [ref=e199]:
+              - paragraph [ref=e200]: Title is required and description must be at least 10 characters.
+              - button "Submit Feedback" [ref=e201] [cursor=pointer]
+        - generic [ref=e203]:
+          - generic [ref=e205]:
+            - img [ref=e206]
+            - generic [ref=e208]:
+              - heading "My Feedback" [level=5] [ref=e209]
+              - paragraph [ref=e210]: Track the items you have raised and follow their current review status.
+          - paragraph [ref=e212]: No feedback submitted yet. Use the form above to share something.
+        - generic [ref=e214]:
+          - generic [ref=e216]:
+            - generic [ref=e217]:
+              - heading "Team Feedback" [level=5] [ref=e218]
+              - paragraph [ref=e219]: Review team submissions, filter the queue, and move items through the status workflow.
+            - generic [ref=e220]:
+              - generic [ref=e222]:
+                - generic [ref=e223]: Category
+                - generic [ref=e224]:
+                  - combobox "Category" [ref=e225] [cursor=pointer]: All Categories
+                  - textbox: all
+                  - img
+                  - group:
+                    - generic: Category
+              - generic [ref=e227]:
+                - generic [ref=e228]: Module
+                - generic [ref=e229]:
+                  - combobox "Module" [ref=e230] [cursor=pointer]: All Modules
+                  - textbox: all
+                  - img
+                  - group:
+                    - generic: Module
+              - generic [ref=e232]:
+                - generic [ref=e233]: Status
+                - generic [ref=e234]:
+                  - combobox "Status" [ref=e235] [cursor=pointer]: All Statuses
+                  - textbox: all
+                  - img
+                  - group:
+                    - generic: Status
+          - table [ref=e237]:
+            - rowgroup [ref=e238]:
+              - row "Title Category Module Priority Submitted By Date Status" [ref=e239]:
+                - columnheader "Title" [ref=e240]
+                - columnheader "Category" [ref=e241]
+                - columnheader "Module" [ref=e242]
+                - columnheader "Priority" [ref=e243]
+                - columnheader "Submitted By" [ref=e244]
+                - columnheader "Date" [ref=e245]
+                - columnheader "Status" [ref=e246]
+            - rowgroup [ref=e247]:
+              - row "First feedback Suggestion General Medium Anir C 23 Mar 2026 Status" [ref=e248]:
+                - cell "First feedback" [ref=e249]:
+                  - paragraph [ref=e250]: First feedback
+                - cell "Suggestion" [ref=e251]:
+                  - generic [ref=e253]: Suggestion
+                - cell "General" [ref=e254]
+                - cell "Medium" [ref=e255]:
+                  - generic [ref=e257]: Medium
+                - cell "Anir C" [ref=e258]
+                - cell "23 Mar 2026" [ref=e259]
+                - cell "Status" [ref=e260]:
+                  - generic [ref=e261]:
+                    - generic [ref=e262]: Status
+                    - generic [ref=e263]:
+                      - combobox "Status" [ref=e264] [cursor=pointer]: Reviewed
+                      - textbox: Reviewed
+                      - img
+                      - group:
+                        - generic: Status
+              - row [ref=e265]:
+                - cell [ref=e266]:
+                  - generic [ref=e267]:
+                    - generic [ref=e268]: Description
+                    - paragraph [ref=e270]: "## 🏏 Fairness System — Feedback ### ✅ What's Really Good *1. The Planner is the standout feature* The weekly availability sheet upload + auto-generating XI with 12th man is genuinely solving a real problem. That's the core value of the whole app and it's well thought out. Friendly vs Tournament mode distinction is smart. *2. Bench Stats / Fairness Tracking* The Analytics page showing \"unused appearances\" and \"unused rate\" per player is exactly what the name promises — this is unique and no other cricket app does this. Really clever. *3. Validation Page* Having an admin workspace that flags data quality issues (rulebook findings, broken links) shows serious engineering maturity. Most amateur cricket apps ignore data integrity entirely. *4. Match Scorecards* Full ball-by-ball scorecard with batting, bowling, extras — very clean and detailed. *5. Season Filtering* The ability to toggle between seasons across all pages is well implemented. --- ### 🔧 What Can Be Improved *1. Dashboard feels thin* Only shows 6 matches worth of data but claims to be a season overview. The KPI cards (Matches Played, Win Ratio, Top Scorer) are good but it needs more — maybe a form guide (last 5 results), upcoming match, or a player of the month. *2. All-time stats not surfaced anywhere* The CricHeroes leaderboard has 118 matches of history — but this app only shows current season. There's no way to compare a new player vs a veteran based on career form. An \"All Seasons\" toggle on the Analytics page would be powerful. *3. Players page missing key stats* When I look at a player it shows SR and matches but not runs, wickets, average, economy all in one place. You have to click \"View Profile\" for each person. A compact stats table view (like CricHeroes leaderboard) would be much faster. *4. The Planner needs a \"Best XI\" suggestion* Right now it reshuffles fairly — but it doesn't factor in who the strongest 11 are. Combining the fairness logic with performance data (like what we just built) to suggest a performance-weighted fair XI would be a killer feature. *5. Win rate is 17% — no context given* The dashboard shows 17% win rate with no commentary or trend. Is it improving? Which opponents are you beating? A simple wins-by-opponent breakdown would make this much more useful. *6. Mobile experience unclear* Cricket team management is very WhatsApp/mobile first. If the Planner output can't be easily copy-pasted to WhatsApp (like we did today manually), that's a missed opportunity. A \"Share to WhatsApp\" button on squad outputs would be huge. *7. Validation page is admin-only and complex* 19 rulebook findings with no clear description of what they are or how to fix them. Needs plain English explanations — \"Match MW150326 has more than 11 players listed in the XI\" rather than just a count. --- ### 💡 Feature Ideas Worth Suggesting - *Player form badges* — Hot 🔥 / Cold ❄️ based on last 3 matches - *Head-to-head records* — You've played Berlin Super Kings multiple times, a H2H page would be great - *Bowling attack planner* — Given 10 overs, suggest optimal bowling rotation based on economy - *Availability trend* — Which players are consistently available vs flaky over the season --- *Overall verdict:* It's a genuinely well-built app that solves a real problem no other tool addresses — the fairness/bench tracking angle is unique. The core is solid. The main gap is surfacing more insight from the data that's already there, and making outputs more shareable directly to WhatsApp. Tell your friend it's impressive work! 👏"

@@ -1,0 +1,387 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e11] [cursor=pointer]:
+    - img [ref=e12]
+  - alert [ref=e15]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e19]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e20]
+      - list [ref=e21]:
+        - link "Dashboard" [ref=e22] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e23]:
+            - img [ref=e25]
+            - generic [ref=e28]: Dashboard
+        - link "Matches" [ref=e29] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e30]:
+            - img [ref=e32]
+            - generic [ref=e36]: Matches
+        - link "Squad" [ref=e37] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e38]:
+            - img [ref=e40]
+            - generic [ref=e43]: Squad
+        - link "Membership" [ref=e44] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [ref=e45]:
+            - img [ref=e47]
+            - generic [ref=e50]: Membership
+        - link "Planner" [ref=e51] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e52]:
+            - img [ref=e54]
+            - generic [ref=e57]: Planner
+        - link "Fairness" [ref=e58] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e59]:
+            - img [ref=e61]
+            - generic [ref=e64]: Fairness
+        - link "Analytics" [ref=e65] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e66]:
+            - img [ref=e68]
+            - generic [ref=e71]: Analytics
+        - link "Validation" [ref=e72] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e73]:
+            - img [ref=e75]
+            - generic [ref=e78]: Validation
+        - link "Feedback" [ref=e79] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e80]:
+            - img [ref=e82]
+            - generic [ref=e85]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e87] [cursor=pointer]:
+        - generic [ref=e89]: D
+        - generic [ref=e91]: Davaseelan Ramamoorthy
+    - generic [ref=e92]:
+      - generic [ref=e95]:
+        - button [ref=e96] [cursor=pointer]:
+          - img [ref=e97]
+        - generic [ref=e99]:
+          - heading "Moonwalkers Validation" [level=4] [ref=e100]
+          - paragraph [ref=e101]: Admin checks for player linking, XI reconstruction, and historical data quality.
+      - generic [ref=e104]:
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e109]: Admin Workspace
+            - heading "Validation" [level=3] [ref=e110]
+            - paragraph [ref=e111]: High-signal checks for player linking, squad quality, and XI reconstruction.
+          - generic [ref=e113]:
+            - generic [ref=e114]:
+              - generic [ref=e115]: Season
+              - generic [ref=e116]:
+                - combobox "Season" [ref=e117] [cursor=pointer]: "2026"
+                - textbox: "2026"
+                - img
+                - group:
+                  - generic: Season
+            - button "Repair Links" [ref=e118] [cursor=pointer]
+        - generic [ref=e119]:
+          - generic [ref=e123]:
+            - generic [ref=e125]:
+              - img [ref=e127]
+              - heading "Total Issues" [level=6] [ref=e129]
+            - generic [ref=e131]:
+              - heading "19" [level=3] [ref=e132]
+              - paragraph [ref=e133]: Visible validation findings in scope
+          - generic [ref=e137]:
+            - generic [ref=e139]:
+              - img [ref=e141]
+              - heading "Missing Links" [level=6] [ref=e143]
+            - generic [ref=e145]:
+              - heading "0" [level=3] [ref=e146]
+              - paragraph [ref=e147]: Current-team rows missing player_id
+          - generic [ref=e151]:
+            - generic [ref=e153]:
+              - img [ref=e155]
+              - heading "Name Risks" [level=6] [ref=e158]
+            - generic [ref=e160]:
+              - heading "0" [level=3] [ref=e161]
+              - paragraph [ref=e162]: Moonwalkers names seen across team contexts
+          - generic [ref=e166]:
+            - generic [ref=e168]:
+              - img [ref=e170]
+              - heading "Guest Candidates" [level=6] [ref=e172]
+            - generic [ref=e174]:
+              - heading "0" [level=3] [ref=e175]
+              - paragraph [ref=e176]: Repeated guest players worth reviewing for squad promotion
+          - generic [ref=e180]:
+            - generic [ref=e182]:
+              - img [ref=e184]
+              - heading "Rulebook Findings" [level=6] [ref=e186]
+            - generic [ref=e188]:
+              - heading "19" [level=3] [ref=e189]
+              - paragraph [ref=e190]: Saved matches that need cricket-rule review
+        - generic [ref=e191]:
+          - generic [ref=e193]:
+            - generic [ref=e195]:
+              - heading "Historical Cleanup Strategy" [level=5] [ref=e196]
+              - generic [ref=e198]: 1 review steps open
+            - generic [ref=e199]:
+              - paragraph [ref=e201]: "V1 cleanup stays targeted: repair links, review ambiguous names, confirm guest promotions, and avoid bulk historical rewrites or deletions during release hardening."
+              - generic [ref=e204]:
+                - generic [ref=e205]:
+                  - paragraph [ref=e206]: Repair missing player links first
+                  - paragraph [ref=e207]: Current-team player_id linkage is clean for the selected scope.
+                - generic [ref=e209]: 0 link issues
+              - generic [ref=e210]:
+                - separator [ref=e211]
+                - generic [ref=e213]:
+                  - generic [ref=e214]:
+                    - paragraph [ref=e215]: Treat duplicate-name risks as manual review
+                    - paragraph [ref=e216]: No cross-team duplicate-name collisions are currently flagged.
+                  - generic [ref=e218]: 0 name risks
+              - generic [ref=e219]:
+                - separator [ref=e220]
+                - generic [ref=e222]:
+                  - generic [ref=e223]:
+                    - paragraph [ref=e224]: Promote repeated guests only when confirmed
+                    - paragraph [ref=e225]: No repeated guest records currently need squad-promotion review.
+                  - generic [ref=e227]: 0 guest candidates
+              - generic [ref=e228]:
+                - separator [ref=e229]
+                - generic [ref=e231]:
+                  - generic [ref=e232]:
+                    - paragraph [ref=e233]: Fix saved-match rulebook findings before release lock
+                    - paragraph [ref=e234]: Use the rulebook findings list to target saved matches that still need historical scorecard review.
+                  - generic [ref=e236]: 19 rule findings
+          - generic [ref=e238]:
+            - generic [ref=e240]:
+              - heading "V1.0 Release Lock" [level=5] [ref=e241]
+              - generic [ref=e243]: Scope locked
+            - generic [ref=e244]:
+              - paragraph [ref=e246]: V1.0 is live and locked. This section summarizes what the current project delivers, what was included in the release hardening cycle, what remains future scope, and how release-lock decisions should be handled going forward.
+              - generic [ref=e248]:
+                - paragraph [ref=e249]: Current Project Summary
+                - paragraph [ref=e250]: This gives the present-day picture of what happened in V1.0 and where the project stands now.
+              - generic [ref=e253]:
+                - paragraph [ref=e254]: SportFairSystem is live as a stable internal V1.0 platform
+                - paragraph [ref=e255]: The current release is a production-facing internal cricket operations system that connects scorecards, squad identity, planning, validation, analytics, and role-aware workflows in one place.
+              - generic [ref=e256]:
+                - separator [ref=e257]
+                - generic [ref=e259]:
+                  - paragraph [ref=e260]: The core team workflow is now connected end to end
+                  - paragraph [ref=e261]: V1.0 covers scorecard ingestion, squad management, planner support, player profiles, matches, dashboard, analytics, validation, and admin configuration within the current single-team operating model.
+              - generic [ref=e262]:
+                - separator [ref=e263]
+                - generic [ref=e265]:
+                  - paragraph [ref=e266]: The release moved from feature build-out to hardening and lock
+                  - paragraph [ref=e267]: "This version reflects the late V1 hardening cycle: identity repair, safer planner matching, admin player-user mapping, auth and profile hardening, validation cleanup, responsive work, and release QA are now part of the shipped state."
+              - separator [ref=e268]
+              - generic [ref=e270]:
+                - paragraph [ref=e271]: Current V1.0 Implementation
+                - paragraph [ref=e272]: This is the current shipped scope that V1.0 is intended to support in production today.
+              - generic [ref=e273]:
+                - separator [ref=e274]
+                - generic [ref=e276]:
+                  - paragraph [ref=e277]: Scorecard ingestion and structured match storage
+                  - paragraph [ref=e278]: V1.0 imports cricket scorecards, parses innings and player activity, and saves match data into the core workspace with safer identity and save-time validation behavior.
+              - generic [ref=e279]:
+                - separator [ref=e280]
+                - generic [ref=e282]:
+                  - paragraph [ref=e283]: Squad identity, player linkage, and admin user mapping
+                  - paragraph [ref=e284]: The release includes player_id-first squad identity handling, planner-safe matching, and an admin membership workspace to map authenticated users to squad players.
+              - generic [ref=e285]:
+                - separator [ref=e286]
+                - generic [ref=e288]:
+                  - paragraph [ref=e289]: Planner workflows and match decision support
+                  - paragraph [ref=e290]: Attendance planning, lineup generation, bench visibility, and squad-aware player matching are part of the shipped V1 workflow for internal team operations.
+              - generic [ref=e291]:
+                - separator [ref=e292]
+                - generic [ref=e294]:
+                  - paragraph [ref=e295]: Profiles, dashboard, analytics, matches, and validation
+                  - paragraph [ref=e296]: V1.0 includes player profiles, dashboard KPIs, analytics views, match detail views, validation tooling, and responsive hardening for the primary operational pages.
+              - generic [ref=e297]:
+                - separator [ref=e298]
+                - generic [ref=e300]:
+                  - paragraph [ref=e301]: Authentication, role-aware access, and admin-only workspaces
+                  - paragraph [ref=e302]: The live release supports sign-in flows, profile state handling, role-based workspace access, and protected admin surfaces such as Memberships and Validation.
+              - separator [ref=e303]
+              - generic [ref=e305]:
+                - paragraph [ref=e306]: Post-V1 / Future Scope
+                - paragraph [ref=e307]: These items are intentionally deferred and should stay out of the locked release branch unless one becomes a real production blocker.
+              - generic [ref=e308]:
+                - separator [ref=e309]
+                - generic [ref=e311]:
+                  - paragraph [ref=e312]: Team creation and onboarding flows
+                  - paragraph [ref=e313]: Self-serve team creation, invite setup, and first-time team onboarding are out of scope for the current internal single-team release.
+              - generic [ref=e314]:
+                - separator [ref=e315]
+                - generic [ref=e317]:
+                  - paragraph [ref=e318]: Invites, join requests, and membership lifecycle
+                  - paragraph [ref=e319]: Invite flows, join-request approval, and a full membership model refactor are deferred until after the stable internal V1 usage cycle.
+              - generic [ref=e320]:
+                - separator [ref=e321]
+                - generic [ref=e323]:
+                  - paragraph [ref=e324]: Multi-team support and expanded ownership hierarchy
+                  - paragraph [ref=e325]: The current product is intentionally single-team. Cross-team switching, organization structures, and layered ownership controls remain future scope.
+              - generic [ref=e326]:
+                - separator [ref=e327]
+                - generic [ref=e329]:
+                  - paragraph [ref=e330]: Major authentication or account product redesign
+                  - paragraph [ref=e331]: The app keeps the current role-aware auth model for V1. Broader account-system redesign, richer access products, or membership architecture changes are postponed.
+              - generic [ref=e332]:
+                - separator [ref=e333]
+                - generic [ref=e335]:
+                  - paragraph [ref=e336]: New major modules and non-blocking product ideas
+                  - paragraph [ref=e337]: Large additions such as live scoring, tournament systems, advanced collaboration modules, and nice-to-have experiments should not enter the locked V1 branch.
+              - separator [ref=e338]
+              - generic [ref=e340]:
+                - paragraph [ref=e341]: Release Lock
+                - paragraph [ref=e342]: These rules explain how the branch should be treated after the V1.0 release and what qualifies as acceptable work.
+              - generic [ref=e343]:
+                - separator [ref=e344]
+                - generic [ref=e346]:
+                  - paragraph [ref=e347]: Code quality gates are green
+                  - paragraph [ref=e348]: Release lock assumes the latest hardening pass is clean on TypeScript, ESLint, and production build output.
+              - generic [ref=e349]:
+                - separator [ref=e350]
+                - generic [ref=e352]:
+                  - paragraph [ref=e353]: Core workspace data setup is ready
+                  - paragraph [ref=e354]: Confirm the release environment already has the required access, profile, and mapping support in place.
+              - generic [ref=e355]:
+                - separator [ref=e356]
+                - generic [ref=e358]:
+                  - paragraph [ref=e359]: Validation workspace is reviewed before release
+                  - paragraph [ref=e360]: Repair missing links, review ambiguous identities, confirm guest promotion candidates, and clear rulebook findings still in scope.
+              - generic [ref=e361]:
+                - separator [ref=e362]
+                - generic [ref=e364]:
+                  - paragraph [ref=e365]: New work stays inside the locked V1 scope
+                  - paragraph [ref=e366]: Any new request must either support the release checklist directly or be held for the post-V1 backlog.
+          - generic [ref=e368]:
+            - generic [ref=e370]:
+              - heading "Missing Player Links" [level=5] [ref=e371]
+              - generic [ref=e373]: 0 issues
+            - table [ref=e375]:
+              - rowgroup [ref=e376]:
+                - row "Match Opponent Player Source Issue" [ref=e377]:
+                  - columnheader "Match" [ref=e378]
+                  - columnheader "Opponent" [ref=e379]
+                  - columnheader "Player" [ref=e380]
+                  - columnheader "Source" [ref=e381]
+                  - columnheader "Issue" [ref=e382]
+              - rowgroup [ref=e383]:
+                - row "No missing current-team player_id links found in this scope." [ref=e384]:
+                  - cell "No missing current-team player_id links found in this scope." [ref=e385]:
+                    - paragraph [ref=e386]: No missing current-team player_id links found in this scope.
+          - generic [ref=e388]:
+            - generic [ref=e390]:
+              - heading "Cricket Rulebook Findings" [level=5] [ref=e391]
+              - generic [ref=e393]: 19 findings
+            - table [ref=e395]:
+              - rowgroup [ref=e396]:
+                - row "Match Severity Finding" [ref=e397]:
+                  - columnheader "Match" [ref=e398]
+                  - columnheader "Severity" [ref=e399]
+                  - columnheader "Finding" [ref=e400]
+              - rowgroup [ref=e401]:
+                - 'row "MW220326 22 Mar 2026 Berlin Super Kings WARNING Berlin Super Kings exceeds the standard playing XI ICC T20 Cricket Guidance Berlin Super Kings currently shows 13 listed players, which is above the standard XI size of 11. Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 2 extra players." [ref=e402]':
+                  - cell "MW220326 22 Mar 2026 Berlin Super Kings" [ref=e403]:
+                    - generic [ref=e404]:
+                      - paragraph [ref=e405]: MW220326
+                      - generic [ref=e406]: 22 Mar 2026
+                      - generic [ref=e407]: Berlin Super Kings
+                  - cell "WARNING" [ref=e408]:
+                    - generic [ref=e410]: WARNING
+                  - 'cell "Berlin Super Kings exceeds the standard playing XI ICC T20 Cricket Guidance Berlin Super Kings currently shows 13 listed players, which is above the standard XI size of 11. Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 2 extra players." [ref=e411]':
+                    - generic [ref=e412]:
+                      - paragraph [ref=e413]: Berlin Super Kings exceeds the standard playing XI
+                      - generic [ref=e414]: ICC T20 Cricket Guidance
+                      - paragraph [ref=e415]: Berlin Super Kings currently shows 13 listed players, which is above the standard XI size of 11.
+                      - paragraph [ref=e416]: "Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 2 extra players."
+                - 'row "MW220326 22 Mar 2026 Berlin Super Kings ERROR Berlin Super Kings has more than 11 active participants ICC T20 Cricket Guidance Berlin Super Kings shows 15 players with batting or bowling involvement, which conflicts with the standard playing XI size of 11. Suggested action: Review the scorecard for parser duplication, substitute handling, or an incorrect XI merge before saving." [ref=e417]':
+                  - cell "MW220326 22 Mar 2026 Berlin Super Kings" [ref=e418]:
+                    - generic [ref=e419]:
+                      - paragraph [ref=e420]: MW220326
+                      - generic [ref=e421]: 22 Mar 2026
+                      - generic [ref=e422]: Berlin Super Kings
+                  - cell "ERROR" [ref=e423]:
+                    - generic [ref=e425]: ERROR
+                  - 'cell "Berlin Super Kings has more than 11 active participants ICC T20 Cricket Guidance Berlin Super Kings shows 15 players with batting or bowling involvement, which conflicts with the standard playing XI size of 11. Suggested action: Review the scorecard for parser duplication, substitute handling, or an incorrect XI merge before saving." [ref=e426]':
+                    - generic [ref=e427]:
+                      - paragraph [ref=e428]: Berlin Super Kings has more than 11 active participants
+                      - generic [ref=e429]: ICC T20 Cricket Guidance
+                      - paragraph [ref=e430]: Berlin Super Kings shows 15 players with batting or bowling involvement, which conflicts with the standard playing XI size of 11.
+                      - paragraph [ref=e431]: "Suggested action: Review the scorecard for parser duplication, substitute handling, or an incorrect XI merge before saving."
+                - 'row "MW220326 22 Mar 2026 Berlin Super Kings WARNING Moonwalkers exceeds the standard playing XI ICC T20 Cricket Guidance Moonwalkers currently shows 12 listed players, which is above the standard XI size of 11. Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 1 extra player." [ref=e432]':
+                  - cell "MW220326 22 Mar 2026 Berlin Super Kings" [ref=e433]:
+                    - generic [ref=e434]:
+                      - paragraph [ref=e435]: MW220326
+                      - generic [ref=e436]: 22 Mar 2026
+                      - generic [ref=e437]: Berlin Super Kings
+                  - cell "WARNING" [ref=e438]:
+                    - generic [ref=e440]: WARNING
+                  - 'cell "Moonwalkers exceeds the standard playing XI ICC T20 Cricket Guidance Moonwalkers currently shows 12 listed players, which is above the standard XI size of 11. Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 1 extra player." [ref=e441]':
+                    - generic [ref=e442]:
+                      - paragraph [ref=e443]: Moonwalkers exceeds the standard playing XI
+                      - generic [ref=e444]: ICC T20 Cricket Guidance
+                      - paragraph [ref=e445]: Moonwalkers currently shows 12 listed players, which is above the standard XI size of 11.
+                      - paragraph [ref=e446]: "Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 1 extra player."
+                - 'row "MW220326 22 Mar 2026 Berlin Super Kings ERROR Moonwalkers has more than 11 active participants ICC T20 Cricket Guidance Moonwalkers shows 15 players with batting or bowling involvement, which conflicts with the standard playing XI size of 11. Suggested action: Review the scorecard for parser duplication, substitute handling, or an incorrect XI merge before saving." [ref=e447]':
+                  - cell "MW220326 22 Mar 2026 Berlin Super Kings" [ref=e448]:
+                    - generic [ref=e449]:
+                      - paragraph [ref=e450]: MW220326
+                      - generic [ref=e451]: 22 Mar 2026
+                      - generic [ref=e452]: Berlin Super Kings
+                  - cell "ERROR" [ref=e453]:
+                    - generic [ref=e455]: ERROR
+                  - 'cell "Moonwalkers has more than 11 active participants ICC T20 Cricket Guidance Moonwalkers shows 15 players with batting or bowling involvement, which conflicts with the standard playing XI size of 11. Suggested action: Review the scorecard for parser duplication, substitute handling, or an incorrect XI merge before saving." [ref=e456]':
+                    - generic [ref=e457]:
+                      - paragraph [ref=e458]: Moonwalkers has more than 11 active participants
+                      - generic [ref=e459]: ICC T20 Cricket Guidance
+                      - paragraph [ref=e460]: Moonwalkers shows 15 players with batting or bowling involvement, which conflicts with the standard playing XI size of 11.
+                      - paragraph [ref=e461]: "Suggested action: Review the scorecard for parser duplication, substitute handling, or an incorrect XI merge before saving."
+                - 'row "MW220326+1 22 Mar 2026 Berlin Super Kings WARNING Berlin Super Kings exceeds the standard playing XI ICC T20 Cricket Guidance Berlin Super Kings currently shows 13 listed players, which is above the standard XI size of 11. Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 2 extra players." [ref=e462]':
+                  - cell "MW220326+1 22 Mar 2026 Berlin Super Kings" [ref=e463]:
+                    - generic [ref=e464]:
+                      - paragraph [ref=e465]: MW220326+1
+                      - generic [ref=e466]: 22 Mar 2026
+                      - generic [ref=e467]: Berlin Super Kings
+                  - cell "WARNING" [ref=e468]:
+                    - generic [ref=e470]: WARNING
+                  - 'cell "Berlin Super Kings exceeds the standard playing XI ICC T20 Cricket Guidance Berlin Super Kings currently shows 13 listed players, which is above the standard XI size of 11. Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 2 extra players." [ref=e471]':
+                    - generic [ref=e472]:
+                      - paragraph [ref=e473]: Berlin Super Kings exceeds the standard playing XI
+                      - generic [ref=e474]: ICC T20 Cricket Guidance
+                      - paragraph [ref=e475]: Berlin Super Kings currently shows 13 listed players, which is above the standard XI size of 11.
+                      - paragraph [ref=e476]: "Suggested action: Review the extra listing as a likely 12th man or substitute. Keep only 11 players in the XI unless match evidence clearly supports a permitted replacement. Found 2 extra players."
+            - generic [ref=e477]:
+              - paragraph [ref=e478]: 1-5 of 19
+              - generic [ref=e479]:
+                - button "Previous" [disabled]
+                - button "Next" [ref=e480] [cursor=pointer]
+          - generic [ref=e482]:
+            - generic [ref=e484]:
+              - heading "Duplicate-Name Risks" [level=5] [ref=e485]
+              - generic [ref=e487]: 0 risks
+            - table [ref=e489]:
+              - rowgroup [ref=e490]:
+                - row "Name Teams Appearances" [ref=e491]:
+                  - columnheader "Name" [ref=e492]
+                  - columnheader "Teams" [ref=e493]
+                  - columnheader "Appearances" [ref=e494]
+              - rowgroup [ref=e495]:
+                - row "No cross-team name collisions found for current-team players." [ref=e496]:
+                  - cell "No cross-team name collisions found for current-team players." [ref=e497]:
+                    - paragraph [ref=e498]: No cross-team name collisions found for current-team players.
+          - generic [ref=e500]:
+            - generic [ref=e502]:
+              - heading "Guest Promotion Candidates" [level=5] [ref=e503]
+              - generic [ref=e505]: 0 players
+            - table [ref=e507]:
+              - rowgroup [ref=e508]:
+                - row "Player Matches Bat Bowl" [ref=e509]:
+                  - columnheader "Player" [ref=e510]
+                  - columnheader "Matches" [ref=e511]
+                  - columnheader "Bat" [ref=e512]
+                  - columnheader "Bowl" [ref=e513]
+              - rowgroup [ref=e514]:
+                - row "No guest players currently stand out as promotion candidates. Candidates appear here after repeated match involvement, not from one-off guest appearances." [ref=e515]:
+                  - cell "No guest players currently stand out as promotion candidates. Candidates appear here after repeated match involvement, not from one-off guest appearances." [ref=e516]:
+                    - generic [ref=e517]:
+                      - paragraph [ref=e518]: No guest players currently stand out as promotion candidates.
+                      - generic [ref=e519]: Candidates appear here after repeated match involvement, not from one-off guest appearances.

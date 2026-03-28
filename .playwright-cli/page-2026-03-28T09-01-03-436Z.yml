@@ -1,0 +1,116 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e11] [cursor=pointer]:
+    - img [ref=e12]
+  - alert [ref=e15]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e19]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e20]
+      - list [ref=e21]:
+        - link "Dashboard" [ref=e22] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e23]:
+            - img [ref=e25]
+            - generic [ref=e28]: Dashboard
+        - link "Matches" [ref=e29] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e30]:
+            - img [ref=e32]
+            - generic [ref=e36]: Matches
+        - link "Squad" [ref=e37] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e38]:
+            - img [ref=e40]
+            - generic [ref=e43]: Squad
+        - link "Fairness" [ref=e44] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e45]:
+            - img [ref=e47]
+            - generic [ref=e50]: Fairness
+        - link "Feedback" [ref=e51] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e52]:
+            - img [ref=e54]
+            - generic [ref=e57]: Feedback
+      - button "K Ketan Deshpande" [ref=e59] [cursor=pointer]:
+        - generic [ref=e61]: K
+        - generic [ref=e63]: Ketan Deshpande
+    - generic [ref=e64]:
+      - generic [ref=e67]:
+        - button [ref=e68] [cursor=pointer]:
+          - img [ref=e69]
+        - generic [ref=e71]:
+          - heading "Moonwalkers Fairness" [level=4] [ref=e72]
+          - paragraph [ref=e73]: Organiser and captain workspace for saved matchday fairness tracking, alerts, and planner history.
+      - generic [ref=e76]:
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - generic [ref=e81]: Fairness
+            - heading "My Fairness" [level=3] [ref=e82]
+            - paragraph [ref=e83]: Your member-only fairness history for available weeks, actual XI chances, bench outcomes, and quota progress.
+          - generic [ref=e86]:
+            - generic [ref=e87]: Season
+            - generic [ref=e88]:
+              - combobox "Season" [ref=e89] [cursor=pointer]: "2026"
+              - textbox: "2026"
+              - img
+              - group:
+                - generic: Season
+        - generic [ref=e90]:
+          - generic [ref=e93]:
+            - generic [ref=e94]:
+              - generic [ref=e95]:
+                - heading "Ketan Deshpande" [level=4] [ref=e96]
+                - paragraph [ref=e97]: Moonwalkers fairness history based on saved matchdays and authentic participation reconciliation when linked scorecards exist.
+              - generic [ref=e98]:
+                - generic [ref=e100]: 2 XI to go
+                - generic [ref=e102]: 1 saved matchdays
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - heading "Quota Progress" [level=6] [ref=e105]
+                - heading "3/5 XI" [level=6] [ref=e106]
+              - progressbar [ref=e107]
+          - generic [ref=e109]:
+            - generic [ref=e113]:
+              - heading "Available Weeks" [level=6] [ref=e114]
+              - heading "1" [level=3] [ref=e115]
+              - paragraph [ref=e116]: Saved matchdays where you were available for selection.
+            - generic [ref=e120]:
+              - heading "Actual XI Chances" [level=6] [ref=e121]
+              - heading "3" [level=3] [ref=e122]
+              - paragraph [ref=e123]: Actual XI appearances counted from linked scorecards when available, otherwise saved XI assignments.
+            - generic [ref=e127]:
+              - heading "12th Count" [level=6] [ref=e128]
+              - heading "0" [level=3] [ref=e129]
+              - paragraph [ref=e130]: Saved or reconciled 12th-man outcomes in the tracked history.
+            - generic [ref=e134]:
+              - heading "Bench Count" [level=6] [ref=e135]
+              - heading "0" [level=3] [ref=e136]
+              - paragraph [ref=e137]: Tracked bench outcomes across saved matchdays.
+            - generic [ref=e141]:
+              - heading "Unavailable Count" [level=6] [ref=e142]
+              - heading "0" [level=3] [ref=e143]
+              - paragraph [ref=e144]: Saved matchday outcomes marked unavailable.
+            - generic [ref=e148]:
+              - heading "Quota Progress" [level=6] [ref=e149]
+              - heading "3/5" [level=3] [ref=e150]
+              - paragraph [ref=e151]: 2 more XI opportunities to reach the baseline.
+          - generic [ref=e152]:
+            - generic [ref=e156]:
+              - heading "Recent Week-by-Week History" [level=5] [ref=e157]
+              - generic [ref=e161]:
+                - generic [ref=e162]:
+                  - heading "22 Mar 2026" [level=6] [ref=e163]
+                  - generic [ref=e165]: 3 available slots
+                - generic [ref=e166]:
+                  - generic [ref=e168]: XI 3
+                  - generic [ref=e170]: 12th 0
+                  - generic [ref=e172]: Bench 0
+                  - generic [ref=e174]: Unavailable 0
+                - paragraph [ref=e175]: "22 Mar 2026: XI 3"
+            - generic [ref=e179]:
+              - heading "My Fairness Notes" [level=5] [ref=e180]
+              - alert [ref=e182]:
+                - img [ref=e184]
+                - generic [ref=e186]: was planned as 12th man for 22 Mar 2026 Match 2 but was actually used in the linked scorecard.

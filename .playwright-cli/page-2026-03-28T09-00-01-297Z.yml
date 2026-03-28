@@ -1,0 +1,47 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]
+  - alert [ref=e32]
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e40]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e285]
+      - list [ref=e42]:
+        - link "Dashboard" [ref=e286] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e287]:
+            - img [ref=e46]
+            - generic [ref=e49]: Dashboard
+        - link "Matches" [ref=e288] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e289]:
+            - img [ref=e53]
+            - generic [ref=e57]: Matches
+        - link "Squad" [ref=e290] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e291]:
+            - img [ref=e61]
+            - generic [ref=e64]: Squad
+        - link "Fairness" [ref=e292] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e293]:
+            - img [ref=e68]
+            - generic [ref=e71]: Fairness
+        - link "Feedback" [ref=e294] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e295]:
+            - img [ref=e75]
+            - generic [ref=e78]: Feedback
+      - button "K Ketan Deshpande" [ref=e322] [cursor=pointer]:
+        - generic [ref=e82]: K
+        - generic [ref=e84]: Ketan Deshpande
+    - generic [ref=e85]:
+      - generic [ref=e88]:
+        - button [ref=e89] [cursor=pointer]:
+          - img [ref=e90]
+        - generic [ref=e92]:
+          - heading "Welcome to Moonwalkers Dashboard" [level=4] [ref=e335]
+          - paragraph [ref=e94]: Overview of team performance, match statistics, and player contributions.
+      - progressbar [ref=e338]:
+        - img [ref=e339]

@@ -1,0 +1,460 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e11] [cursor=pointer]:
+    - img [ref=e12]
+  - alert [ref=e15]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e19]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e20]
+      - list [ref=e21]:
+        - link "Dashboard" [ref=e22] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e23]:
+            - img [ref=e25]
+            - generic [ref=e28]: Dashboard
+        - link "Matches" [ref=e29] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e30]:
+            - img [ref=e32]
+            - generic [ref=e36]: Matches
+        - link "Squad" [ref=e37] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e38]:
+            - img [ref=e40]
+            - generic [ref=e43]: Squad
+        - link "Membership" [ref=e44] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [ref=e45]:
+            - img [ref=e47]
+            - generic [ref=e50]: Membership
+        - link "Planner" [ref=e51] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e52]:
+            - img [ref=e54]
+            - generic [ref=e57]: Planner
+        - link "Fairness" [ref=e58] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e59]:
+            - img [ref=e61]
+            - generic [ref=e64]: Fairness
+        - link "Analytics" [ref=e65] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e66]:
+            - img [ref=e68]
+            - generic [ref=e71]: Analytics
+        - link "Validation" [ref=e72] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e73]:
+            - img [ref=e75]
+            - generic [ref=e78]: Validation
+        - link "Feedback" [ref=e79] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e80]:
+            - img [ref=e82]
+            - generic [ref=e85]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e87] [cursor=pointer]:
+        - generic [ref=e89]: D
+        - generic [ref=e91]: Davaseelan Ramamoorthy
+    - generic [ref=e92]:
+      - generic [ref=e95]:
+        - button [ref=e96] [cursor=pointer]:
+          - img [ref=e97]
+        - generic [ref=e99]:
+          - heading "Moonwalkers Memberships" [level=4] [ref=e100]
+          - paragraph [ref=e101]: V2 membership foundation for team members, linked accounts, linked players, and season coverage.
+      - generic [ref=e104]:
+        - generic [ref=e108]:
+          - generic [ref=e109]: V2 Foundation
+          - heading "Membership Workspace" [level=3] [ref=e110]
+          - paragraph [ref=e111]: Inspect and correct the V2 membership model across team members, active or inactive status, season assignment, linked app accounts, linked player identities, and external names used across attendance and scorecards.
+        - generic [ref=e112]:
+          - generic [ref=e116]:
+            - heading "Team Members" [level=6] [ref=e117]
+            - heading "20" [level=3] [ref=e118]
+            - paragraph [ref=e119]: Membership records in the current filter
+          - generic [ref=e123]:
+            - heading "Active Members" [level=6] [ref=e124]
+            - heading "20" [level=3] [ref=e125]
+            - paragraph [ref=e126]: Active members in the current filter
+          - generic [ref=e130]:
+            - heading "Inactive Members" [level=6] [ref=e131]
+            - heading "0" [level=3] [ref=e132]
+            - paragraph [ref=e133]: Inactive members in the current filter
+          - generic [ref=e137]:
+            - heading "Fully Linked" [level=6] [ref=e138]
+            - heading "20" [level=3] [ref=e139]
+            - paragraph [ref=e140]: Members linked to both user and player in the current filter
+        - generic [ref=e143]:
+          - heading "Add Membership Season" [level=6] [ref=e144]
+          - generic [ref=e145]:
+            - generic [ref=e147]:
+              - generic: Season Name
+              - generic [ref=e148]:
+                - textbox "Season Name" [ref=e149]:
+                  - /placeholder: "2025"
+                - group:
+                  - generic: Season Name
+            - generic [ref=e151]:
+              - generic [ref=e152]: Start Date
+              - generic [ref=e153]:
+                - textbox "Start Date" [ref=e154]
+                - group:
+                  - generic: Start Date
+            - generic [ref=e156]:
+              - generic [ref=e157]: End Date
+              - generic [ref=e158]:
+                - textbox "End Date" [ref=e159]
+                - group:
+                  - generic: End Date
+            - generic [ref=e161]:
+              - generic [ref=e162] [cursor=pointer]:
+                - generic [ref=e163]:
+                  - checkbox "Active Season" [ref=e164]
+                  - img [ref=e165]
+                - generic [ref=e167]: Active Season
+              - button "Add Season" [ref=e168] [cursor=pointer]
+        - generic [ref=e171]:
+          - generic [ref=e172]:
+            - heading "Pending Join Requests" [level=6] [ref=e173]
+            - paragraph [ref=e174]: Teamless users can request access with a 6-character Team ID. Approve a request to create the membership and assign the user to this team.
+          - paragraph [ref=e175]: No pending join requests right now.
+        - generic [ref=e176]:
+          - heading "Advanced Invite Links Team ID and join approval are the main V2 path. Keep invite links only for exceptional admin flows like claiming an existing unlinked member. Optional flow" [level=3] [ref=e177]:
+            - button "Advanced Invite Links Team ID and join approval are the main V2 path. Keep invite links only for exceptional admin flows like claiming an existing unlinked member. Optional flow" [ref=e178] [cursor=pointer]:
+              - generic [ref=e180]:
+                - generic [ref=e181]:
+                  - heading "Advanced Invite Links" [level=6] [ref=e182]
+                  - paragraph [ref=e183]: Team ID and join approval are the main V2 path. Keep invite links only for exceptional admin flows like claiming an existing unlinked member.
+                - generic [ref=e185]: Optional flow
+              - img [ref=e187]
+          - generic: Member
+          - generic: Invite Email
+          - generic: Member Name
+          - generic: Invite Email
+          - generic: Season
+          - generic: Team Role
+        - generic [ref=e190]:
+          - generic [ref=e192]:
+            - generic [ref=e193]:
+              - generic [ref=e194]:
+                - img [ref=e195]
+                - generic [ref=e197]:
+                  - heading "Team Membership Records" [level=5] [ref=e198]
+                  - paragraph [ref=e199]: Review members, change active or inactive state, assign the correct season, and manage external names used across attendance sheets, scorecards, and legacy tools.
+              - generic [ref=e200]:
+                - generic [ref=e201]:
+                  - img [ref=e202]
+                  - generic [ref=e204]: 2 seasons
+                - generic [ref=e206]: 1 active season
+                - generic "Create Player" [ref=e207]:
+                  - button "Create Player" [ref=e208] [cursor=pointer]:
+                    - img [ref=e209]
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - generic [ref=e214]: Season
+                - generic [ref=e215]:
+                  - combobox "Season" [ref=e216] [cursor=pointer]: "2026"
+                  - textbox: 93a6a785-527e-4a21-9e9d-c30bfc05db2e
+                  - img
+                  - group:
+                    - generic: Season
+              - generic [ref=e217]:
+                - generic [ref=e218]: Status
+                - generic [ref=e219]:
+                  - combobox "Status" [ref=e220] [cursor=pointer]: Active
+                  - textbox: active
+                  - img
+                  - group:
+                    - generic: Status
+              - generic [ref=e221]:
+                - generic [ref=e222]: Role
+                - generic [ref=e223]:
+                  - combobox "Role" [ref=e224] [cursor=pointer]: All Roles
+                  - textbox: all
+                  - img
+                  - group:
+                    - generic: Role
+          - generic [ref=e225]:
+            - generic [ref=e227]:
+              - generic [ref=e228]:
+                - heading "Anir Fully linked" [level=3] [ref=e229]:
+                  - button "Anir Fully linked" [ref=e230] [cursor=pointer]:
+                    - generic [ref=e232]:
+                      - paragraph [ref=e233]: Anir
+                      - generic [ref=e235]: Fully linked
+                    - img [ref=e237]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e239]:
+                - heading "Davaseelan Fully linked" [level=3] [ref=e240]:
+                  - button "Davaseelan Fully linked" [ref=e241] [cursor=pointer]:
+                    - generic [ref=e243]:
+                      - paragraph [ref=e244]: Davaseelan
+                      - generic [ref=e246]: Fully linked
+                    - img [ref=e248]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e250]:
+                - heading "Gaurav Patil Fully linked" [level=3] [ref=e251]:
+                  - button "Gaurav Patil Fully linked" [ref=e252] [cursor=pointer]:
+                    - generic [ref=e254]:
+                      - paragraph [ref=e255]: Gaurav Patil
+                      - generic [ref=e257]: Fully linked
+                    - img [ref=e259]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e261]:
+                - heading "Jeevan Srinivasalureddy Fully linked" [level=3] [ref=e262]:
+                  - button "Jeevan Srinivasalureddy Fully linked" [ref=e263] [cursor=pointer]:
+                    - generic [ref=e265]:
+                      - paragraph [ref=e266]: Jeevan Srinivasalureddy
+                      - generic [ref=e268]: Fully linked
+                    - img [ref=e270]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e272]:
+                - heading "Ketan Deshpande Fully linked" [level=3] [ref=e273]:
+                  - button "Ketan Deshpande Fully linked" [ref=e274] [cursor=pointer]:
+                    - generic [ref=e276]:
+                      - paragraph [ref=e277]: Ketan Deshpande
+                      - generic [ref=e279]: Fully linked
+                    - img [ref=e281]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e283]:
+                - heading "Manoj Prabhakar Fully linked" [level=3] [ref=e284]:
+                  - button "Manoj Prabhakar Fully linked" [ref=e285] [cursor=pointer]:
+                    - generic [ref=e287]:
+                      - paragraph [ref=e288]: Manoj Prabhakar
+                      - generic [ref=e290]: Fully linked
+                    - img [ref=e292]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e294]:
+                - heading "Ragul Ganesh Nattarasu Fully linked" [level=3] [ref=e295]:
+                  - button "Ragul Ganesh Nattarasu Fully linked" [ref=e296] [cursor=pointer]:
+                    - generic [ref=e298]:
+                      - paragraph [ref=e299]: Ragul Ganesh Nattarasu
+                      - generic [ref=e301]: Fully linked
+                    - img [ref=e303]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e305]:
+                - heading "Sathish Kumar Fully linked" [level=3] [ref=e306]:
+                  - button "Sathish Kumar Fully linked" [ref=e307] [cursor=pointer]:
+                    - generic [ref=e309]:
+                      - paragraph [ref=e310]: Sathish Kumar
+                      - generic [ref=e312]: Fully linked
+                    - img [ref=e314]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e316]:
+                - heading "Sharma Elanthiraiyan K V Fully linked" [level=3] [ref=e317]:
+                  - button "Sharma Elanthiraiyan K V Fully linked" [ref=e318] [cursor=pointer]:
+                    - generic [ref=e320]:
+                      - paragraph [ref=e321]: Sharma Elanthiraiyan K V
+                      - generic [ref=e323]: Fully linked
+                    - img [ref=e325]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e327]:
+                - heading "Varghese Akhil Fully linked" [level=3] [ref=e328]:
+                  - button "Varghese Akhil Fully linked" [ref=e329] [cursor=pointer]:
+                    - generic [ref=e331]:
+                      - paragraph [ref=e332]: Varghese Akhil
+                      - generic [ref=e334]: Fully linked
+                    - img [ref=e336]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+            - generic [ref=e339]:
+              - generic [ref=e340]:
+                - heading "Arjun Roy Fully linked" [level=3] [ref=e341]:
+                  - button "Arjun Roy Fully linked" [ref=e342] [cursor=pointer]:
+                    - generic [ref=e344]:
+                      - paragraph [ref=e345]: Arjun Roy
+                      - generic [ref=e347]: Fully linked
+                    - img [ref=e349]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e351]:
+                - heading "Dhananjay Bhandiwad Fully linked" [level=3] [ref=e352]:
+                  - button "Dhananjay Bhandiwad Fully linked" [ref=e353] [cursor=pointer]:
+                    - generic [ref=e355]:
+                      - paragraph [ref=e356]: Dhananjay Bhandiwad
+                      - generic [ref=e358]: Fully linked
+                    - img [ref=e360]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e362]:
+                - heading "Imaad Khan Fully linked" [level=3] [ref=e363]:
+                  - button "Imaad Khan Fully linked" [ref=e364] [cursor=pointer]:
+                    - generic [ref=e366]:
+                      - paragraph [ref=e367]: Imaad Khan
+                      - generic [ref=e369]: Fully linked
+                    - img [ref=e371]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e373]:
+                - heading "Kanishk Dhanker Fully linked" [level=3] [ref=e374]:
+                  - button "Kanishk Dhanker Fully linked" [ref=e375] [cursor=pointer]:
+                    - generic [ref=e377]:
+                      - paragraph [ref=e378]: Kanishk Dhanker
+                      - generic [ref=e380]: Fully linked
+                    - img [ref=e382]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e384]:
+                - heading "Krishnaraj Dhanasekaran Fully linked" [level=3] [ref=e385]:
+                  - button "Krishnaraj Dhanasekaran Fully linked" [ref=e386] [cursor=pointer]:
+                    - generic [ref=e388]:
+                      - paragraph [ref=e389]: Krishnaraj Dhanasekaran
+                      - generic [ref=e391]: Fully linked
+                    - img [ref=e393]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e395]:
+                - heading "Naveen Nelavelli Fully linked" [level=3] [ref=e396]:
+                  - button "Naveen Nelavelli Fully linked" [ref=e397] [cursor=pointer]:
+                    - generic [ref=e399]:
+                      - paragraph [ref=e400]: Naveen Nelavelli
+                      - generic [ref=e402]: Fully linked
+                    - img [ref=e404]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e406]:
+                - heading "Ravinder Fully linked" [level=3] [ref=e407]:
+                  - button "Ravinder Fully linked" [ref=e408] [cursor=pointer]:
+                    - generic [ref=e410]:
+                      - paragraph [ref=e411]: Ravinder
+                      - generic [ref=e413]: Fully linked
+                    - img [ref=e415]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e417]:
+                - heading "Sharath Fully linked" [level=3] [ref=e418]:
+                  - button "Sharath Fully linked" [ref=e419] [cursor=pointer]:
+                    - generic [ref=e421]:
+                      - paragraph [ref=e422]: Sharath
+                      - generic [ref=e424]: Fully linked
+                    - img [ref=e426]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e428]:
+                - heading "Suryanarayanan Soundararajan Fully linked" [level=3] [ref=e429]:
+                  - button "Suryanarayanan Soundararajan Fully linked" [ref=e430] [cursor=pointer]:
+                    - generic [ref=e432]:
+                      - paragraph [ref=e433]: Suryanarayanan Soundararajan
+                      - generic [ref=e435]: Fully linked
+                    - img [ref=e437]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name
+              - generic [ref=e439]:
+                - heading "Varinder Nishad Fully linked" [level=3] [ref=e440]:
+                  - button "Varinder Nishad Fully linked" [ref=e441] [cursor=pointer]:
+                    - generic [ref=e443]:
+                      - paragraph [ref=e444]: Varinder Nishad
+                      - generic [ref=e446]: Fully linked
+                    - img [ref=e448]
+                - generic: Role
+                - generic: Status
+                - generic: Season
+                - generic: Linked User
+                - generic: Linked Player
+                - generic: Batting Style
+                - generic: External Name

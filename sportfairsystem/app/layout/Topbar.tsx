@@ -71,7 +71,7 @@ function getPageHeader(pathname: string, teamName: string, hasTeam: boolean) {
   if (pathname === "/fairness") {
     return {
       title: `${teamName} Fairness`,
-      subtitle: "Organiser and captain workspace for saved matchday fairness tracking, alerts, and planner history."
+      subtitle: "Fairness tracking, opportunity visibility, and planner history for the current team."
     };
   }
 

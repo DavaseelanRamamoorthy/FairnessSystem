@@ -34,8 +34,12 @@ import TrackChangesRoundedIcon from "@mui/icons-material/TrackChangesRounded";
 import FrontHandRoundedIcon from "@mui/icons-material/FrontHandRounded";
 
 import PaginationFooter from "@/app/components/common/PaginationFooter";
-import { currentTeamName } from "@/app/config/teamConfig";
 import { usePagination } from "@/app/hooks/usePagination";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
+import {
+  canManageIdentityWorkspace,
+  getCurrentWorkspaceAccessSnapshot
+} from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import {
   getPlayerProfile,
@@ -43,7 +47,9 @@ import {
   PlayerProfile,
   SeasonOption
 } from "@/app/services/playerProfileService";
-import { useAuth } from "@/app/context/AuthContext";
+import {
+  getPrimarySquadRoleTag
+} from "@/app/services/squadService";
 import { formatDate } from "@/app/utils/formatDate";
 import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
@@ -124,6 +130,7 @@ type ProfileKpiCardProps = {
   footer: string;
   tone?: KpiCardTone;
   compactValue?: boolean;
+  subvalue?: string | null;
 };
 
 function getMetadataChipSx(kind: "role" | "captain" | "keeper" | "tag" | "style") {
@@ -165,6 +172,12 @@ function getPlayerInitials(name: string) {
 }
 
 function getBestFitLabel(profile: PlayerProfile) {
+  const primaryRoleTag = getPrimarySquadRoleTag(profile.roleTags);
+
+  if (primaryRoleTag) {
+    return primaryRoleTag;
+  }
+
   if (profile.battingMatches > 0 && profile.bowlingMatches > 0) {
     return "All-Rounder";
   }
@@ -192,7 +205,8 @@ function buildPlayerSummaryText(
   profile: PlayerProfile,
   usagePercent: number,
   activeUsagePercent: number,
-  includeSelectionUsage: boolean
+  includeSelectionUsage: boolean,
+  teamName: string
 ) {
   const name = formatName(profile.name);
   const bestFit = getBestFitLabel(profile);
@@ -209,15 +223,15 @@ function buildPlayerSummaryText(
     : "";
 
   if (bestFit === "All-Rounder") {
-    return `${name} is currently profiling as an All-Rounder for ${currentTeamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the player has delivered ${battingLine} and ${bowlingLine}, making them a two-phase contributor in the current scope.`;
+    return `${name} is currently profiling as an All-Rounder for ${teamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the player has delivered ${battingLine} and ${bowlingLine}, making them a two-phase contributor in the current scope.`;
   }
 
   if (bestFit === "Bowler") {
-    return `${name} is currently profiling as a Bowler for ${currentTeamName}. The player has been selected in ${selectionLine}, with ${activeLine} and ${activeUsagePercent}% active usage. ${includeSelectionUsage ? `Selection usage currently sits at ${usagePercent}%. ` : ""}The strongest return is ${bowlingLine}, while batting impact is currently ${battingLine}.`;
+    return `${name} is currently profiling as a Bowler for ${teamName}. The player has been selected in ${selectionLine}, with ${activeLine} and ${activeUsagePercent}% active usage. ${includeSelectionUsage ? `Selection usage currently sits at ${usagePercent}%. ` : ""}The strongest return is ${bowlingLine}, while batting impact is currently ${battingLine}.`;
   }
 
   if (bestFit === "Batter") {
-    return `${name} is currently profiling as a Batter for ${currentTeamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the primary output is ${battingLine}, while bowling impact remains ${bowlingLine}.`;
+    return `${name} is currently profiling as a Batter for ${teamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the primary output is ${battingLine}, while bowling impact remains ${bowlingLine}.`;
   }
 
   return `${name} is still developing into a clearer role fit. The player has been selected in ${selectionLine}, with ${activeLine}, and currently shows ${battingLine} alongside ${bowlingLine}.`;
@@ -229,6 +243,75 @@ function getRatePercentage(value: number, total: number) {
   }
 
   return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
+}
+
+function SnapshotRing({
+  label,
+  value,
+  total,
+  color
+}: {
+  label: string;
+  value: number;
+  total: number;
+  color: string;
+}) {
+  const percentage = getRatePercentage(value, total);
+
+  return (
+    <Stack spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+      <Box sx={{ position: "relative", display: "inline-flex" }}>
+        <CircularProgress
+          variant="determinate"
+          value={100}
+          size={108}
+          thickness={4}
+          sx={{
+            color: (theme) =>
+              theme.palette.mode === "dark"
+                ? alpha("#FFFFFF", 0.1)
+                : alpha(PLAYER_NAVY, 0.08)
+          }}
+        />
+        <CircularProgress
+          variant="determinate"
+          value={percentage}
+          size={108}
+          thickness={4}
+          sx={{
+            color,
+            position: "absolute",
+            left: 0
+          }}
+        />
+        <Stack
+          spacing={0.15}
+          alignItems="center"
+          justifyContent="center"
+          sx={{
+            position: "absolute",
+            inset: 0
+          }}
+        >
+          <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1 }}>
+            {value}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
+            / {total || 0}
+          </Typography>
+        </Stack>
+      </Box>
+
+      <Stack spacing={0.35} alignItems="center">
+        <Typography sx={{ color: "text.primary", fontWeight: 700, textAlign: "center" }}>
+          {label}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {percentage}%
+        </Typography>
+      </Stack>
+    </Stack>
+  );
 }
 
 function getDisplayResultLabel(match: PlayerProfile["recentMatches"][number]) {
@@ -263,7 +346,8 @@ function ProfileKpiCard({
   icon,
   footer,
   tone = "navy",
-  compactValue = false
+  compactValue = false,
+  subvalue = null
 }: ProfileKpiCardProps) {
   const style = KPI_CARD_STYLES[tone];
 
@@ -360,6 +444,19 @@ function ProfileKpiCard({
               >
                 {value}
               </Typography>
+              {subvalue ? (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: alpha("#FFFFFF", 0.78),
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    textAlign: "right"
+                  }}
+                >
+                  {subvalue}
+                </Typography>
+              ) : null}
             </Stack>
           </Stack>
         </Stack>
@@ -394,7 +491,7 @@ export default function PlayerProfilePage() {
   const params = useParams<{ playerId: string }>();
   const playerId = Array.isArray(params.playerId) ? params.playerId[0] : params.playerId;
   const theme = useTheme();
-  const { isAdmin } = useAuth();
+  const { teamName: activeTeamName } = useActiveTeamBranding();
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
@@ -405,6 +502,8 @@ export default function PlayerProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedMatchId, setExpandedMatchId] = useState<string | false>(false);
+  const [canSeeSelectionUsage, setCanSeeSelectionUsage] = useState(false);
+  const [canManagePlayerSetup, setCanManagePlayerSetup] = useState(false);
   const recentMatchesPagination = usePagination({
     items: profile?.recentMatches ?? [],
     pageSize: RECENT_MATCHES_PAGE_SIZE,
@@ -439,6 +538,35 @@ export default function PlayerProfilePage() {
       storeSeasonFilter(PLAYER_PROFILE_SEASON_STORAGE_KEY, selectedSeason);
     }
   }, [selectedSeason]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadPlayerWorkspaceAccess = async () => {
+      try {
+        const [workspaceAccess, canManageIdentity] = await Promise.all([
+          getCurrentWorkspaceAccessSnapshot(),
+          canManageIdentityWorkspace()
+        ]);
+
+        if (isActive) {
+          setCanSeeSelectionUsage(workspaceAccess.canAccessAnalytics);
+          setCanManagePlayerSetup(canManageIdentity);
+        }
+      } catch {
+        if (isActive) {
+          setCanSeeSelectionUsage(false);
+          setCanManagePlayerSetup(false);
+        }
+      }
+    };
+
+    void loadPlayerWorkspaceAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasResolvedSeason && !selectedSeason) {
@@ -510,11 +638,12 @@ export default function PlayerProfilePage() {
     ? Math.round((profile.activeMatches / profile.totalTeamMatches) * 100)
     : 0;
   const playerSummaryText = profile
-    ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, isAdmin)
+    ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, canSeeSelectionUsage, activeTeamName)
     : "";
   const bestFitLabel = profile ? getBestFitLabel(profile) : "";
 
   const paginatedRecentMatches = recentMatchesPagination.paginatedItems;
+  const primaryRoleTag = profile ? getPrimarySquadRoleTag(profile.roleTags) : null;
 
   const involvementBars = profile
     ? [
@@ -599,7 +728,7 @@ export default function PlayerProfilePage() {
                     justifyContent="space-between"
                   >
                     <Stack spacing={1.75} sx={{ flex: 1, minWidth: 0 }}>
-                      <Stack direction="row" spacing={2} alignItems="flex-start">
+                      <Stack direction="row" spacing={2} alignItems="center">
                         <Box
                           sx={(currentTheme) => ({
                             width: 64,
@@ -622,7 +751,12 @@ export default function PlayerProfilePage() {
                         </Box>
 
                         <Stack spacing={1.25} sx={{ minWidth: 0 }}>
-                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            flexWrap="wrap"
+                          >
                             <Typography
                               variant="h3"
                               sx={{
@@ -656,11 +790,13 @@ export default function PlayerProfilePage() {
                                 : alpha(PLAYER_NAVY, 0.72)
                             }}
                           >
-                            {currentTeamName} player profile with batting, bowling, and recent-match contributions.
+                            {activeTeamName} player profile with batting, bowling, and recent-match contributions.
                           </Typography>
 
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                            {profile.roleTags.map((roleTag) => (
+                            {profile.roleTags
+                              .filter((roleTag) => roleTag !== primaryRoleTag)
+                              .map((roleTag) => (
                               <Chip
                                 key={roleTag}
                                 label={roleTag}
@@ -669,22 +805,15 @@ export default function PlayerProfilePage() {
                                 sx={getMetadataChipSx("tag")}
                               />
                             ))}
-
-                            {profile.battingStyle && (
-                              <Chip
-                                label={profile.battingStyle}
-                                size="small"
-                                variant="outlined"
-                                sx={getMetadataChipSx("style")}
-                              />
-                            )}
-
                           </Stack>
                           </Stack>
                         </Stack>
                     </Stack>
 
-                    <Box sx={{ width: { xs: "100%", lg: 180 }, flexShrink: 0 }}>
+                    <Stack
+                      spacing={1.25}
+                      sx={{ width: { xs: "100%", lg: 180 }, flexShrink: 0 }}
+                    >
                       <FormControl size="small" fullWidth>
                         <InputLabel id="player-profile-season-filter-label">Season</InputLabel>
                         <Select
@@ -701,7 +830,13 @@ export default function PlayerProfilePage() {
                           ))}
                         </Select>
                       </FormControl>
-                    </Box>
+
+                      {canManagePlayerSetup && (
+                        <Alert severity="info" variant="outlined">
+                          Manage player setup in Memberships.
+                        </Alert>
+                      )}
+                    </Stack>
                   </Stack>
 
                   <Grid container spacing={1.5}>
@@ -892,7 +1027,7 @@ export default function PlayerProfilePage() {
                   value={profile.matchesPlayed}
                   icon={<SportsCricketRoundedIcon />}
                   tone="navy"
-                  footer="Moonwalkers appearances"
+                  footer={`${activeTeamName} appearances`}
                 />
               </Grid>
 
@@ -900,6 +1035,7 @@ export default function PlayerProfilePage() {
                 <ProfileKpiCard
                   label="Total Runs"
                   value={profile.totalRuns}
+                  subvalue={`SR ${profile.strikeRate !== null ? profile.strikeRate.toFixed(2) : "-"}`}
                   icon={<FlashOnRoundedIcon />}
                   tone="red"
                   footer="Batting contribution"
@@ -910,6 +1046,7 @@ export default function PlayerProfilePage() {
                 <ProfileKpiCard
                   label="Wickets"
                   value={profile.totalWickets}
+                  subvalue={`EC ${profile.economy !== null ? profile.economy.toFixed(2) : "-"}`}
                   icon={<TrackChangesRoundedIcon />}
                   tone="gold"
                   footer="Bowling contribution"
@@ -948,45 +1085,18 @@ export default function PlayerProfilePage() {
                         Performance Snapshot
                       </Typography>
 
-                      <Stack spacing={2}>
-                        {involvementBars.map((item) => {
-                          const percentage = getRatePercentage(item.value, item.total);
-
-                          return (
-                            <Stack key={item.label} spacing={0.85}>
-                              <Stack direction="row" justifyContent="space-between" spacing={2}>
-                                <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                                  {item.label}
-                                </Typography>
-                                <Typography color="text.secondary">
-                                  {item.value} / {item.total || 0}
-                                </Typography>
-                              </Stack>
-
-                              <Box
-                                sx={(currentTheme) => ({
-                                  height: 12,
-                                  borderRadius: 999,
-                                  overflow: "hidden",
-                                  backgroundColor:
-                                    currentTheme.palette.mode === "dark"
-                                      ? alpha("#FFFFFF", 0.08)
-                                      : alpha(PLAYER_NAVY, 0.08)
-                                })}
-                              >
-                                <Box
-                                  sx={{
-                                    width: `${percentage}%`,
-                                    height: "100%",
-                                    borderRadius: 999,
-                                    background: `linear-gradient(90deg, ${alpha(item.color, 0.88)} 0%, ${item.color} 100%)`
-                                  }}
-                                />
-                              </Box>
-                            </Stack>
-                          );
-                        })}
-                      </Stack>
+                      <Grid container spacing={2.5} justifyContent="center">
+                        {involvementBars.map((item) => (
+                          <Grid key={item.label} size={{ xs: 12, sm: 4 }}>
+                            <SnapshotRing
+                              label={item.label}
+                              value={item.value}
+                              total={item.total}
+                              color={item.color}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
                     </Stack>
                   </CardContent>
                 </Card>
@@ -1037,34 +1147,13 @@ export default function PlayerProfilePage() {
                         </Stack>
 
                         <Stack direction="row" justifyContent="space-between" spacing={2}>
-                          <Typography color="text.secondary">Batting Matches</Typography>
-                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                            {profile.battingMatches}
-                          </Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between" spacing={2}>
-                          <Typography color="text.secondary">Bowling Matches</Typography>
-                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                            {profile.bowlingMatches}
-                          </Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between" spacing={2}>
-                          <Typography color="text.secondary">Active Usage</Typography>
-                          <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
-                            {activeUsagePercent}% ({profile.activeMatches} of {profile.totalTeamMatches} active matches)
-                          </Typography>
-                        </Stack>
-
-                        <Stack direction="row" justifyContent="space-between" spacing={2}>
                           <Typography color="text.secondary">Bench Stats</Typography>
                           <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
                             {profile.benchMatches} unused appearances
                           </Typography>
                         </Stack>
 
-                        {isAdmin && (
+                        {canSeeSelectionUsage && (
                           <Stack direction="row" justifyContent="space-between" spacing={2}>
                             <Typography color="text.secondary">Selection Usage</Typography>
                             <Typography sx={{ color: "text.primary", fontWeight: 700 }}>
@@ -1245,6 +1334,7 @@ export default function PlayerProfilePage() {
             </Grid>
           </>
         ) : null}
+
       </Stack>
     </Container>
   );

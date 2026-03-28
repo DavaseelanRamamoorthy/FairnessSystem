@@ -26,19 +26,24 @@ import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
 import AutorenewRoundedIcon from "@mui/icons-material/AutorenewRounded";
+import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
-import { useAuth } from "@/app/context/AuthContext";
+import { canAccessPlannerWorkspace } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
+import { saveFriendlyPlannerBatch } from "@/app/services/plannerHistoryService";
 import {
+  PlannerPlayerSummary,
   PlayerSummary,
   SeasonOption,
   getPlayerSeasons,
-  getSquadPlayerSummaries
+  getPlannerPlayerSummaries
 } from "@/app/services/playerProfileService";
 import {
   buildPlannerSuggestion,
+  buildPlannerSuggestionForRelease,
+  FriendlyMatchAvailabilityOverrides,
   parseAttendanceWorkbook,
   PlannerSuggestion,
   PlannerWorkbook
@@ -47,8 +52,21 @@ import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
 
 const PLANNER_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:planner";
+const PLANNER_STATE_STORAGE_KEY = "sportfairsystem:planner-state:v1";
 
 type PlannerMode = "friendly" | "tournament";
+type PersistedPlannerState = {
+  plannerMode: PlannerMode;
+  plannerWorkbook: PlannerWorkbook | null;
+  selectedWeekendId: string;
+  selectedMatchCount: number;
+  uploadedFileName: string | null;
+  selectedFriendlyWicketKeeperId: string;
+  manualFriendlyMatchAvailability: Record<string, boolean[]>;
+  manualTournamentAvailability: Record<string, boolean>;
+  generatedSuggestion: PlannerSuggestion | null;
+  generatedMode: PlannerMode | null;
+};
 
 function MetricCard({
   label,
@@ -88,8 +106,17 @@ function buildPlayerLabel(player: PlayerSummary) {
   return tags.length > 0 ? `${formatName(player.name)} - ${tags.join(", ")}` : formatName(player.name);
 }
 
+function buildAvailabilityLabel(player: PlayerSummary) {
+  const tags = [
+    player.isCaptain ? "C" : null,
+    player.isWicketKeeper ? "WK" : null
+  ].filter(Boolean);
+
+  return tags.length > 0 ? `${formatName(player.name)} - ${tags.join(", ")}` : formatName(player.name);
+}
+
 function buildManualAvailabilityOverrides(
-  players: PlayerSummary[],
+  players: PlannerPlayerSummary[],
   selectedAvailability: Record<string, boolean>
 ) {
   return players.reduce<Record<string, boolean>>((result, player) => {
@@ -98,13 +125,24 @@ function buildManualAvailabilityOverrides(
   }, {});
 }
 
+function buildFriendlyMatchAvailabilityOverrides(
+  playerAvailability: Record<string, boolean[]>,
+  matchCount: number
+) {
+  return Object.entries(playerAvailability).reduce<FriendlyMatchAvailabilityOverrides>((result, [playerId, matches]) => {
+    result[playerId] = Array.from({ length: matchCount }, (_, index) => index + 1)
+      .filter((matchNumber) => matches[matchNumber - 1] ?? true);
+    return result;
+  }, {});
+}
+
 export default function PlannerPage() {
-  const { isAdmin } = useAuth();
+  const [canAccessWorkspace, setCanAccessWorkspace] = useState<boolean | null>(null);
   const [plannerMode, setPlannerMode] = useState<PlannerMode>("friendly");
   const [seasons, setSeasons] = useState<SeasonOption[]>([]);
   const [selectedSeason, setSelectedSeason] = useState(() => readStoredSeasonFilter(PLANNER_SEASON_STORAGE_KEY) ?? "");
   const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
-  const [players, setPlayers] = useState<PlayerSummary[]>([]);
+  const [players, setPlayers] = useState<PlannerPlayerSummary[]>([]);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
   const [plannerWorkbook, setPlannerWorkbook] = useState<PlannerWorkbook | null>(null);
   const [selectedWeekendId, setSelectedWeekendId] = useState("");
@@ -113,9 +151,86 @@ export default function PlannerPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isParsingWorkbook, setIsParsingWorkbook] = useState(false);
   const [selectedFriendlyWicketKeeperId, setSelectedFriendlyWicketKeeperId] = useState("");
+  const [manualFriendlyMatchAvailability, setManualFriendlyMatchAvailability] = useState<Record<string, boolean[]>>({});
   const [manualTournamentAvailability, setManualTournamentAvailability] = useState<Record<string, boolean>>({});
   const [generatedSuggestion, setGeneratedSuggestion] = useState<PlannerSuggestion | null>(null);
   const [generatedMode, setGeneratedMode] = useState<PlannerMode | null>(null);
+  const [isSavingFriendlyPlan, setIsSavingFriendlyPlan] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const rawState = window.localStorage.getItem(PLANNER_STATE_STORAGE_KEY);
+
+      if (!rawState) {
+        return;
+      }
+
+      const persistedState = JSON.parse(rawState) as Partial<PersistedPlannerState>;
+
+      if (persistedState.plannerMode === "friendly" || persistedState.plannerMode === "tournament") {
+        setPlannerMode(persistedState.plannerMode);
+      }
+
+      setPlannerWorkbook(persistedState.plannerWorkbook ?? null);
+      setSelectedWeekendId(typeof persistedState.selectedWeekendId === "string" ? persistedState.selectedWeekendId : "");
+      setSelectedMatchCount(
+        typeof persistedState.selectedMatchCount === "number"
+          && persistedState.selectedMatchCount >= 1
+          && persistedState.selectedMatchCount <= 3
+          ? persistedState.selectedMatchCount
+          : 3
+      );
+      setUploadedFileName(typeof persistedState.uploadedFileName === "string" ? persistedState.uploadedFileName : null);
+      setSelectedFriendlyWicketKeeperId(
+        typeof persistedState.selectedFriendlyWicketKeeperId === "string"
+          ? persistedState.selectedFriendlyWicketKeeperId
+          : ""
+      );
+      setManualFriendlyMatchAvailability(persistedState.manualFriendlyMatchAvailability ?? {});
+      setManualTournamentAvailability(persistedState.manualTournamentAvailability ?? {});
+      setGeneratedSuggestion(persistedState.generatedSuggestion ?? null);
+      setGeneratedMode(
+        persistedState.generatedMode === "friendly" || persistedState.generatedMode === "tournament"
+          ? persistedState.generatedMode
+          : null
+      );
+    } catch {
+      window.localStorage.removeItem(PLANNER_STATE_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const nextState: PersistedPlannerState = {
+        plannerMode,
+        plannerWorkbook,
+        selectedWeekendId,
+        selectedMatchCount,
+        uploadedFileName,
+        selectedFriendlyWicketKeeperId,
+        manualFriendlyMatchAvailability,
+        manualTournamentAvailability,
+        generatedSuggestion,
+        generatedMode
+      };
+
+      window.localStorage.setItem(PLANNER_STATE_STORAGE_KEY, JSON.stringify(nextState));
+    } catch {
+      // Ignore storage write failures and keep the planner usable.
+    }
+  }, [
+    generatedMode,
+    generatedSuggestion,
+    manualFriendlyMatchAvailability,
+    manualTournamentAvailability,
+    plannerMode,
+    plannerWorkbook,
+    selectedFriendlyWicketKeeperId,
+    selectedMatchCount,
+    selectedWeekendId,
+    uploadedFileName
+  ]);
 
   useEffect(() => {
     let isActive = true;
@@ -161,11 +276,35 @@ export default function PlannerPage() {
   }, [selectedSeason]);
 
   useEffect(() => {
+    let isActive = true;
+
+    const loadPlannerAccess = async () => {
+      try {
+        const nextCanAccessWorkspace = await canAccessPlannerWorkspace();
+
+        if (isActive) {
+          setCanAccessWorkspace(nextCanAccessWorkspace);
+        }
+      } catch {
+        if (isActive) {
+          setCanAccessWorkspace(false);
+        }
+      }
+    };
+
+    void loadPlannerAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasResolvedSeason && !selectedSeason) {
       return;
     }
 
-    if (!isAdmin) {
+    if (!canAccessWorkspace) {
       setPlayers([]);
       setIsLoadingPlayers(false);
       return;
@@ -178,9 +317,8 @@ export default function PlannerPage() {
       setErrorMessage(null);
 
       try {
-        const nextPlayers = await getSquadPlayerSummaries(
-          !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason,
-          { includeInactiveForSeason: true }
+        const nextPlayers = await getPlannerPlayerSummaries(
+          !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason
         );
         if (!isActive) {
           return;
@@ -208,7 +346,7 @@ export default function PlannerPage() {
     return () => {
       isActive = false;
     };
-  }, [hasResolvedSeason, isAdmin, selectedSeason]);
+  }, [canAccessWorkspace, hasResolvedSeason, selectedSeason]);
 
   useEffect(() => {
     if (players.length === 0) {
@@ -237,17 +375,33 @@ export default function PlannerPage() {
     return plannerWorkbook?.weekends.find((weekend) => weekend.id === selectedWeekendId) ?? null;
   }, [plannerWorkbook, selectedWeekendId]);
 
-  const tournamentBaseSuggestion = useMemo(() => {
+  const friendlyBaseSuggestion = useMemo(() => {
     if (!selectedWeekend || players.length === 0) {
       return null;
     }
 
-    return buildPlannerSuggestion(players, selectedWeekend.availableNames, selectedMatchCount);
+    return buildPlannerSuggestion(players, selectedWeekend.availableNames, selectedMatchCount, undefined, undefined, "friendly");
   }, [players, selectedMatchCount, selectedWeekend]);
 
   const friendlyWicketKeeperOptions = useMemo(() => {
-    return tournamentBaseSuggestion?.availablePlayers ?? [];
-  }, [tournamentBaseSuggestion]);
+    return friendlyBaseSuggestion?.availablePlayers ?? [];
+  }, [friendlyBaseSuggestion]);
+
+  useEffect(() => {
+    const availablePlayers = friendlyBaseSuggestion?.availablePlayers ?? [];
+
+    if (availablePlayers.length === 0) {
+      setManualFriendlyMatchAvailability({});
+      return;
+    }
+
+    setManualFriendlyMatchAvailability((current) =>
+      availablePlayers.reduce<Record<string, boolean[]>>((result, player) => {
+        result[player.id] = Array.from({ length: selectedMatchCount }, (_, index) => current[player.id]?.[index] ?? true);
+        return result;
+      }, {})
+    );
+  }, [friendlyBaseSuggestion, selectedMatchCount]);
 
   const manualTournamentSelectedCount = useMemo(() => {
     return Object.values(manualTournamentAvailability).filter(Boolean).length;
@@ -296,27 +450,96 @@ export default function PlannerPage() {
     setGeneratedMode(null);
   };
 
-  const handleFriendlyGenerate = () => {
+  const toggleFriendlyMatchAvailability = (playerId: string, matchIndex: number) => {
+    setManualFriendlyMatchAvailability((current) => {
+      const currentMatches = current[playerId] ?? Array.from({ length: selectedMatchCount }, () => true);
+      const nextMatches = [...currentMatches];
+      nextMatches[matchIndex] = !(nextMatches[matchIndex] ?? true);
+
+      return {
+        ...current,
+        [playerId]: nextMatches
+      };
+    });
+    setGeneratedSuggestion(null);
+    setGeneratedMode(null);
+  };
+
+  const setFriendlyFullDayAvailability = (playerId: string) => {
+    setManualFriendlyMatchAvailability((current) => ({
+      ...current,
+      [playerId]: Array.from({ length: selectedMatchCount }, () => true)
+    }));
+    setGeneratedSuggestion(null);
+    setGeneratedMode(null);
+  };
+
+  const handleFriendlyGenerate = async () => {
     if (!selectedWeekend) {
       setErrorMessage("Upload the attendance workbook and choose a weekend before generating the friendly matchday plans.");
       return;
     }
 
+    try {
+      setErrorMessage(null);
+      const nextSuggestion = await buildPlannerSuggestionForRelease(
+        players,
+        selectedWeekend.availableNames,
+        selectedMatchCount,
+        undefined,
+        selectedFriendlyWicketKeeperId || undefined,
+        "friendly",
+        buildFriendlyMatchAvailabilityOverrides(manualFriendlyMatchAvailability, selectedMatchCount),
+        selectedSeason || undefined
+      );
+      setGeneratedSuggestion(nextSuggestion);
+      setGeneratedMode("friendly");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not generate the friendly planner."
+      );
+      setGeneratedSuggestion(null);
+      setGeneratedMode(null);
+    }
+  };
+
+  const handleFriendlySave = async () => {
+    if (!selectedWeekend || !activeSuggestion || generatedMode !== "friendly") {
+      setErrorMessage("Generate the friendly planner first before saving the matchday plan.");
+      return;
+    }
+
+    setIsSavingFriendlyPlan(true);
     setErrorMessage(null);
-    const nextSuggestion = buildPlannerSuggestion(
-      players,
-      selectedWeekend.availableNames,
-      selectedMatchCount,
-      undefined,
-      selectedFriendlyWicketKeeperId || undefined
-    );
-    setGeneratedSuggestion(nextSuggestion);
-    setGeneratedMode("friendly");
+
+    try {
+      const savedBatch = await saveFriendlyPlannerBatch({
+        season: selectedSeason || null,
+        attendanceWorkbookName: uploadedFileName,
+        weekend: selectedWeekend,
+        suggestion: activeSuggestion,
+        preferredWicketKeeperPlayerId: selectedFriendlyWicketKeeperId || null,
+        matchAvailabilityOverrides: buildFriendlyMatchAvailabilityOverrides(
+          manualFriendlyMatchAvailability,
+          selectedMatchCount
+        )
+      });
+
+      setSaveSuccessMessage(
+        `Saved the friendly matchday plan for ${selectedWeekend.label} with ${savedBatch.savedAssignments} tracked assignments.`
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not save the friendly matchday plan."
+      );
+    } finally {
+      setIsSavingFriendlyPlan(false);
+    }
   };
 
   const handleTournamentGenerate = () => {
     const manualAvailabilityOverrides = buildManualAvailabilityOverrides(players, manualTournamentAvailability);
-    const nextSuggestion = buildPlannerSuggestion(players, [], 1, manualAvailabilityOverrides);
+    const nextSuggestion = buildPlannerSuggestion(players, [], 1, manualAvailabilityOverrides, undefined, "tournament");
     setGeneratedSuggestion(nextSuggestion);
     setGeneratedMode("tournament");
   };
@@ -330,11 +553,15 @@ export default function PlannerPage() {
       ? "Players who were available this week but were not selected in any Playing XI or 12th-man slot across the generated match plans."
       : "Players manually included for tournament selection but not used in the generated Playing XI or 12th-man slot.";
     const formatPlanPlayerLabel = (player: PlayerSummary) => {
-      if (mode === "friendly" && selectedFriendlyWicketKeeperId && player.id === selectedFriendlyWicketKeeperId) {
-        return `${buildPlayerLabel(player)} - Selected WK`;
-      }
+      const tags = [
+        player.isCaptain ? "C" : null,
+        (mode === "friendly" && selectedFriendlyWicketKeeperId && player.id === selectedFriendlyWicketKeeperId)
+          || player.isWicketKeeper
+          ? "WK"
+          : null
+      ].filter(Boolean);
 
-      return buildPlayerLabel(player);
+      return tags.length > 0 ? `${formatName(player.name)} - ${tags.join(", ")}` : formatName(player.name);
     };
 
     return (
@@ -407,7 +634,7 @@ export default function PlannerPage() {
                     {plannerSuggestion.availablePlayers.map((player) => (
                       <Chip
                         key={player.id}
-                        label={buildPlayerLabel(player)}
+                        label={buildAvailabilityLabel(player)}
                         sx={{ maxWidth: "100%" }}
                       />
                     ))}
@@ -558,8 +785,8 @@ export default function PlannerPage() {
                                 key={`${plan.matchNumber}-${player.id}`}
                                 label={
                                   plan.twelfthMan?.id === player.id
-                                    ? `${buildPlayerLabel(player)} - 12th man`
-                                    : buildPlayerLabel(player)
+                                    ? `${formatPlanPlayerLabel(player)} - 12th man`
+                                    : formatPlanPlayerLabel(player)
                                 }
                                 color={plan.twelfthMan?.id === player.id ? "warning" : "default"}
                                 size="small"
@@ -652,16 +879,38 @@ export default function PlannerPage() {
           )}
         />
 
-        {!isAdmin && (
+        {canAccessWorkspace === false && (
           <AutoHideAlert severity="info" variant="outlined">
-            Planner is available to admin users only.
+            Planner requires organiser access or explicit planning permission.
           </AutoHideAlert>
         )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-        {isAdmin && (
+        {saveSuccessMessage && (
+          <AutoHideAlert severity="success" resetKey={saveSuccessMessage}>
+            {saveSuccessMessage}
+          </AutoHideAlert>
+        )}
+
+        {canAccessWorkspace && (
           <>
+            <Card variant="outlined" sx={{ borderRadius: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Stack spacing={1}>
+                  <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                    Fairness Workspace
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Saved matchday history, fairness alerts, and planner record management now live in the separate fairness workspace.
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    That workspace is visible only to the organiser and captain.
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Card
@@ -845,15 +1094,131 @@ export default function PlannerPage() {
                             </Grid>
                           )}
 
-                          <Button
-                            variant="contained"
-                            onClick={handleFriendlyGenerate}
-                            disabled={!selectedWeekend}
-                            startIcon={<Groups2RoundedIcon />}
-                            sx={{ width: "fit-content" }}
-                          >
-                            Generate Friendly Matchday Plans
-                          </Button>
+                          {friendlyBaseSuggestion && friendlyBaseSuggestion.availablePlayers.length > 0 && (
+                            <Box
+                              sx={{
+                                p: 2,
+                                borderRadius: 3,
+                                backgroundColor: "action.hover",
+                                border: "1px solid",
+                                borderColor: "divider"
+                              }}
+                            >
+                              <Stack spacing={1.5}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                                  Matchday Overrides
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  Use this when someone leaves early, arrives late, or can only play selected matches. Turn off the matches they cannot play before generating the friendly plans.
+                                </Typography>
+                                <Stack spacing={0}>
+                                  {friendlyBaseSuggestion.availablePlayers.map((player) => {
+                                    const playerMatchAvailability =
+                                      manualFriendlyMatchAvailability[player.id]
+                                      ?? Array.from({ length: selectedMatchCount }, () => true);
+                                    const availableMatchLabels = playerMatchAvailability
+                                      .map((isAvailable, index) => (isAvailable ? `M${index + 1}` : null))
+                                      .filter((value): value is string => Boolean(value));
+                                    const isFullDayAvailable = availableMatchLabels.length === selectedMatchCount;
+                                    const availabilitySummaryLabel =
+                                      availableMatchLabels.length === 0
+                                        ? "Unavailable today"
+                                        : isFullDayAvailable
+                                          ? `All ${selectedMatchCount} matches`
+                                          : availableMatchLabels.length === 1
+                                            ? `${availableMatchLabels[0]} only`
+                                            : `Available for ${availableMatchLabels.join(", ")}`;
+
+                                    return (
+                                      <Box
+                                        key={`friendly-override-${player.id}`}
+                                        sx={{
+                                          py: 1.25,
+                                          borderBottom: "1px solid",
+                                          borderColor: "divider",
+                                          "&:last-of-type": {
+                                            borderBottom: "none",
+                                            pb: 0
+                                          },
+                                          "&:first-of-type": {
+                                            pt: 0
+                                          }
+                                        }}
+                                      >
+                                        <Stack
+                                          direction={{ xs: "column", lg: "row" }}
+                                          spacing={1.25}
+                                          alignItems={{ xs: "flex-start", lg: "center" }}
+                                          justifyContent="space-between"
+                                        >
+                                          <Stack
+                                            spacing={0.35}
+                                            sx={{ minWidth: { lg: 240 } }}
+                                          >
+                                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                              {formatName(player.name)}
+                                            </Typography>
+                                            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                              <Chip
+                                                label={availabilitySummaryLabel}
+                                                size="small"
+                                                color={availableMatchLabels.length > 0 ? "success" : "default"}
+                                                variant="outlined"
+                                              />
+                                            </Stack>
+                                          </Stack>
+                                        </Stack>
+                                        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
+                                          {Array.from({ length: selectedMatchCount }, (_, index) => (
+                                            <Chip
+                                              key={`${player.id}-match-${index + 1}`}
+                                              label={`M${index + 1}`}
+                                              clickable
+                                              size="small"
+                                              color={(playerMatchAvailability[index] ?? true) ? "success" : "default"}
+                                              variant={(playerMatchAvailability[index] ?? true) ? "filled" : "outlined"}
+                                              onClick={() => toggleFriendlyMatchAvailability(player.id, index)}
+                                            />
+                                          ))}
+                                          {!isFullDayAvailable ? (
+                                            <Button
+                                              variant="text"
+                                              size="small"
+                                              onClick={() => setFriendlyFullDayAvailability(player.id)}
+                                            >
+                                              Reset All
+                                            </Button>
+                                          ) : null}
+                                        </Stack>
+                                      </Box>
+                                    );
+                                  })}
+                                </Stack>
+                              </Stack>
+                            </Box>
+                          )}
+
+                          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                            <Button
+                              variant="contained"
+                              onClick={handleFriendlyGenerate}
+                              disabled={!selectedWeekend}
+                              startIcon={<Groups2RoundedIcon />}
+                              sx={{ width: { xs: "100%", sm: "fit-content" } }}
+                            >
+                              Generate Friendly Matchday Plans
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              color="secondary"
+                              onClick={handleFriendlySave}
+                              disabled={!selectedWeekend || !activeSuggestion || isSavingFriendlyPlan}
+                              startIcon={isSavingFriendlyPlan ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
+                              sx={{ width: { xs: "100%", sm: "fit-content" } }}
+                            >
+                              Save Matchday Plan
+                            </Button>
+                          </Stack>
                         </Stack>
                       </CardContent>
                     </Card>
@@ -874,9 +1239,9 @@ export default function PlannerPage() {
                             <Chip label="Manual wicket keeper" color="success" variant="outlined" />
                             <Chip label="Auto reshuffle for up to 3 matches" color="primary" variant="outlined" />
                           </Stack>
-                          {tournamentBaseSuggestion && (
+                          {friendlyBaseSuggestion && (
                             <Chip
-                              label={`${tournamentBaseSuggestion.availablePlayers.length} matched players ready for planning`}
+                              label={`${friendlyBaseSuggestion.availablePlayers.length} matched players ready for planning`}
                               color="primary"
                               variant="outlined"
                               sx={{ width: "fit-content" }}
@@ -888,13 +1253,7 @@ export default function PlannerPage() {
                   </Grid>
                 </Grid>
 
-                {activeSuggestion ? (
-                  renderSuggestion(activeSuggestion, "friendly")
-                ) : (
-                  <Alert severity="info" variant="outlined">
-                    Upload the attendance workbook, choose the weekend and match count, then generate the friendly matchday plans.
-                  </Alert>
-                )}
+                {activeSuggestion ? renderSuggestion(activeSuggestion, "friendly") : null}
               </Stack>
             ) : (
               <Stack spacing={3}>

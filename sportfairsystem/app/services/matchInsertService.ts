@@ -1,20 +1,17 @@
-import {
-  currentTeamName,
-  currentTeamPrefix
-} from "../config/teamConfig";
 import { ParsedMatch, SquadPlayer } from "../types/match.types";
 import { buildMatchId } from "./matchIdService";
 import {
   normalizeNameKey,
   uniqueNameKeys
 } from "./matchTextNormalization";
-import { requireAdminAccess } from "./accessControlService";
+import { requireMatchDataManagementAccess } from "./accessControlService";
 import {
   bridgeCurrentTeamPlayerIdentities,
   hasSquadMetadataColumns,
   mapSquadPlayerRecord
 } from "./squadService";
 import { supabase } from "./supabaseClient";
+import { getActiveTeamContext } from "./teamContextService";
 import { isMatchForCurrentTeam } from "./teamValidationService";
 import { deleteMatchFromDatabase } from "./deleteMatchService";
 
@@ -145,7 +142,7 @@ function upsertParsedPlayer(
   });
 }
 
-function getCurrentTeamParsedPlayers(parsed: ParsedMatch) {
+function getCurrentTeamParsedPlayers(parsed: ParsedMatch, currentTeamName: string) {
   const currentTeamSquad = parsed.squads?.find((squad) => squad.teamName === currentTeamName);
   const currentTeamInnings = parsed.innings.find((innings) => innings.teamName === currentTeamName);
   const opponentInnings = parsed.innings.find((innings) => innings.teamName !== currentTeamName);
@@ -261,27 +258,18 @@ export async function saveMatchToDatabase(
     sourceFileName?: string;
   }
 ) {
-  await requireAdminAccess();
+  await requireMatchDataManagementAccess();
+  const activeTeam = await getActiveTeamContext();
+  const { teamId, teamName: currentTeamName, teamCode: currentTeamCode } = activeTeam;
 
   if (!isMatchForCurrentTeam(parsed, currentTeamName)) {
     throw new Error(`This scorecard does not include ${currentTeamName}.`);
   }
 
-  // 1. Fetch team ID
-  const { data: teamData, error: teamError } = await supabase
-    .from("teams")
-    .select("id")
-    .eq("name", currentTeamName)
-    .single();
-
-  if (teamError || !teamData) {
-    throw new Error("Team not found.");
-  }
-
   const { data: potentialDuplicateMatches, error: duplicateLookupError } = await supabase
     .from("matches")
     .select("id, match_code, raw_text, parsed_payload")
-    .eq("team_id", teamData.id)
+    .eq("team_id", teamId)
     .eq("match_date", parsed.matchDate);
 
   if (duplicateLookupError) {
@@ -306,13 +294,13 @@ export async function saveMatchToDatabase(
     new Set((options?.playersToAddToSquad ?? []).map(normalizeNameKey).filter(Boolean))
   );
 
-  const parsedCurrentTeamPlayers = getCurrentTeamParsedPlayers(parsed);
+  const parsedCurrentTeamPlayers = getCurrentTeamParsedPlayers(parsed, currentTeamName);
   const metadataColumnsSupported = await hasSquadMetadataColumns();
 
   const { data: existingPlayers, error: existingPlayersError } = await supabase
     .from("players")
     .select("*")
-    .eq("team_id", teamData.id);
+    .eq("team_id", teamId);
 
   if (existingPlayersError) throw existingPlayersError;
 
@@ -330,7 +318,7 @@ export async function saveMatchToDatabase(
   if (missingParsedPlayers.length > 0) {
     const insertRows = missingParsedPlayers.map((player) => {
       const nextRow: Record<string, unknown> = {
-        team_id: teamData.id,
+        team_id: teamId,
         name: player.name,
         is_guest: !playersToAddToSquad.includes(player.name),
         batting_style: player.battingStyle
@@ -436,19 +424,19 @@ export async function saveMatchToDatabase(
     .from("matches")
     .select("id", { count: "exact", head: true })
     .eq("match_date", parsed.matchDate)
-    .eq("team_id", teamData.id);
+    .eq("team_id", teamId);
 
   if (countError) throw countError;
 
   const generatedMatchId = buildMatchId(
-    currentTeamPrefix,
+    currentTeamCode,
     parsed.matchDate,
     sameDayMatchCount ?? 0
   );
 
   // 4. Insert match
   const baseMatchPayload = {
-    team_id: teamData.id,
+    team_id: teamId,
     source_file_name: options?.sourceFileName ?? null,
     match_title: parsed.matchTitle ?? null,
     competition_name: parsed.competitionName ?? null,

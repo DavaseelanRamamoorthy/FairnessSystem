@@ -1,4 +1,4 @@
-import { requireAdminAccess } from "@/app/services/accessControlService";
+import { requireIdentityManagementAccess } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import { supabase } from "@/app/services/supabaseClient";
 
@@ -122,7 +122,7 @@ export async function hasPlayerUserMappingSupport() {
 }
 
 export async function getTeamUserMappings() {
-  const access = await requireAdminAccess();
+  const access = await requireIdentityManagementAccess();
 
   if (!(await hasPlayerUserMappingSupport())) {
     throw new Error(
@@ -174,7 +174,7 @@ export async function getTeamUserMappings() {
 }
 
 export async function updateTeamUserPlayerMapping(userId: string, playerId: string | null) {
-  const access = await requireAdminAccess();
+  const access = await requireIdentityManagementAccess();
 
   if (!(await hasPlayerUserMappingSupport())) {
     throw new Error(

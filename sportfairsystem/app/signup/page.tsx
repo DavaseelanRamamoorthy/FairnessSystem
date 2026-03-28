@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   Alert,
@@ -19,7 +19,6 @@ import { alpha } from "@mui/material/styles";
 import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
-import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
 import {
   normalizeAuthEmail,
@@ -33,6 +32,7 @@ const SIGNUP_RED = "#E53935";
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,6 +40,10 @@ export default function SignupPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const nextPath = searchParams.get("next");
+  const safeNextPath = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+    ? nextPath
+    : null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -85,7 +89,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace(safeNextPath ?? "/dashboard");
   };
 
   return (
@@ -124,11 +128,10 @@ export default function SignupPage() {
               SportFairSystem
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
-              Create your {currentTeamName} account
+              Create your SportFairSystem account
             </Typography>
             <Typography sx={{ color: alpha("#FFFFFF", 0.74) }}>
-              New accounts start with member access. Admin privileges can be assigned later from
-              `public.users`.
+              Create your account first, then either create a team or join one with a shared code.
             </Typography>
           </Stack>
         </Box>
@@ -188,7 +191,7 @@ export default function SignupPage() {
             </Button>
 
             <MuiLink
-              href="/login"
+              href={safeNextPath ? `/login?next=${encodeURIComponent(safeNextPath)}` : "/login"}
               underline="hover"
               sx={{
                 alignSelf: "flex-start",

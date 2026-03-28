@@ -11,58 +11,94 @@ import {
 import { varAlpha } from "minimal-shared/utils";
 import MenuIcon from "@mui/icons-material/Menu";
 
-import { currentTeamName } from "@/app/config/teamConfig";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 
 interface Props {
+  hasTeam: boolean;
   toggleSidebar?: () => void;
 }
 
-function getPageHeader(pathname: string) {
+function getPageHeader(pathname: string, teamName: string, hasTeam: boolean) {
+  if (!hasTeam) {
+    if (pathname === "/profile") {
+      return {
+        title: "Account Setup",
+        subtitle: "Complete your profile, create a team, or request access with a Team ID to unlock the full workspace."
+      };
+    }
+
+    return {
+      title: "Profile Space",
+      subtitle: "This account is still teamless, so only profile and onboarding actions are available right now."
+    };
+  }
+
   if (pathname === "/dashboard") {
     return {
-      title: `Welcome to ${currentTeamName} Dashboard`,
+      title: `Welcome to ${teamName} Dashboard`,
       subtitle: "Overview of team performance, match statistics, and player contributions."
     };
   }
 
   if (pathname === "/matches") {
     return {
-      title: `${currentTeamName} Matches`,
+      title: `${teamName} Matches`,
       subtitle: "Saved match history, scorecards, and upload workflow for the current team."
     };
   }
 
   if (pathname === "/players") {
     return {
-      title: `${currentTeamName} Squad`,
+      title: `${teamName} Squad`,
       subtitle: "Current team players with match count and role performance."
     };
   }
 
   if (pathname === "/analytics") {
     return {
-      title: `${currentTeamName} Analytics`,
+      title: `${teamName} Analytics`,
       subtitle: "Season trends, scoring patterns, and performance leaders for the current team."
     };
   }
 
   if (pathname === "/planner") {
     return {
-      title: `${currentTeamName} Planner`,
+      title: `${teamName} Planner`,
       subtitle: "Admin planner for weekly availability, XI generation, 12th man, and multi-match reshuffling."
     };
   }
 
-  if (pathname === "/configure") {
+  if (pathname === "/fairness") {
     return {
-      title: `${currentTeamName} Configure`,
-      subtitle: "Admin mapping for team users, squad identity links, and release-ready access setup."
+      title: `${teamName} Fairness`,
+      subtitle: "Fairness tracking, opportunity visibility, and planner history for the current team."
+    };
+  }
+
+  if (pathname.startsWith("/fairness/member/")) {
+    return {
+      title: "Member Fairness",
+      subtitle: "Leadership-only fairness detail for one member's saved history, quota progress, and recent week-by-week outcomes."
+    };
+  }
+
+  if (pathname === "/my-fairness") {
+    return {
+      title: "My Fairness",
+      subtitle: "Your own fairness history with available weeks, actual XI chances, bench outcomes, and quota progress."
+    };
+  }
+
+  if (pathname === "/memberships") {
+    return {
+      title: `${teamName} Memberships`,
+      subtitle: "V2 membership foundation for team members, linked accounts, linked players, and season coverage."
     };
   }
 
   if (pathname === "/validation") {
     return {
-      title: `${currentTeamName} Validation`,
+      title: `${teamName} Validation`,
       subtitle: "Admin checks for player linking, XI reconstruction, and historical data quality."
     };
   }
@@ -76,7 +112,7 @@ function getPageHeader(pathname: string) {
 
   if (pathname === "/feedback") {
     return {
-      title: `${currentTeamName} Feedback`,
+      title: `${teamName} Feedback`,
       subtitle: "Structured product feedback from real team usage, with admin review and status tracking."
     };
   }
@@ -89,14 +125,15 @@ function getPageHeader(pathname: string) {
   }
 
   return {
-    title: currentTeamName,
+    title: teamName,
     subtitle: "Team workspace"
   };
 }
 
-export default function Topbar({ toggleSidebar }: Props) {
+export default function Topbar({ hasTeam, toggleSidebar }: Props) {
   const pathname = usePathname();
-  const header = getPageHeader(pathname);
+  const { teamName } = useActiveTeamBranding();
+  const header = getPageHeader(pathname, teamName, hasTeam);
 
   return (
     <Box

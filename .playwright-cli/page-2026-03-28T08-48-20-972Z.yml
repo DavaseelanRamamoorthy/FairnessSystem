@@ -1,0 +1,716 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e11] [cursor=pointer]:
+    - img [ref=e12]
+  - alert [ref=e15]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e19]:
+        - text: Team Space
+        - heading [level=5] [ref=e565]: Moonwalkers
+      - list [ref=e21]:
+        - link [ref=e566] [cursor=pointer]:
+          - /url: /dashboard
+          - button [ref=e567]:
+            - img [ref=e25]
+            - generic [ref=e28]: Dashboard
+        - link [ref=e568] [cursor=pointer]:
+          - /url: /matches
+          - button [ref=e569]:
+            - img [ref=e32]
+            - generic [ref=e36]: Matches
+        - link [ref=e570] [cursor=pointer]:
+          - /url: /players
+          - button [ref=e571]:
+            - img [ref=e40]
+            - generic [ref=e43]: Squad
+        - link [ref=e572] [cursor=pointer]:
+          - /url: /memberships
+          - button [ref=e573]:
+            - img [ref=e47]
+            - generic [ref=e50]: Membership
+        - link [ref=e574] [cursor=pointer]:
+          - /url: /planner
+          - button [ref=e575]:
+            - img [ref=e54]
+            - generic [ref=e57]: Planner
+        - link [ref=e576] [cursor=pointer]:
+          - /url: /fairness
+          - button [ref=e577]:
+            - img [ref=e61]
+            - generic [ref=e64]: Fairness
+        - link [ref=e578] [cursor=pointer]:
+          - /url: /analytics
+          - button [ref=e579]:
+            - img [ref=e68]
+            - generic [ref=e71]: Analytics
+        - link [ref=e580] [cursor=pointer]:
+          - /url: /validation
+          - button [ref=e581]:
+            - img [ref=e75]
+            - generic [ref=e78]: Validation
+        - link [ref=e582] [cursor=pointer]:
+          - /url: /feedback
+          - button [ref=e583]:
+            - img [ref=e82]
+            - generic [ref=e85]: Feedback
+      - button [ref=e584] [cursor=pointer]:
+        - generic [ref=e89]: D
+        - generic [ref=e91]: Davaseelan Ramamoorthy
+    - generic [ref=e92]:
+      - generic [ref=e95]:
+        - button [ref=e96] [cursor=pointer]:
+          - img [ref=e97]
+        - generic [ref=e99]:
+          - heading [level=4] [ref=e585]: Moonwalkers
+          - paragraph [ref=e101]: Team workspace
+      - generic [ref=e103]:
+        - generic [ref=e104]:
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - generic [ref=e108]:
+                - generic [ref=e109]: Result
+                - generic [ref=e110]:
+                  - combobox [ref=e586] [cursor=pointer]: All
+                  - textbox: All
+                  - img
+                  - group:
+                    - generic: Result
+              - generic [ref=e112]:
+                - generic [ref=e113]: Season
+                - generic [ref=e114]:
+                  - combobox [ref=e587] [cursor=pointer]: "2026"
+                  - textbox: "2026"
+                  - img
+                  - group:
+                    - generic: Season
+              - generic [ref=e116]:
+                - generic [ref=e117]: Group By
+                - generic [ref=e118]:
+                  - combobox [ref=e588] [cursor=pointer]: None
+                  - textbox: none
+                  - img
+                  - group:
+                    - generic: Group By
+            - separator [ref=e120]
+            - generic [ref=e121]:
+              - generic [ref=e122]:
+                - generic [ref=e123]: Date
+                - generic [ref=e124]: Opponent
+                - generic [ref=e125]: Result
+              - separator [ref=e126]
+              - generic [ref=e127]:
+                - generic [ref=e129] [cursor=pointer]:
+                  - paragraph [ref=e131]: 22 Mar 2026
+                  - generic [ref=e132]:
+                    - paragraph [ref=e133]: Berlin Super Kings
+                    - generic [ref=e134]: MW220326
+                  - generic [ref=e137]: Won
+                - generic [ref=e139] [cursor=pointer]:
+                  - paragraph [ref=e141]: 22 Mar 2026
+                  - generic [ref=e142]:
+                    - paragraph [ref=e143]: Berlin Super Kings
+                    - generic [ref=e144]: MW220326+1
+                  - generic [ref=e147]: Lost
+                - generic [ref=e149] [cursor=pointer]:
+                  - paragraph [ref=e151]: 22 Mar 2026
+                  - generic [ref=e152]:
+                    - paragraph [ref=e153]: Berlin Super Kings
+                    - generic [ref=e154]: MW220326+2
+                  - generic [ref=e157]: Lost
+                - generic [ref=e159] [cursor=pointer]:
+                  - paragraph [ref=e161]: 15 Mar 2026
+                  - generic [ref=e162]:
+                    - paragraph [ref=e163]: Run Raiders
+                    - generic [ref=e164]: MW150326+1
+                  - generic [ref=e167]: Tie
+                - generic [ref=e169] [cursor=pointer]:
+                  - paragraph [ref=e171]: 15 Mar 2026
+                  - generic [ref=e172]:
+                    - paragraph [ref=e173]: Run Raiders
+                    - generic [ref=e174]: MW150326
+                  - generic [ref=e177]: Lost
+                - generic [ref=e179] [cursor=pointer]:
+                  - paragraph [ref=e181]: 15 Mar 2026
+                  - generic [ref=e182]:
+                    - paragraph [ref=e183]: Run Raiders
+                    - generic [ref=e184]: MW150326+2
+                  - generic [ref=e187]: Lost
+            - separator [ref=e188]
+            - generic [ref=e189]:
+              - paragraph [ref=e190]: 1-6 of 6
+              - generic [ref=e191]:
+                - button [disabled]: Previous
+                - button [disabled]: Next
+          - generic [ref=e194]:
+            - generic [ref=e196]:
+              - generic [ref=e197]:
+                - generic [ref=e198]:
+                  - heading [level=4] [ref=e589]: Berlin Super Kings vs Moonwalkers
+                  - paragraph [ref=e200]: 22 Mar 2026
+                - generic [ref=e201]:
+                  - generic [ref=e202]:
+                    - generic [ref=e204]: MW220326
+                    - generic [ref=e206]: Won
+                  - button [ref=e590] [cursor=pointer]:
+                    - img [ref=e208]
+              - generic [ref=e212]: "Winner: Moonwalkers"
+            - generic [ref=e214]:
+              - generic [ref=e216]:
+                - heading [level=5] [ref=e591]: Berlin Super Kings Innings
+                - generic [ref=e218]:
+                  - generic [ref=e220]: 67 / 8
+                  - generic [ref=e222]: 10 Overs
+                  - generic [ref=e224]: CRR 6.70
+                  - generic [ref=e226]: Extras 6
+              - generic [ref=e227]:
+                - generic [ref=e230]:
+                  - heading [level=6] [ref=e592]: Batting
+                  - table [ref=e235]:
+                    - rowgroup [ref=e236]:
+                      - row [ref=e593]:
+                        - columnheader [ref=e594]: Batsman
+                        - columnheader [ref=e595]: Status
+                        - columnheader [ref=e596]: R
+                        - columnheader [ref=e597]: B
+                        - columnheader [ref=e598]: 4s
+                        - columnheader [ref=e599]: 6s
+                        - columnheader [ref=e600]: SR
+                    - rowgroup [ref=e245]:
+                      - row [ref=e601]:
+                        - cell [ref=e602]: Vinoth
+                        - cell [ref=e603]: c Sharath b Krishnaraj Dhanasekaran
+                        - cell [ref=e604]: "1"
+                        - cell [ref=e605]: "4"
+                        - cell [ref=e606]: "0"
+                        - cell [ref=e607]: "0"
+                        - cell [ref=e608]: "25"
+                      - row [ref=e609]:
+                        - cell [ref=e610]: Karthik.s
+                        - cell [ref=e611]: c Naveen Nelavelli b Ketan Deshpande
+                        - cell [ref=e612]: "3"
+                        - cell [ref=e613]: "7"
+                        - cell [ref=e614]: "0"
+                        - cell [ref=e615]: "0"
+                        - cell [ref=e616]: "42.86"
+                      - row [ref=e617]:
+                        - cell [ref=e618]: Chethan Sanjeevaiah
+                        - cell [ref=e619]: c Ketan Deshpande b Sharath
+                        - cell [ref=e620]: "4"
+                        - cell [ref=e621]: "8"
+                        - cell [ref=e622]: "1"
+                        - cell [ref=e623]: "0"
+                        - cell [ref=e624]: "50"
+                      - row [ref=e625]:
+                        - cell [ref=e626]: Naveen Kumar
+                        - cell [ref=e627]: c Sharath b Krishnaraj Dhanasekaran
+                        - cell [ref=e628]: "15"
+                        - cell [ref=e629]: "12"
+                        - cell [ref=e630]: "0"
+                        - cell [ref=e631]: "2"
+                        - cell [ref=e632]: "125"
+                      - row [ref=e633]:
+                        - cell [ref=e634]: Varun
+                        - cell [ref=e635]: c Krishnaraj Dhanasekaran b Anir
+                        - cell [ref=e636]: "11"
+                        - cell [ref=e637]: "10"
+                        - cell [ref=e638]: "1"
+                        - cell [ref=e639]: "1"
+                        - cell [ref=e640]: "110"
+                      - row [ref=e641]:
+                        - cell [ref=e642]: Shylesh Kumar
+                        - cell [ref=e643]: c Naveen Nelavelli b Ketan Deshpande
+                        - cell [ref=e644]: "6"
+                        - cell [ref=e645]: "6"
+                        - cell [ref=e646]: "0"
+                        - cell [ref=e647]: "0"
+                        - cell [ref=e648]: "100"
+                      - row [ref=e649]:
+                        - cell [ref=e650]: Arun Gautam
+                        - cell [ref=e651]: c †Varghese Akhil b Naveen Nelavelli
+                        - cell [ref=e652]: "8"
+                        - cell [ref=e653]: "6"
+                        - cell [ref=e654]: "2"
+                        - cell [ref=e655]: "0"
+                        - cell [ref=e656]: "133.33"
+                      - row [ref=e657]:
+                        - cell [ref=e658]: Mohan Kumar
+                        - cell [ref=e659]: c Sharath b Ketan Deshpande
+                        - cell [ref=e660]: "0"
+                        - cell [ref=e661]: "1"
+                        - cell [ref=e662]: "0"
+                        - cell [ref=e663]: "0"
+                        - cell [ref=e664]: "0"
+                      - row [ref=e665]:
+                        - cell [ref=e666]: Anish
+                        - cell [ref=e667]: not out
+                        - cell [ref=e668]: "12"
+                        - cell [ref=e669]: "4"
+                        - cell [ref=e670]: "0"
+                        - cell [ref=e671]: "2"
+                        - cell [ref=e672]: "300"
+                      - row [ref=e673]:
+                        - cell [ref=e674]: Vignesh Alaguvel
+                        - cell [ref=e675]: not out
+                        - cell [ref=e676]: "1"
+                        - cell [ref=e677]: "2"
+                        - cell [ref=e678]: "0"
+                        - cell [ref=e679]: "0"
+                        - cell [ref=e680]: "50"
+                - generic [ref=e328]:
+                  - heading [level=6] [ref=e681]: Bowling
+                  - table [ref=e333]:
+                    - rowgroup [ref=e334]:
+                      - row [ref=e682]:
+                        - columnheader [ref=e683]: Bowler
+                        - columnheader [ref=e684]: Overs
+                        - columnheader [ref=e685]: M
+                        - columnheader [ref=e686]: Runs
+                        - columnheader [ref=e687]: Wkts
+                        - columnheader [ref=e688]: Eco
+                    - rowgroup [ref=e342]:
+                      - row [ref=e689]:
+                        - cell [ref=e690]: Sharath
+                        - cell [ref=e691]: "2"
+                        - cell [ref=e692]: "0"
+                        - cell [ref=e693]: "9"
+                        - cell [ref=e694]: "1"
+                        - cell [ref=e695]: "4.5"
+                      - row [ref=e696]:
+                        - cell [ref=e697]: Krishnaraj Dhanasekaran
+                        - cell [ref=e698]: "2"
+                        - cell [ref=e699]: "1"
+                        - cell [ref=e700]: "4"
+                        - cell [ref=e701]: "2"
+                        - cell [ref=e702]: "2"
+                      - row [ref=e703]:
+                        - cell [ref=e704]: Ketan Deshpande
+                        - cell [ref=e705]: "2"
+                        - cell [ref=e706]: "0"
+                        - cell [ref=e707]: "20"
+                        - cell [ref=e708]: "3"
+                        - cell [ref=e709]: "10"
+                      - row [ref=e710]:
+                        - cell [ref=e711]: Anir
+                        - cell [ref=e712]: "2"
+                        - cell [ref=e713]: "0"
+                        - cell [ref=e714]: "17"
+                        - cell [ref=e715]: "1"
+                        - cell [ref=e716]: "8.5"
+                      - row [ref=e717]:
+                        - cell [ref=e718]: Naveen Nelavelli
+                        - cell [ref=e719]: "2"
+                        - cell [ref=e720]: "0"
+                        - cell [ref=e721]: "17"
+                        - cell [ref=e722]: "1"
+                        - cell [ref=e723]: "8.5"
+              - generic [ref=e378]:
+                - heading [level=6] [ref=e724]: Yet To Bat
+                - paragraph [ref=e380]: Bhoobalan Dhanasekaran, Jugal, Karthiks, Prakash Kb
+              - generic [ref=e381]:
+                - heading [level=6] [ref=e725]: Fall of Wickets
+                - paragraph [ref=e383]: 4/1 Vinoth (1.3), 9/2 Chethan Sanjeevaiah (3), 9/3 Karthik.s (3.1), 38/4 Naveen Kumar (6.3), 42/5 Varun (7.3), 52/6 Shylesh Kumar (8.2), 52/7 Mohan Kumar (8.3), 65/8 Arun Gautam (9.3)
+            - generic [ref=e385]:
+              - generic [ref=e387]:
+                - heading [level=5] [ref=e726]: Moonwalkers Innings
+                - generic [ref=e389]:
+                  - generic [ref=e391]: 68 / 7
+                  - generic [ref=e393]: 10 Overs
+                  - generic [ref=e395]: CRR 6.80
+                  - generic [ref=e397]: Extras 9
+              - generic [ref=e398]:
+                - generic [ref=e401]:
+                  - heading [level=6] [ref=e727]: Batting
+                  - table [ref=e406]:
+                    - rowgroup [ref=e407]:
+                      - row [ref=e728]:
+                        - columnheader [ref=e729]: Batsman
+                        - columnheader [ref=e730]: Status
+                        - columnheader [ref=e731]: R
+                        - columnheader [ref=e732]: B
+                        - columnheader [ref=e733]: 4s
+                        - columnheader [ref=e734]: 6s
+                        - columnheader [ref=e735]: SR
+                    - rowgroup [ref=e416]:
+                      - row [ref=e736]:
+                        - cell [ref=e737]: Ravinder
+                        - cell [ref=e738]: c Arun Gautam b Varun
+                        - cell [ref=e739]: "0"
+                        - cell [ref=e740]: "1"
+                        - cell [ref=e741]: "0"
+                        - cell [ref=e742]: "0"
+                        - cell [ref=e743]: "0"
+                      - row [ref=e744]:
+                        - cell [ref=e745]: Kanishk Dhanker
+                        - cell [ref=e746]: b Karthik.S
+                        - cell [ref=e747]: "9"
+                        - cell [ref=e748]: "9"
+                        - cell [ref=e749]: "0"
+                        - cell [ref=e750]: "1"
+                        - cell [ref=e751]: "100"
+                      - row [ref=e752]:
+                        - cell [ref=e753]: Krishnaraj Dhanasekaran
+                        - cell [ref=e754]: c Jugal b Bhoobalan Dhanasekaran
+                        - cell [ref=e755]: "12"
+                        - cell [ref=e756]: "15"
+                        - cell [ref=e757]: "2"
+                        - cell [ref=e758]: "0"
+                        - cell [ref=e759]: "80"
+                      - row [ref=e760]:
+                        - cell [ref=e761]: Naveen Nelavelli
+                        - cell [ref=e762]: c Jugal b Vinoth
+                        - cell [ref=e763]: "12"
+                        - cell [ref=e764]: "8"
+                        - cell [ref=e765]: "1"
+                        - cell [ref=e766]: "1"
+                        - cell [ref=e767]: "150"
+                      - row [ref=e768]:
+                        - cell [ref=e769]: Davaseelan
+                        - cell [ref=e770]: b Karthik.S
+                        - cell [ref=e771]: "5"
+                        - cell [ref=e772]: "4"
+                        - cell [ref=e773]: "1"
+                        - cell [ref=e774]: "0"
+                        - cell [ref=e775]: "125"
+                      - row [ref=e776]:
+                        - cell [ref=e777]: Varghese Akhil
+                        - cell [ref=e778]: c Varun b Arun Gautam
+                        - cell [ref=e779]: "6"
+                        - cell [ref=e780]: "4"
+                        - cell [ref=e781]: "0"
+                        - cell [ref=e782]: "1"
+                        - cell [ref=e783]: "150"
+                      - row [ref=e784]:
+                        - cell [ref=e785]: Sathish Kumar
+                        - cell [ref=e786]: not out
+                        - cell [ref=e787]: "13"
+                        - cell [ref=e788]: "12"
+                        - cell [ref=e789]: "0"
+                        - cell [ref=e790]: "0"
+                        - cell [ref=e791]: "108.33"
+                      - row [ref=e792]:
+                        - cell [ref=e793]: Anir
+                        - cell [ref=e794]: c †Prakash KB b Vinoth
+                        - cell [ref=e795]: "0"
+                        - cell [ref=e796]: "1"
+                        - cell [ref=e797]: "0"
+                        - cell [ref=e798]: "0"
+                        - cell [ref=e799]: "0"
+                      - row [ref=e800]:
+                        - cell [ref=e801]: Varinder Nishad
+                        - cell [ref=e802]: not out
+                        - cell [ref=e803]: "2"
+                        - cell [ref=e804]: "6"
+                        - cell [ref=e805]: "0"
+                        - cell [ref=e806]: "0"
+                        - cell [ref=e807]: "33.33"
+                - generic [ref=e491]:
+                  - heading [level=6] [ref=e808]: Bowling
+                  - table [ref=e496]:
+                    - rowgroup [ref=e497]:
+                      - row [ref=e809]:
+                        - columnheader [ref=e810]: Bowler
+                        - columnheader [ref=e811]: Overs
+                        - columnheader [ref=e812]: M
+                        - columnheader [ref=e813]: Runs
+                        - columnheader [ref=e814]: Wkts
+                        - columnheader [ref=e815]: Eco
+                    - rowgroup [ref=e505]:
+                      - row [ref=e816]:
+                        - cell [ref=e817]: Varun
+                        - cell [ref=e818]: "2"
+                        - cell [ref=e819]: "0"
+                        - cell [ref=e820]: "13"
+                        - cell [ref=e821]: "1"
+                        - cell [ref=e822]: "6.5"
+                      - row [ref=e823]:
+                        - cell [ref=e824]: Anish
+                        - cell [ref=e825]: "2"
+                        - cell [ref=e826]: "0"
+                        - cell [ref=e827]: "11"
+                        - cell [ref=e828]: "0"
+                        - cell [ref=e829]: "5.5"
+                      - row [ref=e830]:
+                        - cell [ref=e831]: Vinoth
+                        - cell [ref=e832]: "2"
+                        - cell [ref=e833]: "0"
+                        - cell [ref=e834]: "20"
+                        - cell [ref=e835]: "2"
+                        - cell [ref=e836]: "10"
+                      - row [ref=e837]:
+                        - cell [ref=e838]: Bhoobalan Dhanasekaran
+                        - cell [ref=e839]: "2"
+                        - cell [ref=e840]: "0"
+                        - cell [ref=e841]: "6"
+                        - cell [ref=e842]: "1"
+                        - cell [ref=e843]: "3"
+                      - row [ref=e844]:
+                        - cell [ref=e845]: Karthik.s
+                        - cell [ref=e846]: "1"
+                        - cell [ref=e847]: "0"
+                        - cell [ref=e848]: "8"
+                        - cell [ref=e849]: "2"
+                        - cell [ref=e850]: "8"
+                      - row [ref=e851]:
+                        - cell [ref=e852]: Arun Gautam
+                        - cell [ref=e853]: "1"
+                        - cell [ref=e854]: "0"
+                        - cell [ref=e855]: "8"
+                        - cell [ref=e856]: "1"
+                        - cell [ref=e857]: "8"
+              - generic [ref=e548]:
+                - heading [level=6] [ref=e858]: Yet To Bat
+                - paragraph [ref=e550]: Ketan Deshpande, Sharath, Suryanarayanan Soundararajan
+              - generic [ref=e551]:
+                - heading [level=6] [ref=e859]: Fall of Wickets
+                - paragraph [ref=e553]: 0/1 Ravinder (0.1), 23/2 Krishnaraj Dhanasekaran (4), 23/3 Kanishk Dhanker (4.1), 32/4 Davaseelan (5), 39/5 Varghese Akhil (5.5), 57/6 Naveen Nelavelli (7.5), 57/7 Anir (8)
+        - button [ref=e860] [cursor=pointer]:
+          - img [ref=e557]
+  - generic [ref=e863]:
+    - generic [ref=e864]:
+      - generic [ref=e865]:
+        - heading "Match Preview" [level=5] [ref=e866]
+        - paragraph [ref=e867]: SC1.pdf
+      - generic [ref=e870]: AE080924
+    - separator [ref=e871]
+    - generic [ref=e873]:
+      - generic [ref=e876]:
+        - generic [ref=e877]:
+          - heading "C.a.f (cricket Against Fascism) vs Moonwalkers" [level=4] [ref=e878]
+          - paragraph [ref=e879]: 08 Sept 2024
+        - generic [ref=e883]: Won
+      - generic [ref=e885]:
+        - generic [ref=e887]:
+          - heading "C.a.f (cricket Against Fascism) Innings" [level=5] [ref=e888]
+          - generic [ref=e889]:
+            - generic [ref=e891]: 122 / 1
+            - generic [ref=e893]: 10 Overs
+            - generic [ref=e895]: CRR 12.20
+            - generic [ref=e897]: Extras 6
+        - generic [ref=e898]:
+          - generic [ref=e901]:
+            - heading "Batting" [level=6] [ref=e903]
+            - table [ref=e906]:
+              - rowgroup [ref=e907]:
+                - row "Batsman Status R B 4s 6s SR" [ref=e908]:
+                  - columnheader "Batsman" [ref=e909]
+                  - columnheader "Status" [ref=e910]
+                  - columnheader "R" [ref=e911]
+                  - columnheader "B" [ref=e912]
+                  - columnheader "4s" [ref=e913]
+                  - columnheader "6s" [ref=e914]
+                  - columnheader "SR" [ref=e915]
+              - rowgroup [ref=e916]:
+                - row "Dara c Krishnaraj Dhanasekaran b Anir 52 23 6 4 226.09" [ref=e917]:
+                  - cell "Dara" [ref=e918]
+                  - cell "c Krishnaraj Dhanasekaran b Anir" [ref=e919]
+                  - cell "52" [ref=e920]
+                  - cell "23" [ref=e921]
+                  - cell "6" [ref=e922]
+                  - cell "4" [ref=e923]
+                  - cell "226.09" [ref=e924]
+                - row "Debarun not out 50 32 6 3 156.25" [ref=e925]:
+                  - cell "Debarun" [ref=e926]
+                  - cell "not out" [ref=e927]
+                  - cell "50" [ref=e928]
+                  - cell "32" [ref=e929]
+                  - cell "6" [ref=e930]
+                  - cell "3" [ref=e931]
+                  - cell "156.25" [ref=e932]
+                - row "Safi Ullah not out 14 6 1 1 233.33" [ref=e933]:
+                  - cell "Safi Ullah" [ref=e934]
+                  - cell "not out" [ref=e935]
+                  - cell "14" [ref=e936]
+                  - cell "6" [ref=e937]
+                  - cell "1" [ref=e938]
+                  - cell "1" [ref=e939]
+                  - cell "233.33" [ref=e940]
+          - generic [ref=e943]:
+            - heading "Bowling" [level=6] [ref=e945]
+            - table [ref=e948]:
+              - rowgroup [ref=e949]:
+                - row "Bowler Overs M Runs Wkts Eco" [ref=e950]:
+                  - columnheader "Bowler" [ref=e951]
+                  - columnheader "Overs" [ref=e952]
+                  - columnheader "M" [ref=e953]
+                  - columnheader "Runs" [ref=e954]
+                  - columnheader "Wkts" [ref=e955]
+                  - columnheader "Eco" [ref=e956]
+              - rowgroup [ref=e957]:
+                - row "Jeevan S 1 0 15 0 15" [ref=e958]:
+                  - cell "Jeevan S" [ref=e959]
+                  - cell "1" [ref=e960]
+                  - cell "0" [ref=e961]
+                  - cell "15" [ref=e962]
+                  - cell "0" [ref=e963]
+                  - cell "15" [ref=e964]
+                - row "Anir 3 0 26 1 8.67" [ref=e965]:
+                  - cell "Anir" [ref=e966]
+                  - cell "3" [ref=e967]
+                  - cell "0" [ref=e968]
+                  - cell "26" [ref=e969]
+                  - cell "1" [ref=e970]
+                  - cell "8.67" [ref=e971]
+                - row "Naveen Nelavelli 1 0 11 0 11" [ref=e972]:
+                  - cell "Naveen Nelavelli" [ref=e973]
+                  - cell "1" [ref=e974]
+                  - cell "0" [ref=e975]
+                  - cell "11" [ref=e976]
+                  - cell "0" [ref=e977]
+                  - cell "11" [ref=e978]
+                - row "Manoj Prabhakar 1 0 11 0 11" [ref=e979]:
+                  - cell "Manoj Prabhakar" [ref=e980]
+                  - cell "1" [ref=e981]
+                  - cell "0" [ref=e982]
+                  - cell "11" [ref=e983]
+                  - cell "0" [ref=e984]
+                  - cell "11" [ref=e985]
+                - row "Davaseelan 3 0 45 0 15" [ref=e986]:
+                  - cell "Davaseelan" [ref=e987]
+                  - cell "3" [ref=e988]
+                  - cell "0" [ref=e989]
+                  - cell "45" [ref=e990]
+                  - cell "0" [ref=e991]
+                  - cell "15" [ref=e992]
+                - row "Surya 1 0 14 0 14" [ref=e993]:
+                  - cell "Surya" [ref=e994]
+                  - cell "1" [ref=e995]
+                  - cell "0" [ref=e996]
+                  - cell "14" [ref=e997]
+                  - cell "0" [ref=e998]
+                  - cell "14" [ref=e999]
+        - generic [ref=e1000]:
+          - heading "Fall of Wickets" [level=6] [ref=e1001]
+          - paragraph [ref=e1002]: 89/1 Dara (7.4)
+      - generic [ref=e1004]:
+        - generic [ref=e1006]:
+          - heading "Moonwalkers Innings" [level=5] [ref=e1007]
+          - generic [ref=e1008]:
+            - generic [ref=e1010]: 123 / 2
+            - generic [ref=e1012]: 9.3 Overs
+            - generic [ref=e1014]: CRR 13.23
+            - generic [ref=e1016]: Extras 8
+        - generic [ref=e1017]:
+          - generic [ref=e1020]:
+            - heading "Batting" [level=6] [ref=e1022]
+            - table [ref=e1025]:
+              - rowgroup [ref=e1026]:
+                - row "Batsman Status R B 4s 6s SR" [ref=e1027]:
+                  - columnheader "Batsman" [ref=e1028]
+                  - columnheader "Status" [ref=e1029]
+                  - columnheader "R" [ref=e1030]
+                  - columnheader "B" [ref=e1031]
+                  - columnheader "4s" [ref=e1032]
+                  - columnheader "6s" [ref=e1033]
+                  - columnheader "SR" [ref=e1034]
+              - rowgroup [ref=e1035]:
+                - row "Davaseelan not out 96 35 6 10 274.29" [ref=e1036]:
+                  - cell "Davaseelan" [ref=e1037]
+                  - cell "not out" [ref=e1038]
+                  - cell "96" [ref=e1039]
+                  - cell "35" [ref=e1040]
+                  - cell "6" [ref=e1041]
+                  - cell "10" [ref=e1042]
+                  - cell "274.29" [ref=e1043]
+                - row "Naveen Nelavelli c Esad Cacan b Manish 2 6 0 0 33.33" [ref=e1044]:
+                  - cell "Naveen Nelavelli" [ref=e1045]
+                  - cell "c Esad Cacan b Manish" [ref=e1046]
+                  - cell "2" [ref=e1047]
+                  - cell "6" [ref=e1048]
+                  - cell "0" [ref=e1049]
+                  - cell "0" [ref=e1050]
+                  - cell "33.33" [ref=e1051]
+                - row "Krishnaraj Dhanasekaran c Safi Ullah b Manish 5 4 1 0 125" [ref=e1052]:
+                  - cell "Krishnaraj Dhanasekaran" [ref=e1053]
+                  - cell "c Safi Ullah b Manish" [ref=e1054]
+                  - cell "5" [ref=e1055]
+                  - cell "4" [ref=e1056]
+                  - cell "1" [ref=e1057]
+                  - cell "0" [ref=e1058]
+                  - cell "125" [ref=e1059]
+                - row "Anir not out 12 12 2 0 100" [ref=e1060]:
+                  - cell "Anir" [ref=e1061]
+                  - cell "not out" [ref=e1062]
+                  - cell "12" [ref=e1063]
+                  - cell "12" [ref=e1064]
+                  - cell "2" [ref=e1065]
+                  - cell "0" [ref=e1066]
+                  - cell "100" [ref=e1067]
+          - generic [ref=e1070]:
+            - heading "Bowling" [level=6] [ref=e1072]
+            - table [ref=e1075]:
+              - rowgroup [ref=e1076]:
+                - row "Bowler Overs M Runs Wkts Eco" [ref=e1077]:
+                  - columnheader "Bowler" [ref=e1078]
+                  - columnheader "Overs" [ref=e1079]
+                  - columnheader "M" [ref=e1080]
+                  - columnheader "Runs" [ref=e1081]
+                  - columnheader "Wkts" [ref=e1082]
+                  - columnheader "Eco" [ref=e1083]
+              - rowgroup [ref=e1084]:
+                - row "Safi Ullah 3 0 23 0 7.67" [ref=e1085]:
+                  - cell "Safi Ullah" [ref=e1086]
+                  - cell "3" [ref=e1087]
+                  - cell "0" [ref=e1088]
+                  - cell "23" [ref=e1089]
+                  - cell "0" [ref=e1090]
+                  - cell "7.67" [ref=e1091]
+                - row "Dara 2.3 0 33 0 13.2" [ref=e1092]:
+                  - cell "Dara" [ref=e1093]
+                  - cell "2.3" [ref=e1094]
+                  - cell "0" [ref=e1095]
+                  - cell "33" [ref=e1096]
+                  - cell "0" [ref=e1097]
+                  - cell "13.2" [ref=e1098]
+                - row "Manish 3 0 45 2 15" [ref=e1099]:
+                  - cell "Manish" [ref=e1100]
+                  - cell "3" [ref=e1101]
+                  - cell "0" [ref=e1102]
+                  - cell "45" [ref=e1103]
+                  - cell "2" [ref=e1104]
+                  - cell "15" [ref=e1105]
+                - row "Debarun 1 0 22 0 22" [ref=e1106]:
+                  - cell "Debarun" [ref=e1107]
+                  - cell "1" [ref=e1108]
+                  - cell "0" [ref=e1109]
+                  - cell "22" [ref=e1110]
+                  - cell "0" [ref=e1111]
+                  - cell "22" [ref=e1112]
+        - generic [ref=e1113]:
+          - heading "Yet To Bat" [level=6] [ref=e1114]
+          - paragraph [ref=e1115]: Jeevan S, Manoj Prabhakar, Marish Prabhu, Sunny, Surya, Suryanarayanan Soundararajan, Tushar Gupta
+        - generic [ref=e1116]:
+          - heading "Fall of Wickets" [level=6] [ref=e1117]
+          - paragraph [ref=e1118]: 28/1 Naveen Nelavelli (2.5), 51/2 Krishnaraj Dhanasekaran (4.4)
+    - separator [ref=e1119]
+    - generic [ref=e1121]:
+      - heading "New Players Detected" [level=6] [ref=e1122]
+      - paragraph [ref=e1123]: Select players to add or promote into the main squad before saving this match.
+      - generic [ref=e1124]:
+        - generic [ref=e1127]:
+          - generic [ref=e1128]:
+            - img [ref=e1130]
+            - generic [ref=e1132]:
+              - heading "Jeevan S" [level=6] [ref=e1133]
+              - generic [ref=e1134]: Available to add
+          - button "Add to Squad" [ref=e1135] [cursor=pointer]:
+            - img [ref=e1136]
+        - generic [ref=e1141]:
+          - generic [ref=e1142]:
+            - img [ref=e1144]
+            - generic [ref=e1146]:
+              - heading "Sunny" [level=6] [ref=e1147]
+              - generic [ref=e1148]: Available to add
+          - button "Add to Squad" [ref=e1149] [cursor=pointer]:
+            - img [ref=e1150]
+        - generic [ref=e1155]:
+          - generic [ref=e1156]:
+            - img [ref=e1158]
+            - generic [ref=e1160]:
+              - heading "Surya" [level=6] [ref=e1161]
+              - generic [ref=e1162]: Available to add
+          - button "Add to Squad" [ref=e1163] [cursor=pointer]:
+            - img [ref=e1164]
+    - separator [ref=e1167]
+    - generic [ref=e1168]:
+      - button "Cancel" [ref=e1169] [cursor=pointer]
+      - button "Save Match" [ref=e1170] [cursor=pointer]

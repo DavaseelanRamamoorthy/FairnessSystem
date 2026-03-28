@@ -1,0 +1,293 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]
+  - alert [ref=e32]
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e40]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e714]
+      - list [ref=e42]:
+        - link "Dashboard" [ref=e715] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e716]:
+            - img [ref=e46]
+            - generic [ref=e49]: Dashboard
+        - link "Matches" [ref=e717] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e718]:
+            - img [ref=e53]
+            - generic [ref=e57]: Matches
+        - link "Squad" [ref=e719] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e720]:
+            - img [ref=e61]
+            - generic [ref=e64]: Squad
+        - link "Membership" [ref=e721] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [ref=e722]:
+            - img [ref=e68]
+            - generic [ref=e71]: Membership
+        - link "Planner" [ref=e723] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e724]:
+            - img [ref=e75]
+            - generic [ref=e78]: Planner
+        - link "Fairness" [ref=e725] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e726]:
+            - img [ref=e82]
+            - generic [ref=e85]: Fairness
+        - link "Analytics" [ref=e727] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e728]:
+            - img [ref=e89]
+            - generic [ref=e92]: Analytics
+        - link "Validation" [ref=e729] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e730]:
+            - img [ref=e96]
+            - generic [ref=e99]: Validation
+        - link "Feedback" [ref=e731] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e732]:
+            - img [ref=e103]
+            - generic [ref=e106]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e733] [cursor=pointer]:
+        - generic [ref=e110]: D
+        - generic [ref=e112]: Davaseelan Ramamoorthy
+    - generic [ref=e113]:
+      - generic [ref=e116]:
+        - button [ref=e117] [cursor=pointer]:
+          - img [ref=e118]
+        - generic [ref=e120]:
+          - heading "Welcome to Moonwalkers Dashboard" [level=4] [ref=e734]
+          - paragraph [ref=e122]: Overview of team performance, match statistics, and player contributions.
+      - generic [ref=e125]:
+        - generic [ref=e128]:
+          - generic [ref=e129]:
+            - generic [ref=e130]: Dashboard
+            - heading "My Dashboard" [level=3] [ref=e855]
+            - paragraph [ref=e132]: Your opportunity visibility, fairness transparency, and personal contribution in one player view.
+          - group [ref=e134]:
+            - button "Team View" [ref=e736] [cursor=pointer]
+            - button "My View" [active] [pressed] [ref=e737] [cursor=pointer]: My View
+        - generic [ref=e856]:
+          - generic [ref=e857]:
+            - generic [ref=e861]:
+              - heading "Matches Played" [level=6] [ref=e862]
+              - heading "6" [level=3] [ref=e863]
+              - paragraph [ref=e864]: Linked scorecard appearances.
+            - generic [ref=e868]:
+              - heading "Total Runs" [level=6] [ref=e869]
+              - heading "62" [level=3] [ref=e870]
+              - paragraph [ref=e871]: Career team runs so far.
+            - generic [ref=e875]:
+              - heading "Total Wickets" [level=6] [ref=e876]
+              - heading "0" [level=3] [ref=e877]
+              - paragraph [ref=e878]: Career team wickets so far.
+            - generic [ref=e882]:
+              - heading "Fairness Status" [level=6] [ref=e883]
+              - heading "Balanced" [level=3] [ref=e884]
+              - paragraph [ref=e885]: Your latest opportunity signal.
+          - generic [ref=e888]:
+            - heading "Opportunity Breakdown" [level=6] [ref=e890]
+            - generic [ref=e891]:
+              - generic [ref=e895]:
+                - heading "XI Appearances" [level=6] [ref=e896]
+                - heading "3" [level=3] [ref=e897]
+                - paragraph [ref=e898]: Tracked actual XI usage.
+              - generic [ref=e902]:
+                - heading "12th Man" [level=6] [ref=e903]
+                - heading "0" [level=3] [ref=e904]
+                - paragraph [ref=e905]: 12th-man assignments.
+              - generic [ref=e909]:
+                - heading "Bench" [level=6] [ref=e910]
+                - heading "0" [level=3] [ref=e911]
+                - paragraph [ref=e912]: Bench outcomes across tracked weeks.
+              - generic [ref=e916]:
+                - heading "Unused In XI" [level=6] [ref=e917]
+                - heading "0" [level=3] [ref=e918]
+                - paragraph [ref=e919]: Listed but did not bat or bowl.
+              - generic [ref=e923]:
+                - heading "Unavailable" [level=6] [ref=e924]
+                - heading "0" [level=3] [ref=e925]
+                - paragraph [ref=e926]: Unavailable tracked match slots.
+          - generic [ref=e927]:
+            - generic [ref=e931]:
+              - heading "Personal Performance" [level=6] [ref=e933]
+              - generic [ref=e934]:
+                - generic [ref=e938]:
+                  - heading "Total Runs" [level=6] [ref=e939]
+                  - heading "62" [level=3] [ref=e940]
+                  - paragraph [ref=e941]: All linked batting runs.
+                - generic [ref=e945]:
+                  - heading "Total Wickets" [level=6] [ref=e946]
+                  - heading "0" [level=3] [ref=e947]
+                  - paragraph [ref=e948]: All linked bowling wickets.
+              - separator [ref=e949]
+              - generic [ref=e950]:
+                - heading "Recent Contribution Summary" [level=6] [ref=e951]
+                - paragraph [ref=e952]: "Last 3 matches: 54 runs, 0 wickets."
+                - paragraph [ref=e953]: "Strike Rate: 131.91 • Economy: 13.00"
+            - generic [ref=e957]:
+              - heading "Current Week Planner Result" [level=6] [ref=e960]
+              - generic [ref=e961]:
+                - generic [ref=e963]: 22 Mar 2026
+                - generic [ref=e965]: 3 planned matches
+              - generic [ref=e966]:
+                - generic [ref=e970]:
+                  - heading "Playing XI" [level=6] [ref=e971]
+                  - heading "3" [level=3] [ref=e972]
+                  - paragraph [ref=e973]: Matches selected in XI
+                - generic [ref=e977]:
+                  - heading "12th Man" [level=6] [ref=e978]
+                  - heading "0" [level=3] [ref=e979]
+                  - paragraph [ref=e980]: 12th-man assignments
+                - generic [ref=e984]:
+                  - heading "Bench" [level=6] [ref=e985]
+                  - heading "0" [level=3] [ref=e986]
+                  - paragraph [ref=e987]: Bench assignments
+                - generic [ref=e991]:
+                  - heading "Unavailable" [level=6] [ref=e992]
+                  - heading "0" [level=3] [ref=e993]
+                  - paragraph [ref=e994]: Unavailable match slots
+              - generic [ref=e995]:
+                - generic [ref=e999]:
+                  - generic [ref=e1000]:
+                    - heading "Match 1" [level=6] [ref=e1001]
+                    - generic [ref=e1003]: Playing XI
+                  - paragraph [ref=e1004]: You are selected in the planned XI for this match.
+                - generic [ref=e1008]:
+                  - generic [ref=e1009]:
+                    - heading "Match 2" [level=6] [ref=e1010]
+                    - generic [ref=e1012]: Playing XI
+                  - paragraph [ref=e1013]: You are selected in the planned XI for this match.
+                - generic [ref=e1017]:
+                  - generic [ref=e1018]:
+                    - heading "Match 3" [level=6] [ref=e1019]
+                    - generic [ref=e1021]: Playing XI
+                  - paragraph [ref=e1022]: You are selected in the planned XI for this match.
+              - separator [ref=e1023]
+              - generic [ref=e1024]:
+                - heading "Planner Notes" [level=6] [ref=e1025]
+                - paragraph [ref=e1026]: Manual backfill from actual matchday lineup screenshots.
+                - paragraph [ref=e1027]: "Game 3 note: Sharath, Varinder, Varghese and Manoj unavailable."
+          - generic [ref=e1029]:
+            - heading "Recent Opportunity Timeline" [level=6] [ref=e1032]
+            - table [ref=e1035]:
+              - rowgroup [ref=e1036]:
+                - row "Date Opponent Planned Status Actual Status" [ref=e1037]:
+                  - columnheader "Date" [ref=e1038]
+                  - columnheader "Opponent" [ref=e1039]
+                  - columnheader "Planned Status" [ref=e1040]
+                  - columnheader "Actual Status" [ref=e1041]
+              - rowgroup [ref=e1042]:
+                - row "22 Mar 2026 Berlin Super Kings XI Both" [ref=e1043]:
+                  - cell "22 Mar 2026" [ref=e1044]
+                  - cell "Berlin Super Kings" [ref=e1045]
+                  - cell "XI" [ref=e1046]
+                  - cell "Both" [ref=e1047]
+                - row "22 Mar 2026 Berlin Super Kings XI Batted" [ref=e1048]:
+                  - cell "22 Mar 2026" [ref=e1049]
+                  - cell "Berlin Super Kings" [ref=e1050]
+                  - cell "XI" [ref=e1051]
+                  - cell "Batted" [ref=e1052]
+                - row "22 Mar 2026 Berlin Super Kings XI Batted" [ref=e1053]:
+                  - cell "22 Mar 2026" [ref=e1054]
+                  - cell "Berlin Super Kings" [ref=e1055]
+                  - cell "XI" [ref=e1056]
+                  - cell "Batted" [ref=e1057]
+          - generic [ref=e1058]:
+            - generic [ref=e1061]:
+              - heading "Runs Trend" [level=6] [ref=e1063]
+              - application [ref=e1067]:
+                - generic [ref=e1089]:
+                  - generic [ref=e1090]:
+                    - generic [ref=e1093]: MW150326
+                    - generic [ref=e1096]: MW150326+1
+                    - generic [ref=e1099]: MW220326+2
+                    - generic [ref=e1102]: MW220326+1
+                    - generic [ref=e1105]: MW220326
+                  - generic [ref=e1106]:
+                    - generic [ref=e1108]: "0"
+                    - generic [ref=e1110]: "7"
+                    - generic [ref=e1112]: "14"
+                    - generic [ref=e1114]: "21"
+                    - generic [ref=e1116]: "28"
+            - generic [ref=e1119]:
+              - heading "Wickets Trend" [level=6] [ref=e1121]
+              - application [ref=e1125]:
+                - generic [ref=e1144]:
+                  - generic [ref=e1145]:
+                    - generic [ref=e1148]: MW150326
+                    - generic [ref=e1151]: MW150326+1
+                    - generic [ref=e1154]: MW220326+2
+                    - generic [ref=e1157]: MW220326+1
+                    - generic [ref=e1160]: MW220326
+                  - generic [ref=e1161]:
+                    - generic [ref=e1163]: "0"
+                    - generic [ref=e1165]: "1"
+                    - generic [ref=e1167]: "2"
+                    - generic [ref=e1169]: "3"
+                    - generic [ref=e1171]: "4"
+            - generic [ref=e1174]:
+              - heading "Opportunity Trend" [level=6] [ref=e1176]
+              - application [ref=e1180]:
+                - generic [ref=e1202]:
+                  - generic [ref=e1203]:
+                    - generic [ref=e1206]: M1
+                    - generic [ref=e1209]: M2
+                    - generic [ref=e1212]: M3
+                  - generic [ref=e1213]:
+                    - generic [ref=e1215]: "0"
+                    - generic [ref=e1217]: "1"
+                    - generic [ref=e1219]: "2"
+                    - generic [ref=e1221]: "3"
+          - generic [ref=e1223]:
+            - heading "Recent Matches" [level=6] [ref=e1226]
+            - table [ref=e1229]:
+              - rowgroup [ref=e1230]:
+                - row "Date Opponent Result Player Status Contribution" [ref=e1231]:
+                  - columnheader "Date" [ref=e1232]
+                  - columnheader "Opponent" [ref=e1233]
+                  - columnheader "Result" [ref=e1234]
+                  - columnheader "Player Status" [ref=e1235]
+                  - columnheader "Contribution" [ref=e1236]
+              - rowgroup [ref=e1237]:
+                - row "22 Mar 2026 Berlin Super Kings Won Batted 5 runs / 0 wickets" [ref=e1238]:
+                  - cell "22 Mar 2026" [ref=e1239]
+                  - cell "Berlin Super Kings" [ref=e1240]
+                  - cell "Won" [ref=e1241]:
+                    - generic [ref=e1243]: Won
+                  - cell "Batted" [ref=e1244]
+                  - cell "5 runs / 0 wickets" [ref=e1245]
+                - row "22 Mar 2026 Berlin Super Kings Lost Batted 24 runs / 0 wickets" [ref=e1246]:
+                  - cell "22 Mar 2026" [ref=e1247]
+                  - cell "Berlin Super Kings" [ref=e1248]
+                  - cell "Lost" [ref=e1249]:
+                    - generic [ref=e1251]: Lost
+                  - cell "Batted" [ref=e1252]
+                  - cell "24 runs / 0 wickets" [ref=e1253]
+                - row "22 Mar 2026 Berlin Super Kings Lost Batted 25 runs / 0 wickets" [ref=e1254]:
+                  - cell "22 Mar 2026" [ref=e1255]
+                  - cell "Berlin Super Kings" [ref=e1256]
+                  - cell "Lost" [ref=e1257]:
+                    - generic [ref=e1259]: Lost
+                  - cell "Batted" [ref=e1260]
+                  - cell "25 runs / 0 wickets" [ref=e1261]
+                - row "15 Mar 2026 Run Raiders Tie Batted 2 runs / 0 wickets" [ref=e1262]:
+                  - cell "15 Mar 2026" [ref=e1263]
+                  - cell "Run Raiders" [ref=e1264]
+                  - cell "Tie" [ref=e1265]:
+                    - generic [ref=e1267]: Tie
+                  - cell "Batted" [ref=e1268]
+                  - cell "2 runs / 0 wickets" [ref=e1269]
+                - row "15 Mar 2026 Run Raiders Lost Batted 1 runs / 0 wickets" [ref=e1270]:
+                  - cell "15 Mar 2026" [ref=e1271]
+                  - cell "Run Raiders" [ref=e1272]
+                  - cell "Lost" [ref=e1273]:
+                    - generic [ref=e1275]: Lost
+                  - cell "Batted" [ref=e1276]
+                  - cell "1 runs / 0 wickets" [ref=e1277]
+  - generic [ref=e713]: "1"

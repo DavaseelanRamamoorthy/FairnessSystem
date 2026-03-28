@@ -1,0 +1,401 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]
+  - alert [ref=e32]
+  - generic [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e48]:
+        - text: Team Space
+        - heading [level=5] [ref=e49]: Moonwalkers
+      - list [ref=e50]:
+        - link [ref=e51] [cursor=pointer]:
+          - /url: /dashboard
+          - button [ref=e52]:
+            - img [ref=e54]
+            - generic [ref=e57]: Dashboard
+        - link [ref=e58] [cursor=pointer]:
+          - /url: /matches
+          - button [ref=e59]:
+            - img [ref=e61]
+            - generic [ref=e65]: Matches
+        - link [ref=e66] [cursor=pointer]:
+          - /url: /players
+          - button [ref=e67]:
+            - img [ref=e69]
+            - generic [ref=e72]: Squad
+        - link [ref=e73] [cursor=pointer]:
+          - /url: /memberships
+          - button [ref=e74]:
+            - img [ref=e76]
+            - generic [ref=e79]: Membership
+        - link [ref=e80] [cursor=pointer]:
+          - /url: /planner
+          - button [ref=e81]:
+            - img [ref=e83]
+            - generic [ref=e86]: Planner
+        - link [ref=e87] [cursor=pointer]:
+          - /url: /fairness
+          - button [ref=e88]:
+            - img [ref=e90]
+            - generic [ref=e93]: Fairness
+        - link [ref=e94] [cursor=pointer]:
+          - /url: /analytics
+          - button [ref=e95]:
+            - img [ref=e97]
+            - generic [ref=e100]: Analytics
+        - link [ref=e101] [cursor=pointer]:
+          - /url: /validation
+          - button [ref=e102]:
+            - img [ref=e104]
+            - generic [ref=e107]: Validation
+        - link [ref=e108] [cursor=pointer]:
+          - /url: /feedback
+          - button [ref=e109]:
+            - img [ref=e111]
+            - generic [ref=e114]: Feedback
+      - button [ref=e116] [cursor=pointer]:
+        - generic [ref=e118]: D
+        - generic [ref=e120]: Davaseelan Ramamoorthy
+    - generic [ref=e121]:
+      - generic [ref=e124]:
+        - button [ref=e125] [cursor=pointer]:
+          - img [ref=e126]
+        - generic [ref=e128]:
+          - heading [level=4] [ref=e129]: Welcome to Moonwalkers Dashboard
+          - paragraph [ref=e130]: Overview of team performance, match statistics, and player contributions.
+      - generic [ref=e133]:
+        - generic [ref=e136]:
+          - generic [ref=e137]:
+            - generic [ref=e138]: Dashboard
+            - heading [level=3] [ref=e139]: Team Dashboard
+            - paragraph [ref=e140]: Team performance, fairness visibility, and planner outcomes in one organiser view.
+          - group [ref=e142]:
+            - button [pressed] [ref=e143] [cursor=pointer]: Team View
+            - button [ref=e144] [cursor=pointer]: My View
+        - generic [ref=e145]:
+          - generic [ref=e147]:
+            - generic [ref=e149]:
+              - generic [ref=e151]:
+                - img [ref=e154]
+                - generic [ref=e157]: Matches Played
+              - paragraph [ref=e159]: "6"
+            - generic [ref=e161]: Official team fixtures
+          - generic [ref=e163]:
+            - generic [ref=e165]:
+              - generic [ref=e167]:
+                - img [ref=e170]
+                - generic [ref=e172]: Win Ratio
+              - paragraph [ref=e174]: 17%
+            - generic [ref=e176]: Current team success rate
+          - generic [ref=e178]:
+            - generic [ref=e180]:
+              - generic [ref=e182]:
+                - img [ref=e185]
+                - generic [ref=e187]: Top Run Scorer
+              - paragraph [ref=e189]: Krishnaraj
+            - generic [ref=e191]: Current leading batter
+          - generic [ref=e193]:
+            - generic [ref=e195]:
+              - generic [ref=e197]:
+                - img [ref=e200]
+                - generic [ref=e202]: Top Wicket Taker
+              - paragraph [ref=e204]: Sharath
+            - generic [ref=e206]: Current leading bowler
+        - generic [ref=e207]:
+          - generic [ref=e210]:
+            - heading [level=6] [ref=e213]: Top Run Leaders
+            - table [ref=e216]:
+              - rowgroup [ref=e217]:
+                - row [ref=e218]:
+                  - columnheader [ref=e219]: Rank
+                  - columnheader [ref=e220]: Player
+                  - columnheader [ref=e221]: Runs
+              - rowgroup [ref=e222]:
+                - row [ref=e223]:
+                  - cell [ref=e224]: "1"
+                  - cell [ref=e225]: Krishnaraj Dhanasekaran
+                  - cell [ref=e226]: "82"
+                - row [ref=e227]:
+                  - cell [ref=e228]: "2"
+                  - cell [ref=e229]: Davaseelan
+                  - cell [ref=e230]: "62"
+                - row [ref=e231]:
+                  - cell [ref=e232]: "3"
+                  - cell [ref=e233]: Varinder Nishad
+                  - cell [ref=e234]: "59"
+                - row [ref=e235]:
+                  - cell [ref=e236]: "4"
+                  - cell [ref=e237]: Kanishk Dhanker
+                  - cell [ref=e238]: "37"
+                - row [ref=e239]:
+                  - cell [ref=e240]: "5"
+                  - cell [ref=e241]: Naveen Nelavelli
+                  - cell [ref=e242]: "29"
+          - generic [ref=e245]:
+            - heading [level=6] [ref=e248]: Top Wicket Leaders
+            - table [ref=e251]:
+              - rowgroup [ref=e252]:
+                - row [ref=e253]:
+                  - columnheader [ref=e254]: Rank
+                  - columnheader [ref=e255]: Player
+                  - columnheader [ref=e256]: Wickets
+              - rowgroup [ref=e257]:
+                - row [ref=e258]:
+                  - cell [ref=e259]: "1"
+                  - cell [ref=e260]: Sharath
+                  - cell [ref=e261]: "8"
+                - row [ref=e262]:
+                  - cell [ref=e263]: "2"
+                  - cell [ref=e264]: Anir
+                  - cell [ref=e265]: "8"
+                - row [ref=e266]:
+                  - cell [ref=e267]: "3"
+                  - cell [ref=e268]: Krishnaraj Dhanasekaran
+                  - cell [ref=e269]: "5"
+                - row [ref=e270]:
+                  - cell [ref=e271]: "4"
+                  - cell [ref=e272]: Naveen Nelavelli
+                  - cell [ref=e273]: "4"
+                - row [ref=e274]:
+                  - cell [ref=e275]: "5"
+                  - cell [ref=e276]: Ketan Deshpande
+                  - cell [ref=e277]: "3"
+        - generic [ref=e278]:
+          - generic [ref=e281]:
+            - heading [level=6] [ref=e283]: Runs Trend
+            - application [ref=e287]:
+              - generic [ref=e309]:
+                - generic [ref=e310]:
+                  - generic [ref=e313]: Run Raiders
+                  - generic [ref=e316]: Run Raiders
+                  - generic [ref=e319]: Berlin Super Kings
+                  - generic [ref=e322]: Berlin Super Kings
+                  - generic [ref=e325]: Berlin Super Kings
+                - generic [ref=e326]:
+                  - generic [ref=e328]: "0"
+                  - generic [ref=e330]: "25"
+                  - generic [ref=e332]: "50"
+                  - generic [ref=e334]: "75"
+                  - generic [ref=e336]: "100"
+          - generic [ref=e339]:
+            - heading [level=6] [ref=e341]: Wickets Trend
+            - application [ref=e345]:
+              - generic [ref=e367]:
+                - generic [ref=e368]:
+                  - generic [ref=e371]: Run Raiders
+                  - generic [ref=e374]: Run Raiders
+                  - generic [ref=e377]: Berlin Super Kings
+                  - generic [ref=e380]: Berlin Super Kings
+                  - generic [ref=e383]: Berlin Super Kings
+                - generic [ref=e384]:
+                  - generic [ref=e386]: "0"
+                  - generic [ref=e388]: "2"
+                  - generic [ref=e390]: "4"
+                  - generic [ref=e392]: "6"
+                  - generic [ref=e394]: "8"
+        - generic [ref=e396]:
+          - heading [level=6] [ref=e399]: Fairness Overview
+          - generic [ref=e400]:
+            - generic [ref=e402]:
+              - heading [level=3] [ref=e404]:
+                - button [ref=e405] [cursor=pointer]:
+                  - generic [ref=e407]:
+                    - paragraph [ref=e408]: Anir
+                    - generic [ref=e410]: Balanced
+                  - img [ref=e412]
+              - heading [level=3] [ref=e415]:
+                - button [ref=e416] [cursor=pointer]:
+                  - generic [ref=e418]:
+                    - paragraph [ref=e419]: Davaseelan
+                    - generic [ref=e421]: Balanced
+                  - img [ref=e423]
+              - heading [level=3] [ref=e426]:
+                - button [ref=e427] [cursor=pointer]:
+                  - generic [ref=e429]:
+                    - paragraph [ref=e430]: Ketan Deshpande
+                    - generic [ref=e432]: Balanced
+                  - img [ref=e434]
+              - heading [level=3] [ref=e437]:
+                - button [ref=e438] [cursor=pointer]:
+                  - generic [ref=e440]:
+                    - paragraph [ref=e441]: Manoj Prabhakar
+                    - generic [ref=e443]: Balanced
+                  - img [ref=e445]
+              - heading [level=3] [ref=e448]:
+                - button [ref=e449] [cursor=pointer]:
+                  - generic [ref=e451]:
+                    - paragraph [ref=e452]: Ravinder
+                    - generic [ref=e454]: Balanced
+                  - img [ref=e456]
+              - heading [level=3] [ref=e459]:
+                - button [ref=e460] [cursor=pointer]:
+                  - generic [ref=e462]:
+                    - paragraph [ref=e463]: Sharath
+                    - generic [ref=e465]: Balanced
+                  - img [ref=e467]
+              - heading [level=3] [ref=e470]:
+                - button [ref=e471] [cursor=pointer]:
+                  - generic [ref=e473]:
+                    - paragraph [ref=e474]: Suryanarayanan Soundararajan
+                    - generic [ref=e476]: Balanced
+                  - img [ref=e478]
+              - heading [level=3] [ref=e481]:
+                - button [ref=e482] [cursor=pointer]:
+                  - generic [ref=e484]:
+                    - paragraph [ref=e485]: Varinder Nishad
+                    - generic [ref=e487]: Balanced
+                  - img [ref=e489]
+            - generic [ref=e492]:
+              - heading [level=3] [ref=e494]:
+                - button [ref=e495] [cursor=pointer]:
+                  - generic [ref=e497]:
+                    - paragraph [ref=e498]: Arjun Roy
+                    - generic [ref=e500]: Balanced
+                  - img [ref=e502]
+              - heading [level=3] [ref=e505]:
+                - button [ref=e506] [cursor=pointer]:
+                  - generic [ref=e508]:
+                    - paragraph [ref=e509]: Kanishk Dhanker
+                    - generic [ref=e511]: Balanced
+                  - img [ref=e513]
+              - heading [level=3] [ref=e516]:
+                - button [ref=e517] [cursor=pointer]:
+                  - generic [ref=e519]:
+                    - paragraph [ref=e520]: Krishnaraj Dhanasekaran
+                    - generic [ref=e522]: Balanced
+                  - img [ref=e524]
+              - heading [level=3] [ref=e527]:
+                - button [ref=e528] [cursor=pointer]:
+                  - generic [ref=e530]:
+                    - paragraph [ref=e531]: Naveen Nelavelli
+                    - generic [ref=e533]: Balanced
+                  - img [ref=e535]
+              - heading [level=3] [ref=e538]:
+                - button [ref=e539] [cursor=pointer]:
+                  - generic [ref=e541]:
+                    - paragraph [ref=e542]: Sathish Kumar
+                    - generic [ref=e544]: Balanced
+                  - img [ref=e546]
+              - heading [level=3] [ref=e549]:
+                - button [ref=e550] [cursor=pointer]:
+                  - generic [ref=e552]:
+                    - paragraph [ref=e553]: Sharma Elanthiraiyan K V
+                    - generic [ref=e555]: Balanced
+                  - img [ref=e557]
+              - heading [level=3] [ref=e560]:
+                - button [ref=e561] [cursor=pointer]:
+                  - generic [ref=e563]:
+                    - paragraph [ref=e564]: Varghese Akhil
+                    - generic [ref=e566]: Balanced
+                  - img [ref=e568]
+        - generic [ref=e570]:
+          - generic [ref=e574]:
+            - heading [level=6] [ref=e576]: Underused Players
+            - alert [ref=e577]:
+              - img [ref=e579]
+              - generic [ref=e581]: No strong underuse signals detected right now.
+          - generic [ref=e585]:
+            - heading [level=6] [ref=e587]: Overused Players
+            - alert [ref=e588]:
+              - img [ref=e590]
+              - generic [ref=e592]: No strong overuse patterns are showing yet.
+        - generic [ref=e595]:
+          - generic [ref=e596]:
+            - heading [level=6] [ref=e598]: Planner Outcome Snapshot
+            - generic [ref=e600]: 22 Mar 2026 • 3 matches
+          - generic [ref=e601]:
+            - generic [ref=e605]:
+              - heading [level=6] [ref=e606]: Planned XI / Match
+              - heading [level=3] [ref=e607]: "11"
+              - paragraph [ref=e608]: 33 total XI slots across 3 matches.
+            - generic [ref=e612]:
+              - heading [level=6] [ref=e613]: Utilized / Match
+              - heading [level=3] [ref=e614]: "7.3"
+              - paragraph [ref=e615]: 22 utilized XI slots across 3 linked matches.
+            - generic [ref=e619]:
+              - heading [level=6] [ref=e620]: Unused In XI / Match
+              - heading [level=3] [ref=e621]: "3.7"
+              - paragraph [ref=e622]: 11 total unused XI slots detected.
+        - generic [ref=e624]:
+          - heading [level=6] [ref=e627]: Recent Matches
+          - table [ref=e630]:
+            - rowgroup [ref=e631]:
+              - row [ref=e632]:
+                - columnheader [ref=e633]: Date
+                - columnheader [ref=e634]: Opponent
+                - columnheader [ref=e635]: Result
+            - rowgroup [ref=e636]:
+              - row [ref=e637]:
+                - cell [ref=e638]: 22 Mar 2026
+                - cell [ref=e639]: Berlin Super Kings
+                - cell [ref=e640]:
+                  - generic [ref=e642]: Lost
+              - row [ref=e643]:
+                - cell [ref=e644]: 22 Mar 2026
+                - cell [ref=e645]: Berlin Super Kings
+                - cell [ref=e646]:
+                  - generic [ref=e648]: Lost
+              - row [ref=e649]:
+                - cell [ref=e650]: 22 Mar 2026
+                - cell [ref=e651]: Berlin Super Kings
+                - cell [ref=e652]:
+                  - generic [ref=e654]: Won
+              - row [ref=e655]:
+                - cell [ref=e656]: 15 Mar 2026
+                - cell [ref=e657]: Run Raiders
+                - cell [ref=e658]:
+                  - generic [ref=e660]: Lost
+              - row [ref=e661]:
+                - cell [ref=e662]: 15 Mar 2026
+                - cell [ref=e663]: Run Raiders
+                - cell [ref=e664]:
+                  - generic [ref=e666]: Tie
+  - dialog "Introducing SportFairSystem v1.0 After months of building, refining, and real-world validation, SportFairSystem v1.0 is live, stable, and ready for real usage." [ref=e669]:
+    - heading "Introducing SportFairSystem v1.0 After months of building, refining, and real-world validation, SportFairSystem v1.0 is live, stable, and ready for real usage." [level=2] [ref=e670]:
+      - generic [ref=e671]:
+        - heading "Introducing SportFairSystem v1.0" [level=4] [ref=e672]
+        - paragraph [ref=e673]: After months of building, refining, and real-world validation, SportFairSystem v1.0 is live, stable, and ready for real usage.
+    - generic [ref=e675]:
+      - paragraph [ref=e676]: SportFairSystem started as a simple scorecard parser. Today, it has evolved into a complete, role-aware team system that connects match data, player insights, and team decision-making into one unified platform.
+      - generic [ref=e677]:
+        - heading "What SportFairSystem v1.0 offers" [level=6] [ref=e678]
+        - generic [ref=e679]:
+          - paragraph [ref=e680]: Scorecard Ingestion
+          - paragraph [ref=e681]: Upload and parse cricket scorecards into structured match data.
+        - generic [ref=e682]:
+          - paragraph [ref=e683]: Squad & Player Management
+          - paragraph [ref=e684]: Build and manage your team with identity-linked player profiles.
+        - generic [ref=e685]:
+          - paragraph [ref=e686]: Player Intelligence & Analytics
+          - paragraph [ref=e687]: Track performance, trends, and usage across matches and seasons.
+        - generic [ref=e688]:
+          - paragraph [ref=e689]: Planner Workflows
+          - paragraph [ref=e690]: Plan matches using attendance data, generate Playing XI, and manage bench decisions.
+        - generic [ref=e691]:
+          - paragraph [ref=e692]: Validation & Data Integrity
+          - paragraph [ref=e693]: Detect missing links, duplicates, and inconsistencies with built-in validation tools.
+        - generic [ref=e694]:
+          - paragraph [ref=e695]: Authentication & Role-Based Access
+          - paragraph [ref=e696]: Secure, role-aware system with admin controls and protected workflows.
+      - generic [ref=e697]:
+        - heading "Built for Real Teams" [level=6] [ref=e698]
+        - paragraph [ref=e699]: SportFairSystem is currently designed as an internal platform for real team workflows, with a focus on simplicity, transparency, and data-driven decisions.
+      - generic [ref=e700]:
+        - heading "Version 1.0 Scope" [level=6] [ref=e701]
+        - paragraph [ref=e702]: This release is intentionally focused and stable. Features like multi-team support, live scoring, and tournament management are planned for future versions.
+      - generic [ref=e703]:
+        - heading "Why this matters" [level=6] [ref=e704]
+        - paragraph [ref=e705]: "Most amateur teams rely on scattered tools or manual tracking. SportFairSystem brings everything together:"
+        - paragraph [ref=e707]: Match Data -> Player Insights -> Team Decisions
+      - generic [ref=e709]:
+        - paragraph [ref=e710]: Responsive Fit Disclaimer
+        - paragraph [ref=e711]: SportFairSystem is responsive across desktop, tablet, and mobile, but the best experience is still on desktop or larger tablet screens. A few dense analytics and admin workflows may feel tighter on smaller phones.
+      - paragraph [ref=e712]: This is just the beginning. More to come.
+    - generic [ref=e713]:
+      - generic [ref=e714] [cursor=pointer]:
+        - generic [ref=e715]:
+          - checkbox "Don't show me again" [ref=e716]
+          - img [ref=e717]
+        - generic [ref=e719]: Don't show me again
+      - button "Continue" [ref=e720] [cursor=pointer]
+  - generic [ref=e721]: "2"

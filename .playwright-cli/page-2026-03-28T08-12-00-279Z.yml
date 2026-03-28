@@ -1,0 +1,88 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]
+  - alert [ref=e32]
+  - generic [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e48]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e722]
+      - list [ref=e50]:
+        - link "Dashboard" [ref=e723] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e724]:
+            - img [ref=e54]
+            - generic [ref=e57]: Dashboard
+        - link "Matches" [ref=e725] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e726]:
+            - img [ref=e61]
+            - generic [ref=e65]: Matches
+        - link "Squad" [ref=e727] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e728]:
+            - img [ref=e69]
+            - generic [ref=e72]: Squad
+        - link "Membership" [ref=e729] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [ref=e730]:
+            - img [ref=e76]
+            - generic [ref=e79]: Membership
+        - link "Planner" [ref=e731] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e732]:
+            - img [ref=e83]
+            - generic [ref=e86]: Planner
+        - link "Fairness" [ref=e733] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [active] [ref=e734]:
+            - img [ref=e90]
+            - generic [ref=e93]: Fairness
+        - link "Analytics" [ref=e735] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e736]:
+            - img [ref=e97]
+            - generic [ref=e100]: Analytics
+        - link "Validation" [ref=e737] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e738]:
+            - img [ref=e104]
+            - generic [ref=e107]: Validation
+        - link "Feedback" [ref=e739] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e740]:
+            - img [ref=e111]
+            - generic [ref=e114]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e741] [cursor=pointer]:
+        - generic [ref=e118]: D
+        - generic [ref=e120]: Davaseelan Ramamoorthy
+    - generic [ref=e121]:
+      - generic [ref=e124]:
+        - button [ref=e125] [cursor=pointer]:
+          - img [ref=e126]
+        - generic [ref=e128]:
+          - heading "Moonwalkers Fairness" [level=4] [ref=e863]
+          - paragraph [ref=e130]: Organiser and captain workspace for saved matchday fairness tracking, alerts, and planner history.
+      - generic [ref=e865]:
+        - generic [ref=e868]:
+          - generic [ref=e869]:
+            - generic [ref=e870]: Leadership Workspace
+            - heading "Fairness" [level=3] [ref=e871]
+            - paragraph [ref=e872]: Track authentic planner fairness across saved matchdays, review recent player opportunity history, and manage saved planner records in one place.
+          - generic [ref=e874]:
+            - group [ref=e875]:
+              - button "Team View" [pressed] [ref=e876] [cursor=pointer]
+              - button "My View" [ref=e877] [cursor=pointer]
+            - generic [ref=e878]:
+              - generic [ref=e879]: Season
+              - generic [ref=e880]:
+                - combobox "Season" [ref=e881] [cursor=pointer]: "2026"
+                - textbox: "2026"
+                - img
+                - group:
+                  - generic: Season
+        - generic [ref=e884]:
+          - progressbar [ref=e885]:
+            - img [ref=e886]
+          - paragraph [ref=e888]: Loading fairness workspace...
+  - generic [ref=e721]: "2"

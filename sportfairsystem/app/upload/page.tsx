@@ -1,8 +1,7 @@
+"use client";
+
+import MatchesPage from "@/app/matches/page";
+
 export default function UploadPage() {
-  return (
-    <div>
-      <h2>Upload Match</h2>
-      <p>Upload scorecard PDF here.</p>
-    </div>
-  );
+  return <MatchesPage />;
 }

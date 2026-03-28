@@ -19,7 +19,6 @@ import { alpha } from "@mui/material/styles";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
-import { currentTeamName } from "@/app/config/teamConfig";
 import { useAuth } from "@/app/context/AuthContext";
 import { supabase } from "@/app/services/supabaseClient";
 import {
@@ -144,7 +143,7 @@ export default function ResetPasswordPage() {
               SportFairSystem
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
-              {isPasswordUpdateMode ? "Set a new password" : `Reset password for ${currentTeamName}`}
+              {isPasswordUpdateMode ? "Set a new password" : "Reset password"}
             </Typography>
             <Typography sx={{ color: alpha("#FFFFFF", 0.74) }}>
               {isPasswordUpdateMode

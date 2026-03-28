@@ -1,0 +1,501 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]
+  - alert [ref=e32]
+  - generic [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e48]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e722]
+      - list [ref=e50]:
+        - link "Dashboard" [ref=e723] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e724]:
+            - img [ref=e54]
+            - generic [ref=e57]: Dashboard
+        - link "Matches" [ref=e725] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e726]:
+            - img [ref=e61]
+            - generic [ref=e65]: Matches
+        - link "Squad" [ref=e727] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e728]:
+            - img [ref=e69]
+            - generic [ref=e72]: Squad
+        - link "Membership" [ref=e729] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [ref=e730]:
+            - img [ref=e76]
+            - generic [ref=e79]: Membership
+        - link "Planner" [ref=e731] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e732]:
+            - img [ref=e83]
+            - generic [ref=e86]: Planner
+        - link "Fairness" [ref=e733] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [active] [ref=e734]:
+            - img [ref=e90]
+            - generic [ref=e93]: Fairness
+        - link "Analytics" [ref=e735] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e736]:
+            - img [ref=e97]
+            - generic [ref=e100]: Analytics
+        - link "Validation" [ref=e737] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e738]:
+            - img [ref=e104]
+            - generic [ref=e107]: Validation
+        - link "Feedback" [ref=e739] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e740]:
+            - img [ref=e111]
+            - generic [ref=e114]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e741] [cursor=pointer]:
+        - generic [ref=e118]: D
+        - generic [ref=e120]: Davaseelan Ramamoorthy
+    - generic [ref=e121]:
+      - generic [ref=e124]:
+        - button [ref=e125] [cursor=pointer]:
+          - img [ref=e126]
+        - generic [ref=e128]:
+          - heading "Moonwalkers Fairness" [level=4] [ref=e863]
+          - paragraph [ref=e130]: Organiser and captain workspace for saved matchday fairness tracking, alerts, and planner history.
+      - generic [ref=e865]:
+        - generic [ref=e868]:
+          - generic [ref=e869]:
+            - generic [ref=e870]: Leadership Workspace
+            - heading "Fairness" [level=3] [ref=e871]
+            - paragraph [ref=e872]: Track authentic planner fairness across saved matchdays, review recent player opportunity history, and manage saved planner records in one place.
+          - generic [ref=e874]:
+            - group [ref=e875]:
+              - button "Team View" [pressed] [ref=e876] [cursor=pointer]
+              - button "My View" [ref=e877] [cursor=pointer]
+            - generic [ref=e878]:
+              - generic [ref=e879]: Season
+              - generic [ref=e880]:
+                - combobox "Season" [ref=e881] [cursor=pointer]: "2026"
+                - textbox: "2026"
+                - img
+                - group:
+                  - generic: Season
+        - generic [ref=e889]:
+          - generic [ref=e890]:
+            - generic [ref=e894]:
+              - heading "Comparison Insights" [level=5] [ref=e895]
+              - generic [ref=e897]:
+                - heading "22 Mar 2026" [level=6] [ref=e898]
+                - generic [ref=e899]:
+                  - generic [ref=e900]:
+                    - paragraph [ref=e901]: Match 1
+                    - list [ref=e902]:
+                      - listitem [ref=e903]: "- Planned 12th but actually used: Kanishk Dhanker"
+                  - generic [ref=e904]:
+                    - paragraph [ref=e905]: Match 2
+                    - list [ref=e906]:
+                      - listitem [ref=e907]: "- Planned 12th but actually used: Ketan Deshpande"
+                      - listitem [ref=e908]: "- Planned bench but actually used: Anir C"
+                  - generic [ref=e909]:
+                    - paragraph [ref=e910]: Match 3
+                    - list [ref=e911]:
+                      - listitem [ref=e912]: "- Planned XI but no actual appearance: Ravinder Kumar"
+                      - listitem [ref=e913]: "- Marked unavailable but appeared: Varinder Nishad"
+            - generic [ref=e917]:
+              - heading "Fairness Alerts" [level=5] [ref=e918]
+              - generic [ref=e919]:
+                - generic [ref=e920]:
+                  - button "Anir" [ref=e921] [cursor=pointer]:
+                    - generic [ref=e922]: Anir
+                  - button "Ravinder" [ref=e923] [cursor=pointer]:
+                    - generic [ref=e924]: Ravinder
+                  - button "Varghese Akhil" [ref=e925] [cursor=pointer]:
+                    - generic [ref=e926]: Varghese Akhil
+                  - button "Varinder Nishad" [ref=e927] [cursor=pointer]:
+                    - generic [ref=e928]: Varinder Nishad
+                  - button "Kanishk Dhanker" [ref=e929] [cursor=pointer]:
+                    - generic [ref=e930]: Kanishk Dhanker
+                  - button "Ketan Deshpande" [ref=e931] [cursor=pointer]:
+                    - generic [ref=e932]: Ketan Deshpande
+                - generic [ref=e933]:
+                  - generic [ref=e934]:
+                    - heading "Anir" [level=6] [ref=e935]
+                    - link "Open Member Detail" [ref=e936] [cursor=pointer]:
+                      - /url: /fairness/member/7cb360cb-9cc3-4325-a9d6-d8e24a2312b8
+                  - list [ref=e937]:
+                    - listitem [ref=e938]: "- was planned on the bench for 22 Mar 2026 Match 2 but appears in the linked scorecard."
+          - generic [ref=e939]:
+            - generic [ref=e943]:
+              - heading "Saved Matchdays" [level=6] [ref=e944]
+              - heading "1" [level=3] [ref=e945]
+              - paragraph [ref=e946]: Friendly planner batches already saved for fairness tracking.
+            - generic [ref=e950]:
+              - heading "Below 5 XI" [level=6] [ref=e951]
+              - heading "15" [level=3] [ref=e952]
+              - paragraph [ref=e953]: Tracked players still building toward the 5-XI opportunity baseline.
+            - generic [ref=e957]:
+              - heading "Quota Complete" [level=6] [ref=e958]
+              - heading "0" [level=3] [ref=e959]
+              - paragraph [ref=e960]: Players who already reached at least 5 saved XI selections.
+            - generic [ref=e964]:
+              - heading "Underuse Watch" [level=6] [ref=e965]
+              - heading "0" [level=3] [ref=e966]
+              - paragraph [ref=e967]: Players with 5+ XI selections who are now missing XI chances across recent available matchdays.
+          - generic [ref=e968]:
+            - generic [ref=e972]:
+              - heading "Saved Matchday Detail" [level=5] [ref=e973]
+              - generic [ref=e974]:
+                - generic [ref=e975]:
+                  - generic [ref=e977]: 22 Mar 2026
+                  - generic [ref=e979]: Saved 24 Mar 2026, 17:07
+                  - generic [ref=e981]: 2026-03-22
+                - generic [ref=e982]:
+                  - generic [ref=e986]:
+                    - heading "Match 1" [level=6] [ref=e987]
+                    - generic [ref=e988]:
+                      - generic [ref=e989]: Actual Scorecard
+                      - generic [ref=e990]:
+                        - combobox "Actual Scorecard" [ref=e991] [cursor=pointer]: MW220326 • Berlin Super Kings • 2026-03-22
+                        - textbox: 3a57138e-853f-466a-bedb-c5fa27097afc
+                        - img
+                        - group:
+                          - generic: Actual Scorecard
+                    - generic [ref=e992]: Linked to MW220326 • Berlin Super Kings • 2026-03-22
+                    - generic [ref=e993]:
+                      - generic [ref=e995]:
+                        - generic [ref=e997]: Matchday Fairness Planner
+                        - list [ref=e998]:
+                          - listitem [ref=e999]: Anir C
+                          - listitem [ref=e1000]: Davaseelan Ramamoorthy
+                          - listitem [ref=e1001]: Ketan Deshpande
+                          - listitem [ref=e1002]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1003]: Naveen Nelavelli
+                          - listitem [ref=e1004]: Ravinder Kumar
+                          - listitem [ref=e1005]: Sathish Kumar
+                          - listitem [ref=e1006]: Sharathkumar J
+                          - listitem [ref=e1007]: Suryanarayanan Soundararajan
+                          - listitem [ref=e1008]: Varghese Akhil
+                          - listitem [ref=e1009]: Varinder Nishad
+                        - generic [ref=e1011]: 12th / Bench
+                        - list [ref=e1012]:
+                          - listitem [ref=e1013]: Kanishk Dhanker - 12th
+                          - listitem [ref=e1014]: Arjun Roy
+                          - listitem [ref=e1015]: Manoj Prabhakar
+                          - listitem [ref=e1016]: Sharma Elanthiraiyan K V
+                      - generic [ref=e1018]:
+                        - generic [ref=e1020]: Actual Result
+                        - list [ref=e1022]:
+                          - listitem [ref=e1023]: Anir
+                          - listitem [ref=e1024]: Davaseelan
+                          - listitem [ref=e1025]: Kanishk Dhanker
+                          - listitem [ref=e1026]: Ketan Deshpande
+                          - listitem [ref=e1027]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1028]: Naveen Nelavelli
+                          - listitem [ref=e1029]: Ravinder
+                          - listitem [ref=e1030]: Sathish Kumar
+                          - listitem [ref=e1031]: Sharath
+                          - listitem [ref=e1032]: Suryanarayanan Soundararajan
+                          - listitem [ref=e1033]: Varghese Akhil
+                          - listitem [ref=e1034]: Varinder Nishad
+                    - generic [ref=e1035]:
+                      - generic [ref=e1037]:
+                        - generic [ref=e1039]: Batted
+                        - list [ref=e1040]:
+                          - listitem [ref=e1041]: Ravinder
+                          - listitem [ref=e1042]: Kanishk Dhanker
+                          - listitem [ref=e1043]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1044]: Naveen Nelavelli
+                          - listitem [ref=e1045]: Davaseelan
+                          - listitem [ref=e1046]: Varghese Akhil
+                          - listitem [ref=e1047]: Sathish Kumar
+                          - listitem [ref=e1048]: Anir
+                          - listitem [ref=e1049]: Varinder Nishad
+                      - generic [ref=e1051]:
+                        - generic [ref=e1053]: Bowled
+                        - list [ref=e1054]:
+                          - listitem [ref=e1055]: Sharath
+                          - listitem [ref=e1056]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1057]: Ketan Deshpande
+                          - listitem [ref=e1058]: Anir
+                          - listitem [ref=e1059]: Naveen Nelavelli
+                  - generic [ref=e1063]:
+                    - heading "Match 2" [level=6] [ref=e1064]
+                    - generic [ref=e1065]:
+                      - generic [ref=e1066]: Actual Scorecard
+                      - generic [ref=e1067]:
+                        - combobox "Actual Scorecard" [ref=e1068] [cursor=pointer]: MW220326+1 • Berlin Super Kings • 2026-03-22
+                        - textbox: e2d750a2-7581-4886-b407-9cb6cda33cff
+                        - img
+                        - group:
+                          - generic: Actual Scorecard
+                    - generic [ref=e1069]: Linked to MW220326+1 • Berlin Super Kings • 2026-03-22
+                    - generic [ref=e1070]:
+                      - generic [ref=e1072]:
+                        - generic [ref=e1074]: Matchday Fairness Planner
+                        - list [ref=e1075]:
+                          - listitem [ref=e1076]: Arjun Roy
+                          - listitem [ref=e1077]: Davaseelan Ramamoorthy
+                          - listitem [ref=e1078]: Kanishk Dhanker
+                          - listitem [ref=e1079]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1080]: Naveen Nelavelli
+                          - listitem [ref=e1081]: Sathish Kumar
+                          - listitem [ref=e1082]: Sharathkumar J
+                          - listitem [ref=e1083]: Sharma Elanthiraiyan K V
+                          - listitem [ref=e1084]: Suryanarayanan Soundararajan
+                          - listitem [ref=e1085]: Varghese Akhil
+                          - listitem [ref=e1086]: Varinder Nishad
+                        - generic [ref=e1088]: 12th / Bench
+                        - list [ref=e1089]:
+                          - listitem [ref=e1090]: Ketan Deshpande - 12th
+                          - listitem [ref=e1091]: Anir C
+                          - listitem [ref=e1092]: Manoj Prabhakar
+                          - listitem [ref=e1093]: Ravinder Kumar
+                      - generic [ref=e1095]:
+                        - generic [ref=e1097]: Actual Result
+                        - list [ref=e1099]:
+                          - listitem [ref=e1100]: Anir
+                          - listitem [ref=e1101]: Arjun Roy
+                          - listitem [ref=e1102]: Davaseelan
+                          - listitem [ref=e1103]: Kanishk Dhanker
+                          - listitem [ref=e1104]: Ketan Deshpande
+                          - listitem [ref=e1105]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1106]: Naveen Nelavelli
+                          - listitem [ref=e1107]: Sathish Kumar
+                          - listitem [ref=e1108]: Sharath
+                          - listitem [ref=e1109]: Sharma Elanthiraiyan K V
+                          - listitem [ref=e1110]: Suryanarayanan Soundararajan
+                          - listitem [ref=e1111]: Varghese Akhil
+                          - listitem [ref=e1112]: Varinder Nishad
+                    - generic [ref=e1113]:
+                      - generic [ref=e1115]:
+                        - generic [ref=e1117]: Batted
+                        - list [ref=e1118]:
+                          - listitem [ref=e1119]: Arjun Roy
+                          - listitem [ref=e1120]: Suryanarayanan Soundararajan
+                          - listitem [ref=e1121]: Anir
+                          - listitem [ref=e1122]: Sharma Elanthiraiyan K V
+                          - listitem [ref=e1123]: Davaseelan
+                          - listitem [ref=e1124]: Ketan Deshpande
+                          - listitem [ref=e1125]: Varinder Nishad
+                          - listitem [ref=e1126]: Sathish Kumar
+                          - listitem [ref=e1127]: Kanishk Dhanker
+                          - listitem [ref=e1128]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1129]: Naveen Nelavelli
+                      - generic [ref=e1131]:
+                        - generic [ref=e1133]: Bowled
+                        - list [ref=e1134]:
+                          - listitem [ref=e1135]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1136]: Sharath
+                          - listitem [ref=e1137]: Naveen Nelavelli
+                          - listitem [ref=e1138]: Anir
+                          - listitem [ref=e1139]: Ketan Deshpande
+                  - generic [ref=e1143]:
+                    - heading "Match 3" [level=6] [ref=e1144]
+                    - generic [ref=e1145]:
+                      - generic [ref=e1146]: Actual Scorecard
+                      - generic [ref=e1147]:
+                        - combobox "Actual Scorecard" [ref=e1148] [cursor=pointer]: MW220326+2 • Berlin Super Kings • 2026-03-22
+                        - textbox: bb30dc09-df4d-44a9-ab40-11d728fdf7f8
+                        - img
+                        - group:
+                          - generic: Actual Scorecard
+                    - generic [ref=e1149]: Linked to MW220326+2 • Berlin Super Kings • 2026-03-22
+                    - generic [ref=e1150]:
+                      - generic [ref=e1152]:
+                        - generic [ref=e1154]: Matchday Fairness Planner
+                        - list [ref=e1155]:
+                          - listitem [ref=e1156]: Anir C
+                          - listitem [ref=e1157]: Arjun Roy
+                          - listitem [ref=e1158]: Davaseelan Ramamoorthy
+                          - listitem [ref=e1159]: Kanishk Dhanker
+                          - listitem [ref=e1160]: Ketan Deshpande
+                          - listitem [ref=e1161]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1162]: Naveen Nelavelli
+                          - listitem [ref=e1163]: Ravinder Kumar
+                          - listitem [ref=e1164]: Sathish Kumar
+                          - listitem [ref=e1165]: Sharma Elanthiraiyan K V
+                          - listitem [ref=e1166]: Suryanarayanan Soundararajan
+                        - generic [ref=e1168]: 12th / Bench
+                        - list
+                        - generic [ref=e1170]: Unavailable
+                        - list [ref=e1171]:
+                          - listitem [ref=e1172]: Manoj Prabhakar
+                          - listitem [ref=e1173]: Sharathkumar J
+                          - listitem [ref=e1174]: Varghese Akhil
+                          - listitem [ref=e1175]: Varinder Nishad
+                      - generic [ref=e1177]:
+                        - generic [ref=e1179]: Actual Result
+                        - list [ref=e1181]:
+                          - listitem [ref=e1182]: Anir
+                          - listitem [ref=e1183]: Arjun Roy
+                          - listitem [ref=e1184]: Davaseelan
+                          - listitem [ref=e1185]: Kanishk Dhanker
+                          - listitem [ref=e1186]: Ketan Deshpande
+                          - listitem [ref=e1187]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1188]: Naveen Nelavelli
+                          - listitem [ref=e1189]: Sathish Kumar
+                          - listitem [ref=e1190]: Sharma Elanthiraiyan K V
+                          - listitem [ref=e1191]: Suryanarayanan Soundararajan
+                          - listitem [ref=e1192]: Varinder Nishad
+                    - generic [ref=e1193]:
+                      - generic [ref=e1195]:
+                        - generic [ref=e1197]: Batted
+                        - list [ref=e1198]:
+                          - listitem [ref=e1199]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1200]: Suryanarayanan Soundararajan
+                          - listitem [ref=e1201]: Arjun Roy
+                          - listitem [ref=e1202]: Davaseelan
+                          - listitem [ref=e1203]: Varinder Nishad
+                          - listitem [ref=e1204]: Naveen Nelavelli
+                          - listitem [ref=e1205]: Kanishk Dhanker
+                      - generic [ref=e1207]:
+                        - generic [ref=e1209]: Bowled
+                        - list [ref=e1210]:
+                          - listitem [ref=e1211]: Davaseelan
+                          - listitem [ref=e1212]: Anir
+                          - listitem [ref=e1213]: Ketan Deshpande
+                          - listitem [ref=e1214]: Krishnaraj Dhanasekaran
+                          - listitem [ref=e1215]: Suryanarayanan Soundararajan
+                          - listitem [ref=e1216]: Kanishk Dhanker
+                - generic [ref=e1217]:
+                  - generic [ref=e1218]: Saved Matchday Notes
+                  - generic [ref=e1219]:
+                    - textbox "Saved Matchday Notes" [ref=e1220]:
+                      - /placeholder: Add planner observations, captain notes, or matchday context...
+                      - text: "Manual backfill from actual matchday lineup screenshots. Game 3 note: Sharath, Varinder, Varghese and Manoj unavailable."
+                    - group:
+                      - generic: Saved Matchday Notes
+                - button "Save Notes" [ref=e1222] [cursor=pointer]:
+                  - img [ref=e1224]
+                  - text: Save Notes
+            - generic [ref=e1229]:
+              - heading "Fairness Tracker" [level=5] [ref=e1230]
+              - generic [ref=e1231]:
+                - generic [ref=e1232]:
+                  - generic [ref=e1233]:
+                    - heading "Manoj Prabhakar" [level=6] [ref=e1234]
+                    - generic [ref=e1235]:
+                      - generic [ref=e1237]: 5 XI to go
+                      - link "Open Detail" [ref=e1238] [cursor=pointer]:
+                        - /url: /fairness/member/083c8210-e926-4d27-8052-31467c68bb3c
+                  - generic [ref=e1239]:
+                    - generic [ref=e1241]: XI 0/5
+                    - generic [ref=e1243]: 12th 0
+                    - generic [ref=e1245]: Bench 2
+                    - generic [ref=e1247]: Available 1
+                    - generic [ref=e1249]: Unavailable 1
+                  - generic [ref=e1250]:
+                    - generic [ref=e1251]: Recent Saved Matchdays
+                    - generic [ref=e1254]: "22 Mar 2026: Bench 2, Unavailable 1"
+                - separator [ref=e1255]
+                - generic [ref=e1256]:
+                  - generic [ref=e1257]:
+                    - heading "Varghese Akhil - WK" [level=6] [ref=e1258]
+                    - generic [ref=e1259]:
+                      - generic [ref=e1261]: 5 XI to go
+                      - link "Open Detail" [ref=e1262] [cursor=pointer]:
+                        - /url: /fairness/member/c8490822-d609-441b-8b1c-4e38c981b7f1
+                  - generic [ref=e1263]:
+                    - generic [ref=e1265]: XI 0/5
+                    - generic [ref=e1267]: 12th 0
+                    - generic [ref=e1269]: Bench 0
+                    - generic [ref=e1271]: Available 1
+                    - generic [ref=e1273]: Unavailable 1
+                  - generic [ref=e1274]:
+                    - generic [ref=e1275]: Recent Saved Matchdays
+                    - generic [ref=e1278]: "22 Mar 2026: Unavailable 1"
+                - separator [ref=e1279]
+                - generic [ref=e1280]:
+                  - generic [ref=e1281]:
+                    - heading "Ravinder" [level=6] [ref=e1282]
+                    - generic [ref=e1283]:
+                      - generic [ref=e1285]: 4 XI to go
+                      - link "Open Detail" [ref=e1286] [cursor=pointer]:
+                        - /url: /fairness/member/ae2f4188-ecda-4f24-8241-89ac7af2127e
+                  - generic [ref=e1287]:
+                    - generic [ref=e1289]: XI 1/5
+                    - generic [ref=e1291]: 12th 0
+                    - generic [ref=e1293]: Bench 1
+                    - generic [ref=e1295]: Available 1
+                    - generic [ref=e1297]: Unavailable 0
+                  - generic [ref=e1298]:
+                    - generic [ref=e1299]: Recent Saved Matchdays
+                    - generic [ref=e1302]: "22 Mar 2026: XI 1, Bench 1"
+                - separator [ref=e1303]
+                - generic [ref=e1304]:
+                  - generic [ref=e1305]:
+                    - heading "Arjun Roy" [level=6] [ref=e1306]
+                    - generic [ref=e1307]:
+                      - generic [ref=e1309]: 3 XI to go
+                      - link "Open Detail" [ref=e1310] [cursor=pointer]:
+                        - /url: /fairness/member/28f4a4df-fb50-4924-89b3-8d22f291f8a4
+                  - generic [ref=e1311]:
+                    - generic [ref=e1313]: XI 2/5
+                    - generic [ref=e1315]: 12th 0
+                    - generic [ref=e1317]: Bench 1
+                    - generic [ref=e1319]: Available 1
+                    - generic [ref=e1321]: Unavailable 0
+                  - generic [ref=e1322]:
+                    - generic [ref=e1323]: Recent Saved Matchdays
+                    - generic [ref=e1326]: "22 Mar 2026: XI 2, Bench 1"
+                - separator [ref=e1327]
+                - generic [ref=e1328]:
+                  - generic [ref=e1329]:
+                    - heading "Sharath" [level=6] [ref=e1330]
+                    - generic [ref=e1331]:
+                      - generic [ref=e1333]: 3 XI to go
+                      - link "Open Detail" [ref=e1334] [cursor=pointer]:
+                        - /url: /fairness/member/e313dc5a-b9b6-4a46-bcf7-1663d332295b
+                  - generic [ref=e1335]:
+                    - generic [ref=e1337]: XI 2/5
+                    - generic [ref=e1339]: 12th 0
+                    - generic [ref=e1341]: Bench 0
+                    - generic [ref=e1343]: Available 1
+                    - generic [ref=e1345]: Unavailable 1
+                  - generic [ref=e1346]:
+                    - generic [ref=e1347]: Recent Saved Matchdays
+                    - generic [ref=e1350]: "22 Mar 2026: XI 2, Unavailable 1"
+              - navigation "pagination navigation" [ref=e1352]:
+                - list [ref=e1353]:
+                  - listitem [ref=e1354]:
+                    - button "Go to previous page" [disabled]:
+                      - img
+                  - listitem [ref=e1355]:
+                    - button "page 1" [ref=e1356] [cursor=pointer]: "1"
+                  - listitem [ref=e1357]:
+                    - button "Go to page 2" [ref=e1358] [cursor=pointer]: "2"
+                  - listitem [ref=e1359]:
+                    - button "Go to page 3" [ref=e1360] [cursor=pointer]: "3"
+                  - listitem [ref=e1361]:
+                    - button "Go to next page" [ref=e1362] [cursor=pointer]:
+                      - img [ref=e1363]
+            - generic [ref=e1368]:
+              - heading "Bias Watch" [level=5] [ref=e1369]
+              - generic [ref=e1370]:
+                - paragraph [ref=e1372]: No current underuse alerts in the saved planner history.
+                - alert [ref=e1373]:
+                  - img [ref=e1375]
+                  - generic [ref=e1377]: 3 players still need strong rotation support to build toward the first 5 XI opportunities.
+                - generic [ref=e1378]:
+                  - heading "No XI Yet" [level=6] [ref=e1379]
+                  - generic [ref=e1380]:
+                    - generic [ref=e1382]: Manoj Prabhakar - Available 1
+                    - generic [ref=e1384]: Varghese Akhil - Available 1
+            - generic [ref=e1388]:
+              - heading "Saved Matchday Plans" [level=5] [ref=e1389]
+              - generic [ref=e1393]:
+                - generic [ref=e1394]:
+                  - generic [ref=e1395]:
+                    - heading "22 Mar 2026" [level=6] [ref=e1396]
+                    - generic [ref=e1397]: Saved 24 Mar 2026, 17:07
+                  - generic [ref=e1399]: 3 matches
+                - generic [ref=e1400]:
+                  - generic [ref=e1402]: Season 2026
+                  - generic [ref=e1404]: Manual backfill - last week actual matchday
+                - generic [ref=e1405]:
+                  - button "View" [ref=e1406] [cursor=pointer]
+                  - button "Delete" [ref=e1407] [cursor=pointer]:
+                    - img [ref=e1409]
+                    - text: Delete
+  - generic [ref=e721]: "2"

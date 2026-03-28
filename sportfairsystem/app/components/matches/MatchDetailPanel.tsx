@@ -149,7 +149,7 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
       <Paper
         variant="outlined"
         sx={(theme) => ({
-          p: 3,
+          p: { xs: 2.25, sm: 3 },
           mb: 2,
           borderRadius: 4,
           color: "#F7F9FC",
@@ -231,7 +231,14 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
           >
 
             <Box>
-              <Typography variant="h4">
+              <Typography
+                variant="h4"
+                sx={{
+                  fontSize: { xs: "1.35rem", sm: "2rem" },
+                  lineHeight: 1.15,
+                  wordBreak: "break-word"
+                }}
+              >
                 {getDisplayName(match.team_a)} vs {getDisplayName(match.team_b)}
               </Typography>
 
@@ -354,7 +361,7 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
             variant="outlined"
             sx={(theme) => ({
               mb: 4,
-              p: 3,
+              p: { xs: 2, sm: 3 },
               borderRadius: 3,
               borderColor:
                 theme.palette.mode === "dark"
@@ -368,7 +375,7 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
             })}
           >
 
-            <Stack spacing={3}>
+              <Stack spacing={{ xs: 2.5, sm: 3 }}>
 
               <Stack
                 direction={{ xs: "column", lg: "row" }}
@@ -378,7 +385,10 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
               >
 
                 <Box>
-                  <Typography variant="h5" sx={{ mb: 1 }}>
+                  <Typography
+                    variant="h5"
+                    sx={{ mb: 1, fontSize: { xs: "1.1rem", sm: "1.5rem" } }}
+                  >
                     {getDisplayName(inn.team_name)} Innings
                   </Typography>
 
@@ -427,7 +437,7 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
 
               </Stack>
 
-              <Grid container spacing={3} alignItems="stretch">
+              <Grid container spacing={{ xs: 2, md: 3 }} alignItems="stretch">
 
                 <Grid size={{ xs: 12, md: 6 }} sx={{ display: "flex" }}>
                   <BattingTable battingStats={battingStats} />

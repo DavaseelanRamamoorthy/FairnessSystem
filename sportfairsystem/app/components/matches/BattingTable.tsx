@@ -9,9 +9,10 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TableContainer
+  TableCellProps
 } from "@mui/material";
 
+import ResponsiveTableContainer from "@/app/components/common/ResponsiveTableContainer";
 import {
   numericTableCellSx,
   numericTableHeadCellSx
@@ -33,6 +34,12 @@ interface Props {
 }
 
 export default function BattingTable({ battingStats }: Props) {
+  const mobileTextCellSx: TableCellProps["sx"] = {
+    minWidth: { xs: 124, sm: "auto" },
+    px: { xs: 1.5, sm: 2 },
+    py: { xs: 1.4, sm: 1.8 },
+    verticalAlign: "top"
+  };
 
   return (
 
@@ -52,14 +59,22 @@ export default function BattingTable({ battingStats }: Props) {
           </Box>
         </Box>
 
-        <TableContainer>
+        <ResponsiveTableContainer>
 
-          <Table size="small">
+          <Table
+            size="small"
+            sx={{
+              "& .MuiTableCell-root": {
+                px: { xs: 1.5, sm: 2 },
+                py: { xs: 1.35, sm: 1.6 }
+              }
+            }}
+          >
 
             <TableHead>
               <TableRow>
-                <TableCell>Batsman</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell sx={mobileTextCellSx}>Batsman</TableCell>
+                <TableCell sx={{ ...mobileTextCellSx, minWidth: { xs: 168, sm: 196 } }}>Status</TableCell>
                 <TableCell sx={numericTableHeadCellSx}>R</TableCell>
                 <TableCell sx={numericTableHeadCellSx}>B</TableCell>
                 <TableCell sx={numericTableHeadCellSx}>4s</TableCell>
@@ -74,11 +89,11 @@ export default function BattingTable({ battingStats }: Props) {
 
                 <TableRow key={index}>
 
-                  <TableCell>
+                  <TableCell sx={mobileTextCellSx}>
                     {formatName(batsman.player_name)}
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell sx={{ ...mobileTextCellSx, minWidth: { xs: 168, sm: 196 } }}>
                     {batsman.dismissal ?? "not out"}
                   </TableCell>
 
@@ -96,7 +111,7 @@ export default function BattingTable({ battingStats }: Props) {
 
           </Table>
 
-        </TableContainer>
+        </ResponsiveTableContainer>
 
       </CardContent>
 

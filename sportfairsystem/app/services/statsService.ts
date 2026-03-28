@@ -1,5 +1,5 @@
-import { currentTeamName } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
+import { getActiveTeamContext } from "@/app/services/teamContextService";
 import { supabase } from "./supabaseClient";
 import { getOpponentName } from "@/app/utils/matchOpponent";
 
@@ -78,27 +78,13 @@ function buildTrendLabels<T extends TrendPoint>(points: T[]) {
   });
 }
 
-async function getCurrentTeamId() {
-  const { data: teamData, error: teamError } = await supabase
-    .from("teams")
-    .select("id")
-    .eq("name", currentTeamName)
-    .single();
-
-  if (teamError || !teamData) {
-    throw new Error("Could not load the current team.");
-  }
-
-  return teamData.id as string;
-}
-
 function getFallbackKey(name: string | null | undefined) {
   const normalizedName = cleanName(name ?? "");
   return normalizedName ? `name:${normalizedName}` : null;
 }
 
 async function getCurrentTeamMatches() {
-  const teamId = await getCurrentTeamId();
+  const { teamId } = await getActiveTeamContext();
 
   const { data, error } = await supabase
     .from("matches")
@@ -113,7 +99,7 @@ async function getCurrentTeamMatches() {
 }
 
 async function getTeamMatchContext(): Promise<TeamMatchContext> {
-  const teamId = await getCurrentTeamId();
+  const { teamId, teamName } = await getActiveTeamContext();
 
   const { data: matchData, error: matchError } = await supabase
     .from("matches")
@@ -159,13 +145,13 @@ async function getTeamMatchContext(): Promise<TeamMatchContext> {
 
   return {
     matchIds,
-    battingInnings: innings.filter((row) => row.team_name === currentTeamName),
-    bowlingInnings: innings.filter((row) => row.team_name !== currentTeamName)
+    battingInnings: innings.filter((row) => row.team_name === teamName),
+    bowlingInnings: innings.filter((row) => row.team_name !== teamName)
   };
 }
 
 async function getAggregatedBattingTotals() {
-  const teamId = await getCurrentTeamId();
+  const { teamId } = await getActiveTeamContext();
   const [{ battingInnings }, { data: teamPlayersData, error: teamPlayersError }] = await Promise.all([
     getTeamMatchContext(),
     supabase
@@ -218,7 +204,7 @@ async function getAggregatedBattingTotals() {
 }
 
 async function getAggregatedBowlingTotals() {
-  const teamId = await getCurrentTeamId();
+  const { teamId } = await getActiveTeamContext();
   const [{ bowlingInnings }, { data: teamPlayersData, error: teamPlayersError }] = await Promise.all([
     getTeamMatchContext(),
     supabase
@@ -347,9 +333,9 @@ export async function getTopWicketLeaders(limit = 5) {
   }
 }
 
-export async function getRunsPerMatch(teamName: string) {
+export async function getRunsPerMatch() {
   try {
-    void teamName;
+    const { teamName: activeTeamName } = await getActiveTeamContext();
     const { battingInnings } = await getTeamMatchContext();
 
     const trendPoints = [...battingInnings]
@@ -363,12 +349,12 @@ export async function getRunsPerMatch(teamName: string) {
         match: getOpponentName(
           getMatchMeta(item)?.team_a,
           getMatchMeta(item)?.team_b,
-          currentTeamName
+          activeTeamName
         ) || "Unknown",
         matchLabel: getOpponentName(
           getMatchMeta(item)?.team_a,
           getMatchMeta(item)?.team_b,
-          currentTeamName
+          activeTeamName
         ) || "Unknown",
         matchDate: getMatchMeta(item)?.match_date ?? null,
         matchCode: getMatchMeta(item)?.match_code ?? null,
@@ -382,9 +368,9 @@ export async function getRunsPerMatch(teamName: string) {
   }
 }
 
-export async function getWicketsPerMatch(teamName: string) {
+export async function getWicketsPerMatch() {
   try {
-    void teamName;
+    const { teamName: activeTeamName } = await getActiveTeamContext();
     const { bowlingInnings } = await getTeamMatchContext();
 
     const trendPoints = [...bowlingInnings]
@@ -398,12 +384,12 @@ export async function getWicketsPerMatch(teamName: string) {
         match: getOpponentName(
           getMatchMeta(item)?.team_a,
           getMatchMeta(item)?.team_b,
-          currentTeamName
+          activeTeamName
         ) || "Unknown",
         matchLabel: getOpponentName(
           getMatchMeta(item)?.team_a,
           getMatchMeta(item)?.team_b,
-          currentTeamName
+          activeTeamName
         ) || "Unknown",
         matchDate: getMatchMeta(item)?.match_date ?? null,
         matchCode: getMatchMeta(item)?.match_code ?? null,

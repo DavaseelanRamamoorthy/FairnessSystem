@@ -1,0 +1,33 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e11] [cursor=pointer]:
+    - img [ref=e12]
+  - alert [ref=e15]
+  - generic [ref=e17]:
+    - generic [ref=e19]:
+      - generic [ref=e20]: SportFairSystem
+      - heading "Sign in to SportFairSystem" [level=4] [ref=e21]
+      - paragraph [ref=e22]: Use your account to access your team workspace, player views, and admin tools.
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic:
+          - text: Email
+          - generic: "*"
+        - generic [ref=e26]:
+          - textbox "Email" [ref=e27]
+          - group:
+            - generic: Email *
+      - generic [ref=e28]:
+        - generic:
+          - text: Password
+          - generic: "*"
+        - generic [ref=e29]:
+          - textbox "Password" [ref=e30]
+          - group:
+            - generic: Password *
+      - button "Sign In" [ref=e31] [cursor=pointer]:
+        - img [ref=e33]
+        - text: Sign In
+      - link "Need an account? Sign up" [ref=e35] [cursor=pointer]:
+        - /url: /signup
+      - link "Forgot your password?" [ref=e36] [cursor=pointer]:
+        - /url: /reset-password

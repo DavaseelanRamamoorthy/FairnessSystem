@@ -21,16 +21,17 @@ import {
 import { alpha } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 
+import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import MatchesTable from "@/app/components/matches/MatchesTable";
 import MatchDetailPanel from "@/app/components/matches/MatchDetailPanel";
 import MatchPreviewModal from "@/app/components/matches/MatchPreviewModal";
-import { useAuth } from "@/app/context/AuthContext";
+import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
+import { canManageMatchData } from "@/app/services/accessControlService";
 
 import { parseMatchFromBase64 } from "@/app/services/pdfParser";
 import { getCurrentTeamId } from "@/app/services/squadService";
 import { supabase } from "@/app/services/supabaseClient";
 import { saveMatchToDatabase } from "@/app/services/matchInsertService";
-import { currentTeamName, currentTeamPrefix } from "@/app/config/teamConfig";
 import { cleanName } from "@/app/services/cleanName";
 import { buildMatchId } from "@/app/services/matchIdService";
 import { isMatchForCurrentTeam } from "@/app/services/teamValidationService";
@@ -92,7 +93,8 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function MatchesPage() {
-  const { isAdmin } = useAuth();
+  const { teamName: activeTeamName, teamCode: activeTeamCode } = useActiveTeamBranding();
+  const [canManageWorkspace, setCanManageWorkspace] = useState(false);
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -109,7 +111,7 @@ export default function MatchesPage() {
      LOAD MATCHES
   -------------------------------- */
 
-  const loadMatchesFromDB = async () => {
+  const loadMatchesFromDB = useCallback(async () => {
     try {
       setIsLoadingMatches(true);
       setLoadErrorMessage(null);
@@ -136,7 +138,7 @@ export default function MatchesPage() {
 
       const nextMatches = ((data ?? []) as Match[]).map((match) => ({
         ...match,
-        opponent_name: getOpponentName(match.team_a, match.team_b, currentTeamName)
+        opponent_name: getOpponentName(match.team_a, match.team_b, activeTeamName)
       }));
 
       setMatches(nextMatches);
@@ -155,11 +157,11 @@ export default function MatchesPage() {
       setIsLoadingMatches(false);
     }
 
-  };
+  }, [activeTeamName]);
 
   useEffect(() => {
     void loadMatchesFromDB();
-  }, []);
+  }, [loadMatchesFromDB]);
 
   /* --------------------------------
      PLAYER DETECTION
@@ -170,7 +172,7 @@ export default function MatchesPage() {
     const playerSet = new Set<string>();
 
     const currentTeamSquad = parsedMatch.squads?.find(
-      (squad) => squad.teamName === currentTeamName
+      (squad) => squad.teamName === activeTeamName
     );
 
     currentTeamSquad?.players.forEach((player) => {
@@ -180,11 +182,11 @@ export default function MatchesPage() {
     });
 
     const ourInnings = parsedMatch.innings?.find(
-      (inn) => inn.teamName === currentTeamName
+      (inn) => inn.teamName === activeTeamName
     );
 
     const opponentInnings = parsedMatch.innings?.find(
-      (inn) => inn.teamName !== currentTeamName
+      (inn) => inn.teamName !== activeTeamName
     );
 
     if (ourInnings) {
@@ -232,7 +234,7 @@ export default function MatchesPage() {
 
     return result;
 
-  }, []);
+  }, [activeTeamName]);
 
   const currentPreview = previewQueue[0] ?? null;
 
@@ -245,11 +247,35 @@ export default function MatchesPage() {
   };
 
   useEffect(() => {
-    if (!isAdmin) {
+    let isActive = true;
+
+    const loadMatchManagementAccess = async () => {
+      try {
+        const nextCanManageWorkspace = await canManageMatchData();
+
+        if (isActive) {
+          setCanManageWorkspace(nextCanManageWorkspace);
+        }
+      } catch {
+        if (isActive) {
+          setCanManageWorkspace(false);
+        }
+      }
+    };
+
+    void loadMatchManagementAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canManageWorkspace) {
       clearPreviewQueue();
       setIsDeleteDialogOpen(false);
     }
-  }, [isAdmin]);
+  }, [canManageWorkspace]);
 
   const updateCurrentPreviewPlayers = (
     updater: (players: PreviewPlayer[]) => PreviewPlayer[]
@@ -332,10 +358,10 @@ export default function MatchesPage() {
         const base64 = await readFileAsBase64(file);
         const parsed = await parseMatchFromBase64(
           base64,
-          currentTeamName
+          activeTeamName
         );
 
-        if (!parsed || !isMatchForCurrentTeam(parsed, currentTeamName)) {
+        if (!parsed || !isMatchForCurrentTeam(parsed, activeTeamName)) {
           rejectedFiles.push(file.name);
           continue;
         }
@@ -359,8 +385,8 @@ export default function MatchesPage() {
       if (rejectedFiles.length > 0) {
         const rejectionMessage =
           rejectedFiles.length === 1
-            ? `${rejectedFiles[0]} does not include ${currentTeamName}.`
-            : `${rejectedFiles.length} files were skipped because they do not include ${currentTeamName}.`;
+            ? `${rejectedFiles[0]} does not include ${activeTeamName}.`
+            : `${rejectedFiles.length} files were skipped because they do not include ${activeTeamName}.`;
 
         setToastMessage(rejectionMessage);
       }
@@ -418,7 +444,7 @@ export default function MatchesPage() {
   const getYetToBat = (innings: Innings | undefined) => {
 
     if (!innings) return [];
-    if (innings.teamName !== currentTeamName) return [];
+    if (innings.teamName !== activeTeamName) return [];
 
     const battingNames =
       innings?.battingStats?.map((player) =>
@@ -465,7 +491,7 @@ export default function MatchesPage() {
   const getPreviewMatchId = () => {
 
     if (!currentPreview) {
-      return buildMatchId(currentTeamPrefix, null);
+      return buildMatchId(activeTeamCode, null);
     }
 
     const sameDayMatches = matches.filter(
@@ -473,7 +499,7 @@ export default function MatchesPage() {
     ).length;
 
     return buildMatchId(
-      currentTeamPrefix,
+      activeTeamCode,
       currentPreview.match.matchDate,
       sameDayMatches
     );
@@ -495,6 +521,13 @@ export default function MatchesPage() {
         minHeight: 0
       }}
     >
+      <Box sx={{ display: { xs: "block", md: "none" }, mb: 3 }}>
+        <TeamPageHeader
+          eyebrow="Scorecards"
+          description="Review match scorecards, compare innings, and keep recent fixtures within easy reach."
+        />
+      </Box>
+
       {loadErrorMessage && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {loadErrorMessage}
@@ -587,7 +620,7 @@ export default function MatchesPage() {
 
               <MatchDetailPanel
                 match={selectedMatch}
-                onDelete={isAdmin ? openDeleteDialog : undefined}
+                onDelete={canManageWorkspace ? openDeleteDialog : undefined}
               />
 
             )}
@@ -600,8 +633,8 @@ export default function MatchesPage() {
 
       {/* UPLOAD BUTTON */}
 
-      {isAdmin && (
-        <Box sx={{ position: "fixed", bottom: 30, right: 30 }}>
+      {canManageWorkspace && (
+        <Box sx={{ position: "fixed", bottom: { xs: 92, md: 30 }, right: { xs: 16, md: 30 } }}>
 
           <Box
             sx={{
@@ -660,7 +693,7 @@ export default function MatchesPage() {
       <MatchPreviewModal
         open={!!currentPreview}
         previewMatch={currentPreview?.match ?? null}
-        previewMatchId={currentPreview ? getPreviewMatchId() : currentTeamPrefix}
+        previewMatchId={currentPreview ? getPreviewMatchId() : activeTeamCode}
         previewPlayers={currentPreview?.players ?? []}
         previewTitle={currentPreview?.fileName}
         previewQueueLabel={
@@ -704,7 +737,7 @@ export default function MatchesPage() {
         message={toastMessage}
       />
 
-      {isAdmin && (
+      {canManageWorkspace && (
         <Dialog
           open={isDeleteDialogOpen}
           onClose={closeDeleteDialog}

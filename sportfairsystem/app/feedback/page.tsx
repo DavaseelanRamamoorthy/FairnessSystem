@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
@@ -35,7 +35,6 @@ import ForumRoundedIcon from "@mui/icons-material/ForumRounded";
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import PaginationFooter from "@/app/components/common/PaginationFooter";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
-import { useAuth } from "@/app/context/AuthContext";
 import { usePagination } from "@/app/hooks/usePagination";
 import {
   FEEDBACK_CATEGORIES,
@@ -169,6 +168,42 @@ function getStatusChipColor(status: FeedbackStatus) {
   }
 }
 
+function FeedbackDescriptionBlock({
+  description,
+  minWidth
+}: {
+  description: string;
+  minWidth?: number;
+}) {
+  return (
+    <Box
+      sx={{
+        minWidth,
+        maxWidth: "100%",
+        px: 1.5,
+        py: 1.25,
+        borderRadius: 2,
+        border: "1px solid",
+        borderColor: "divider",
+        backgroundColor: "background.default"
+      }}
+    >
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.primary",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          overflowWrap: "anywhere",
+          lineHeight: 1.7
+        }}
+      >
+        {description}
+      </Typography>
+    </Box>
+  );
+}
+
 function FeedbackMobileCard({
   item,
   showSubmitter,
@@ -197,9 +232,7 @@ function FeedbackMobileCard({
             </Stack>
           </Stack>
 
-          <Typography variant="body2" color="text.secondary">
-            {item.description}
-          </Typography>
+          <FeedbackDescriptionBlock description={item.description} />
 
           <Stack spacing={0.35}>
             <Typography variant="caption" color="text.secondary">
@@ -244,7 +277,6 @@ function FeedbackMobileCard({
 }
 
 export default function FeedbackPage() {
-  const { isAdmin } = useAuth();
   const [workspace, setWorkspace] = useState<FeedbackWorkspaceData | null>(null);
   const [moduleReady, setModuleReady] = useState<boolean | null>(null);
   const [formValues, setFormValues] = useState<FeedbackFormValues>(DEFAULT_FORM_VALUES);
@@ -305,6 +337,7 @@ export default function FeedbackPage() {
     () => teamFeedback.filter((item) => item.status !== "Closed").length,
     [teamFeedback]
   );
+  const canManageTeamFeedback = workspace?.canManageTeamFeedback ?? false;
 
   const handleFormChange = (field: keyof FeedbackFormValues, value: string) => {
     setFormValues((current) => ({
@@ -368,7 +401,7 @@ export default function FeedbackPage() {
         />
 
         <AutoHideAlert severity="info" variant="outlined">
-          Members can submit feedback and track their own items here. Admins can also review team feedback and update status.
+          Members can submit feedback and track their own items here. Team reviewers can also manage the shared queue when feedback access is enabled.
         </AutoHideAlert>
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
@@ -426,8 +459,8 @@ export default function FeedbackPage() {
               <Grid size={{ xs: 12, sm: 4 }}>
                 <MetricCard
                   label="Team Queue"
-                  value={isAdmin ? openTeamFeedbackCount : myFeedback.length}
-                  helper={isAdmin ? "Team feedback items that are not closed" : "Your current feedback queue"}
+                  value={canManageTeamFeedback ? openTeamFeedbackCount : myFeedback.length}
+                  helper={canManageTeamFeedback ? "Team feedback items that are not closed" : "Your current feedback queue"}
                   icon={<AssignmentTurnedInRoundedIcon />}
                   accent="#0F9D58"
                 />
@@ -600,30 +633,40 @@ export default function FeedbackPage() {
                             <TableCell sx={{ width: "10%" }}>Priority</TableCell>
                             <TableCell sx={{ width: "10%" }}>Status</TableCell>
                             <TableCell sx={{ width: "12%" }}>Date</TableCell>
-                            <TableCell>Description</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {myFeedbackPagination.paginatedItems.map((item) => (
-                            <TableRow key={item.id}>
-                              <TableCell>
-                                <Typography fontWeight={700}>
-                                  {item.title}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Chip label={item.category} color={getCategoryChipColor(item.category)} size="small" variant="outlined" />
-                              </TableCell>
-                              <TableCell>{item.module}</TableCell>
-                              <TableCell>
-                                <Chip label={item.priority} color={getPriorityChipColor(item.priority)} size="small" variant="outlined" />
-                              </TableCell>
-                              <TableCell>
-                                <Chip label={item.status} color={getStatusChipColor(item.status)} size="small" />
-                              </TableCell>
-                              <TableCell>{item.createdAt ? formatDate(item.createdAt) : "Unknown Date"}</TableCell>
-                              <TableCell>{item.description}</TableCell>
-                            </TableRow>
+                            <Fragment key={item.id}>
+                              <TableRow key={`${item.id}-summary`}>
+                                <TableCell>
+                                  <Typography fontWeight={700}>
+                                    {item.title}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip label={item.category} color={getCategoryChipColor(item.category)} size="small" variant="outlined" />
+                                </TableCell>
+                                <TableCell>{item.module}</TableCell>
+                                <TableCell>
+                                  <Chip label={item.priority} color={getPriorityChipColor(item.priority)} size="small" variant="outlined" />
+                                </TableCell>
+                                <TableCell>
+                                  <Chip label={item.status} color={getStatusChipColor(item.status)} size="small" />
+                                </TableCell>
+                                <TableCell>{item.createdAt ? formatDate(item.createdAt) : "Unknown Date"}</TableCell>
+                              </TableRow>
+                              <TableRow key={`${item.id}-description`}>
+                                <TableCell colSpan={6} sx={{ pt: 0, pb: 2.5, borderBottomColor: "divider" }}>
+                                  <Stack spacing={1}>
+                                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700, letterSpacing: 0.6 }}>
+                                      Description
+                                    </Typography>
+                                    <FeedbackDescriptionBlock description={item.description} />
+                                  </Stack>
+                                </TableCell>
+                              </TableRow>
+                            </Fragment>
                           ))}
                         </TableBody>
                       </Table>
@@ -646,7 +689,7 @@ export default function FeedbackPage() {
               </CardContent>
             </Card>
 
-            {isAdmin && workspace?.canManageTeamFeedback && (
+            {canManageTeamFeedback && (
               <Card variant="outlined" sx={{ borderRadius: 3 }}>
                 <CardContent sx={{ p: 0 }}>
                   <Box sx={{ px: 3, pt: 3, pb: 2 }}>
@@ -746,55 +789,65 @@ export default function FeedbackPage() {
 
                       <TableContainer sx={{ display: { xs: "none", md: "block" } }}>
                         <Table>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell sx={{ width: "18%" }}>Title</TableCell>
-                              <TableCell sx={{ width: "10%" }}>Category</TableCell>
-                              <TableCell sx={{ width: "10%" }}>Module</TableCell>
-                              <TableCell sx={{ width: "10%" }}>Priority</TableCell>
-                              <TableCell sx={{ width: "12%" }}>Submitted By</TableCell>
-                              <TableCell sx={{ width: "12%" }}>Date</TableCell>
-                              <TableCell sx={{ width: "14%" }}>Status</TableCell>
-                              <TableCell>Description</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {teamFeedbackPagination.paginatedItems.map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell>
-                                  <Typography fontWeight={700}>
-                                    {item.title}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell>
-                                  <Chip label={item.category} color={getCategoryChipColor(item.category)} size="small" variant="outlined" />
-                                </TableCell>
-                                <TableCell>{item.module}</TableCell>
-                                <TableCell>
-                                  <Chip label={item.priority} color={getPriorityChipColor(item.priority)} size="small" variant="outlined" />
-                                </TableCell>
-                                <TableCell>{item.submittedByDisplayName ?? "Unknown User"}</TableCell>
-                                <TableCell>{item.createdAt ? formatDate(item.createdAt) : "Unknown Date"}</TableCell>
-                                <TableCell>
-                                  <FormControl size="small" fullWidth>
-                                    <InputLabel id={`feedback-status-${item.id}`}>Status</InputLabel>
-                                    <Select
-                                      labelId={`feedback-status-${item.id}`}
-                                      label="Status"
-                                      value={item.status}
-                                      disabled={updatingFeedbackId === item.id}
-                                      onChange={(event) => handleStatusChange(item.id, event.target.value as FeedbackStatus)}
-                                    >
-                                      {FEEDBACK_STATUSES.map((status) => (
-                                        <MenuItem key={status} value={status}>
-                                          {status}
-                                        </MenuItem>
-                                      ))}
-                                    </Select>
-                                  </FormControl>
-                                </TableCell>
-                                <TableCell>{item.description}</TableCell>
-                              </TableRow>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ width: "18%" }}>Title</TableCell>
+                            <TableCell sx={{ width: "10%" }}>Category</TableCell>
+                            <TableCell sx={{ width: "10%" }}>Module</TableCell>
+                            <TableCell sx={{ width: "10%" }}>Priority</TableCell>
+                            <TableCell sx={{ width: "12%" }}>Submitted By</TableCell>
+                            <TableCell sx={{ width: "12%" }}>Date</TableCell>
+                            <TableCell sx={{ width: "14%" }}>Status</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {teamFeedbackPagination.paginatedItems.map((item) => (
+                              <Fragment key={item.id}>
+                                <TableRow key={`${item.id}-summary`}>
+                                  <TableCell>
+                                    <Typography fontWeight={700}>
+                                      {item.title}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip label={item.category} color={getCategoryChipColor(item.category)} size="small" variant="outlined" />
+                                  </TableCell>
+                                  <TableCell>{item.module}</TableCell>
+                                  <TableCell>
+                                    <Chip label={item.priority} color={getPriorityChipColor(item.priority)} size="small" variant="outlined" />
+                                  </TableCell>
+                                  <TableCell>{item.submittedByDisplayName ?? "Unknown User"}</TableCell>
+                                  <TableCell>{item.createdAt ? formatDate(item.createdAt) : "Unknown Date"}</TableCell>
+                                  <TableCell>
+                                    <FormControl size="small" fullWidth>
+                                      <InputLabel id={`feedback-status-${item.id}`}>Status</InputLabel>
+                                      <Select
+                                        labelId={`feedback-status-${item.id}`}
+                                        label="Status"
+                                        value={item.status}
+                                        disabled={updatingFeedbackId === item.id}
+                                        onChange={(event) => handleStatusChange(item.id, event.target.value as FeedbackStatus)}
+                                      >
+                                        {FEEDBACK_STATUSES.map((status) => (
+                                          <MenuItem key={status} value={status}>
+                                            {status}
+                                          </MenuItem>
+                                        ))}
+                                      </Select>
+                                    </FormControl>
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow key={`${item.id}-description`}>
+                                  <TableCell colSpan={7} sx={{ pt: 0, pb: 2.5, borderBottomColor: "divider" }}>
+                                    <Stack spacing={1}>
+                                      <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700, letterSpacing: 0.6 }}>
+                                        Description
+                                      </Typography>
+                                      <FeedbackDescriptionBlock description={item.description} />
+                                    </Stack>
+                                  </TableCell>
+                                </TableRow>
+                              </Fragment>
                             ))}
                           </TableBody>
                         </Table>

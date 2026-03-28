@@ -1,0 +1,127 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e11] [cursor=pointer]:
+    - img [ref=e12]
+  - alert [ref=e15]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e19]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e20]
+      - list [ref=e21]:
+        - link "Dashboard" [ref=e22] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e23]:
+            - img [ref=e25]
+            - generic [ref=e28]: Dashboard
+        - link "Matches" [ref=e29] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e30]:
+            - img [ref=e32]
+            - generic [ref=e36]: Matches
+        - link "Squad" [ref=e37] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e38]:
+            - img [ref=e40]
+            - generic [ref=e43]: Squad
+        - link "Membership" [ref=e44] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [ref=e45]:
+            - img [ref=e47]
+            - generic [ref=e50]: Membership
+        - link "Planner" [ref=e51] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e52]:
+            - img [ref=e54]
+            - generic [ref=e57]: Planner
+        - link "Fairness" [ref=e58] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e59]:
+            - img [ref=e61]
+            - generic [ref=e64]: Fairness
+        - link "Analytics" [ref=e65] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e66]:
+            - img [ref=e68]
+            - generic [ref=e71]: Analytics
+        - link "Validation" [ref=e72] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e73]:
+            - img [ref=e75]
+            - generic [ref=e78]: Validation
+        - link "Feedback" [ref=e79] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e80]:
+            - img [ref=e82]
+            - generic [ref=e85]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e87] [cursor=pointer]:
+        - generic [ref=e89]: D
+        - generic [ref=e91]: Davaseelan Ramamoorthy
+    - generic [ref=e92]:
+      - generic [ref=e95]:
+        - button [ref=e96] [cursor=pointer]:
+          - img [ref=e97]
+        - generic [ref=e99]:
+          - heading "Moonwalkers Planner" [level=4] [ref=e100]
+          - paragraph [ref=e101]: Admin planner for weekly availability, XI generation, 12th man, and multi-match reshuffling.
+      - generic [ref=e104]:
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e109]: Admin Workspace
+            - heading "Planner" [level=3] [ref=e110]
+            - paragraph [ref=e111]: Choose a friendly or tournament planning workflow, confirm availability, and generate matchday squads with XI and 12th-man suggestions.
+          - generic [ref=e113]:
+            - generic [ref=e114]: Season
+            - generic [ref=e115]:
+              - combobox "Season" [ref=e116] [cursor=pointer]: "2026"
+              - textbox: "2026"
+              - img
+              - group:
+                - generic: Season
+        - generic [ref=e119]:
+          - heading "Fairness Workspace" [level=5] [ref=e120]
+          - paragraph [ref=e121]: Saved matchday history, fairness alerts, and planner record management now live in the separate fairness workspace.
+          - paragraph [ref=e122]: That workspace is visible only to the organiser and captain.
+        - generic [ref=e123]:
+          - button "Friendly Matches Use the attendance sheet, confirm the weekend and match count, and generate reshuffled Playing XI and 12th-man plans for the day. Sheet-based availability Reshuffle up to 3 matches" [ref=e126] [cursor=pointer]:
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - img [ref=e130]
+                - heading "Friendly Matches" [level=5] [ref=e133]
+              - paragraph [ref=e134]: Use the attendance sheet, confirm the weekend and match count, and generate reshuffled Playing XI and 12th-man plans for the day.
+              - generic [ref=e135]:
+                - generic [ref=e137]: Sheet-based availability
+                - generic [ref=e139]: Reshuffle up to 3 matches
+          - button "Tournament Matches Manually confirm the tournament squad pool, then generate one final Playing XI and 12th man from that selected list. Manual selection Single tournament squad" [ref=e142] [cursor=pointer]:
+            - generic [ref=e144]:
+              - generic [ref=e145]:
+                - img [ref=e146]
+                - heading "Tournament Matches" [level=5] [ref=e148]
+              - paragraph [ref=e149]: Manually confirm the tournament squad pool, then generate one final Playing XI and 12th man from that selected list.
+              - generic [ref=e150]:
+                - generic [ref=e152]: Manual selection
+                - generic [ref=e154]: Single tournament squad
+        - generic [ref=e156]:
+          - generic [ref=e160]:
+            - generic [ref=e161]:
+              - img [ref=e162]
+              - heading "Friendly Availability Sheet" [level=5] [ref=e164]
+            - paragraph [ref=e165]: Upload the weekly attendance sheet, choose the weekend column, confirm how many friendly matches are being played that day, and generate reshuffled XIs with a 12th man for each match.
+            - button "Upload Attendance Sheet" [ref=e167] [cursor=pointer]:
+              - img [ref=e169]
+              - text: Upload Attendance Sheet
+            - generic [ref=e171]:
+              - button "Generate Friendly Matchday Plans" [disabled]:
+                - generic:
+                  - img
+                - text: Generate Friendly Matchday Plans
+              - button "Save Matchday Plan" [disabled]:
+                - generic:
+                  - img
+                - text: Save Matchday Plan
+          - generic [ref=e175]:
+            - heading "Friendly Planning Rules" [level=5] [ref=e176]
+            - paragraph [ref=e177]: Friendly planning uses the uploaded attendance sheet as the source of truth, lets the captain choose the wicket keeper manually, and reshuffles the available squad across up to three matches on the same day.
+            - generic [ref=e178]:
+              - generic [ref=e180]: Sheet only
+              - generic [ref=e182]: Manual wicket keeper
+              - generic [ref=e184]: Auto reshuffle for up to 3 matches

@@ -1,0 +1,353 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]
+  - alert [ref=e32]
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e40]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e714]
+      - list [ref=e42]:
+        - link "Dashboard" [ref=e715] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e716]:
+            - img [ref=e46]
+            - generic [ref=e49]: Dashboard
+        - link "Matches" [ref=e717] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e718]:
+            - img [ref=e53]
+            - generic [ref=e57]: Matches
+        - link "Squad" [ref=e719] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e720]:
+            - img [ref=e61]
+            - generic [ref=e64]: Squad
+        - link "Membership" [ref=e721] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [ref=e722]:
+            - img [ref=e68]
+            - generic [ref=e71]: Membership
+        - link "Planner" [ref=e723] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e724]:
+            - img [ref=e75]
+            - generic [ref=e78]: Planner
+        - link "Fairness" [ref=e725] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e726]:
+            - img [ref=e82]
+            - generic [ref=e85]: Fairness
+        - link "Analytics" [ref=e727] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e728]:
+            - img [ref=e89]
+            - generic [ref=e92]: Analytics
+        - link "Validation" [ref=e729] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e730]:
+            - img [ref=e96]
+            - generic [ref=e99]: Validation
+        - link "Feedback" [ref=e731] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e732]:
+            - img [ref=e103]
+            - generic [ref=e106]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e733] [cursor=pointer]:
+        - generic [ref=e110]: D
+        - generic [ref=e112]: Davaseelan Ramamoorthy
+    - generic [ref=e113]:
+      - generic [ref=e116]:
+        - button [ref=e117] [cursor=pointer]:
+          - img [ref=e118]
+        - generic [ref=e120]:
+          - heading "Welcome to Moonwalkers Dashboard" [level=4] [ref=e734]
+          - paragraph [ref=e122]: Overview of team performance, match statistics, and player contributions.
+      - generic [ref=e125]:
+        - generic [ref=e128]:
+          - generic [ref=e129]:
+            - generic [ref=e130]: Dashboard
+            - heading "Team Dashboard" [level=3] [ref=e735]
+            - paragraph [ref=e132]: Team performance, fairness visibility, and planner outcomes in one organiser view.
+          - group [ref=e134]:
+            - button "Team View" [pressed] [ref=e736] [cursor=pointer]
+            - button "My View" [ref=e737] [cursor=pointer]
+        - generic [ref=e137]:
+          - generic [ref=e139]:
+            - generic [ref=e141]:
+              - generic [ref=e143]:
+                - img [ref=e146]
+                - generic [ref=e149]: Matches Played
+              - paragraph [ref=e151]: "6"
+            - generic [ref=e153]: Official team fixtures
+          - generic [ref=e155]:
+            - generic [ref=e157]:
+              - generic [ref=e159]:
+                - img [ref=e162]
+                - generic [ref=e164]: Win Ratio
+              - paragraph [ref=e166]: 17%
+            - generic [ref=e168]: Current team success rate
+          - generic [ref=e170]:
+            - generic [ref=e172]:
+              - generic [ref=e174]:
+                - img [ref=e177]
+                - generic [ref=e179]: Top Run Scorer
+              - paragraph [ref=e181]: Krishnaraj
+            - generic [ref=e183]: Current leading batter
+          - generic [ref=e185]:
+            - generic [ref=e187]:
+              - generic [ref=e189]:
+                - img [ref=e192]
+                - generic [ref=e194]: Top Wicket Taker
+              - paragraph [ref=e196]: Sharath
+            - generic [ref=e198]: Current leading bowler
+        - generic [ref=e199]:
+          - generic [ref=e202]:
+            - heading "Top Run Leaders" [level=6] [ref=e738]
+            - table [ref=e208]:
+              - rowgroup [ref=e209]:
+                - row "Rank Player Runs" [ref=e739]:
+                  - columnheader "Rank" [ref=e740]
+                  - columnheader "Player" [ref=e741]
+                  - columnheader "Runs" [ref=e742]
+              - rowgroup [ref=e214]:
+                - row "1 Krishnaraj Dhanasekaran 82" [ref=e743]:
+                  - cell "1" [ref=e744]
+                  - cell "Krishnaraj Dhanasekaran" [ref=e745]
+                  - cell "82" [ref=e746]
+                - row "2 Davaseelan 62" [ref=e747]:
+                  - cell "2" [ref=e748]
+                  - cell "Davaseelan" [ref=e749]
+                  - cell "62" [ref=e750]
+                - row "3 Varinder Nishad 59" [ref=e751]:
+                  - cell "3" [ref=e752]
+                  - cell "Varinder Nishad" [ref=e753]
+                  - cell "59" [ref=e754]
+                - row "4 Kanishk Dhanker 37" [ref=e755]:
+                  - cell "4" [ref=e756]
+                  - cell "Kanishk Dhanker" [ref=e757]
+                  - cell "37" [ref=e758]
+                - row "5 Naveen Nelavelli 29" [ref=e759]:
+                  - cell "5" [ref=e760]
+                  - cell "Naveen Nelavelli" [ref=e761]
+                  - cell "29" [ref=e762]
+          - generic [ref=e237]:
+            - heading "Top Wicket Leaders" [level=6] [ref=e763]
+            - table [ref=e243]:
+              - rowgroup [ref=e244]:
+                - row "Rank Player Wickets" [ref=e764]:
+                  - columnheader "Rank" [ref=e765]
+                  - columnheader "Player" [ref=e766]
+                  - columnheader "Wickets" [ref=e767]
+              - rowgroup [ref=e249]:
+                - row "1 Sharath 8" [ref=e768]:
+                  - cell "1" [ref=e769]
+                  - cell "Sharath" [ref=e770]
+                  - cell "8" [ref=e771]
+                - row "2 Anir 8" [ref=e772]:
+                  - cell "2" [ref=e773]
+                  - cell "Anir" [ref=e774]
+                  - cell "8" [ref=e775]
+                - row "3 Krishnaraj Dhanasekaran 5" [ref=e776]:
+                  - cell "3" [ref=e777]
+                  - cell "Krishnaraj Dhanasekaran" [ref=e778]
+                  - cell "5" [ref=e779]
+                - row "4 Naveen Nelavelli 4" [ref=e780]:
+                  - cell "4" [ref=e781]
+                  - cell "Naveen Nelavelli" [ref=e782]
+                  - cell "4" [ref=e783]
+                - row "5 Ketan Deshpande 3" [ref=e784]:
+                  - cell "5" [ref=e785]
+                  - cell "Ketan Deshpande" [ref=e786]
+                  - cell "3" [ref=e787]
+        - generic [ref=e270]:
+          - generic [ref=e273]:
+            - heading "Runs Trend" [level=6] [ref=e788]
+            - application [ref=e279]:
+              - generic [ref=e301]:
+                - generic [ref=e302]:
+                  - generic [ref=e305]: Run Raiders
+                  - generic [ref=e308]: Run Raiders
+                  - generic [ref=e311]: Berlin Super Kings
+                  - generic [ref=e314]: Berlin Super Kings
+                  - generic [ref=e317]: Berlin Super Kings
+                - generic [ref=e318]:
+                  - generic [ref=e320]: "0"
+                  - generic [ref=e322]: "25"
+                  - generic [ref=e324]: "50"
+                  - generic [ref=e326]: "75"
+                  - generic [ref=e328]: "100"
+          - generic [ref=e331]:
+            - heading "Wickets Trend" [level=6] [ref=e789]
+            - application [ref=e337]:
+              - generic [ref=e359]:
+                - generic [ref=e360]:
+                  - generic [ref=e363]: Run Raiders
+                  - generic [ref=e366]: Run Raiders
+                  - generic [ref=e369]: Berlin Super Kings
+                  - generic [ref=e372]: Berlin Super Kings
+                  - generic [ref=e375]: Berlin Super Kings
+                - generic [ref=e376]:
+                  - generic [ref=e378]: "0"
+                  - generic [ref=e380]: "2"
+                  - generic [ref=e382]: "4"
+                  - generic [ref=e384]: "6"
+                  - generic [ref=e386]: "8"
+        - generic [ref=e388]:
+          - heading "Fairness Overview" [level=6] [ref=e790]
+          - generic [ref=e392]:
+            - generic [ref=e394]:
+              - heading "Anir Balanced" [level=3] [ref=e791]:
+                - button "Anir Balanced" [ref=e792] [cursor=pointer]:
+                  - generic [ref=e399]:
+                    - paragraph [ref=e400]: Anir
+                    - generic [ref=e402]: Balanced
+                  - img [ref=e404]
+              - heading "Davaseelan Balanced" [level=3] [ref=e793]:
+                - button "Davaseelan Balanced" [ref=e794] [cursor=pointer]:
+                  - generic [ref=e410]:
+                    - paragraph [ref=e411]: Davaseelan
+                    - generic [ref=e413]: Balanced
+                  - img [ref=e415]
+              - heading "Ketan Deshpande Balanced" [level=3] [ref=e795]:
+                - button "Ketan Deshpande Balanced" [ref=e796] [cursor=pointer]:
+                  - generic [ref=e421]:
+                    - paragraph [ref=e422]: Ketan Deshpande
+                    - generic [ref=e424]: Balanced
+                  - img [ref=e426]
+              - heading "Manoj Prabhakar Balanced" [level=3] [ref=e797]:
+                - button "Manoj Prabhakar Balanced" [ref=e798] [cursor=pointer]:
+                  - generic [ref=e432]:
+                    - paragraph [ref=e433]: Manoj Prabhakar
+                    - generic [ref=e435]: Balanced
+                  - img [ref=e437]
+              - heading "Ravinder Balanced" [level=3] [ref=e799]:
+                - button "Ravinder Balanced" [ref=e800] [cursor=pointer]:
+                  - generic [ref=e443]:
+                    - paragraph [ref=e444]: Ravinder
+                    - generic [ref=e446]: Balanced
+                  - img [ref=e448]
+              - heading "Sharath Balanced" [level=3] [ref=e801]:
+                - button "Sharath Balanced" [ref=e802] [cursor=pointer]:
+                  - generic [ref=e454]:
+                    - paragraph [ref=e455]: Sharath
+                    - generic [ref=e457]: Balanced
+                  - img [ref=e459]
+              - heading "Suryanarayanan Soundararajan Balanced" [level=3] [ref=e803]:
+                - button "Suryanarayanan Soundararajan Balanced" [ref=e804] [cursor=pointer]:
+                  - generic [ref=e465]:
+                    - paragraph [ref=e466]: Suryanarayanan Soundararajan
+                    - generic [ref=e468]: Balanced
+                  - img [ref=e470]
+              - heading "Varinder Nishad Balanced" [level=3] [ref=e805]:
+                - button "Varinder Nishad Balanced" [ref=e806] [cursor=pointer]:
+                  - generic [ref=e476]:
+                    - paragraph [ref=e477]: Varinder Nishad
+                    - generic [ref=e479]: Balanced
+                  - img [ref=e481]
+            - generic [ref=e484]:
+              - heading "Arjun Roy Balanced" [level=3] [ref=e807]:
+                - button "Arjun Roy Balanced" [ref=e808] [cursor=pointer]:
+                  - generic [ref=e489]:
+                    - paragraph [ref=e490]: Arjun Roy
+                    - generic [ref=e492]: Balanced
+                  - img [ref=e494]
+              - heading "Kanishk Dhanker Balanced" [level=3] [ref=e809]:
+                - button "Kanishk Dhanker Balanced" [ref=e810] [cursor=pointer]:
+                  - generic [ref=e500]:
+                    - paragraph [ref=e501]: Kanishk Dhanker
+                    - generic [ref=e503]: Balanced
+                  - img [ref=e505]
+              - heading "Krishnaraj Dhanasekaran Balanced" [level=3] [ref=e811]:
+                - button "Krishnaraj Dhanasekaran Balanced" [ref=e812] [cursor=pointer]:
+                  - generic [ref=e511]:
+                    - paragraph [ref=e512]: Krishnaraj Dhanasekaran
+                    - generic [ref=e514]: Balanced
+                  - img [ref=e516]
+              - heading "Naveen Nelavelli Balanced" [level=3] [ref=e813]:
+                - button "Naveen Nelavelli Balanced" [ref=e814] [cursor=pointer]:
+                  - generic [ref=e522]:
+                    - paragraph [ref=e523]: Naveen Nelavelli
+                    - generic [ref=e525]: Balanced
+                  - img [ref=e527]
+              - heading "Sathish Kumar Balanced" [level=3] [ref=e815]:
+                - button "Sathish Kumar Balanced" [ref=e816] [cursor=pointer]:
+                  - generic [ref=e533]:
+                    - paragraph [ref=e534]: Sathish Kumar
+                    - generic [ref=e536]: Balanced
+                  - img [ref=e538]
+              - heading "Sharma Elanthiraiyan K V Balanced" [level=3] [ref=e817]:
+                - button "Sharma Elanthiraiyan K V Balanced" [ref=e818] [cursor=pointer]:
+                  - generic [ref=e544]:
+                    - paragraph [ref=e545]: Sharma Elanthiraiyan K V
+                    - generic [ref=e547]: Balanced
+                  - img [ref=e549]
+              - heading "Varghese Akhil Balanced" [level=3] [ref=e819]:
+                - button "Varghese Akhil Balanced" [ref=e820] [cursor=pointer]:
+                  - generic [ref=e555]:
+                    - paragraph [ref=e556]: Varghese Akhil
+                    - generic [ref=e558]: Balanced
+                  - img [ref=e560]
+        - generic [ref=e562]:
+          - generic [ref=e566]:
+            - heading "Underused Players" [level=6] [ref=e821]
+            - alert [ref=e569]:
+              - img [ref=e571]
+              - generic [ref=e573]: No strong underuse signals detected right now.
+          - generic [ref=e577]:
+            - heading "Overused Players" [level=6] [ref=e822]
+            - alert [ref=e580]:
+              - img [ref=e582]
+              - generic [ref=e584]: No strong overuse patterns are showing yet.
+        - generic [ref=e587]:
+          - generic [ref=e588]:
+            - heading "Planner Outcome Snapshot" [level=6] [ref=e823]
+            - generic [ref=e592]: 22 Mar 2026 • 3 matches
+          - generic [ref=e593]:
+            - generic [ref=e597]:
+              - heading "Planned XI / Match" [level=6] [ref=e824]
+              - heading "11" [level=3] [ref=e825]
+              - paragraph [ref=e600]: 33 total XI slots across 3 matches.
+            - generic [ref=e604]:
+              - heading "Utilized / Match" [level=6] [ref=e826]
+              - heading "7.3" [level=3] [ref=e827]
+              - paragraph [ref=e607]: 22 utilized XI slots across 3 linked matches.
+            - generic [ref=e611]:
+              - heading "Unused In XI / Match" [level=6] [ref=e828]
+              - heading "3.7" [level=3] [ref=e829]
+              - paragraph [ref=e614]: 11 total unused XI slots detected.
+        - generic [ref=e616]:
+          - heading "Recent Matches" [level=6] [ref=e830]
+          - table [ref=e622]:
+            - rowgroup [ref=e623]:
+              - row "Date Opponent Result" [ref=e831]:
+                - columnheader "Date" [ref=e832]
+                - columnheader "Opponent" [ref=e833]
+                - columnheader "Result" [ref=e834]
+            - rowgroup [ref=e628]:
+              - row "22 Mar 2026 Berlin Super Kings Lost" [ref=e835]:
+                - cell "22 Mar 2026" [ref=e836]
+                - cell "Berlin Super Kings" [ref=e837]
+                - cell "Lost" [ref=e838]:
+                  - generic [ref=e634]: Lost
+              - row "22 Mar 2026 Berlin Super Kings Lost" [ref=e839]:
+                - cell "22 Mar 2026" [ref=e840]
+                - cell "Berlin Super Kings" [ref=e841]
+                - cell "Lost" [ref=e842]:
+                  - generic [ref=e640]: Lost
+              - row "22 Mar 2026 Berlin Super Kings Won" [ref=e843]:
+                - cell "22 Mar 2026" [ref=e844]
+                - cell "Berlin Super Kings" [ref=e845]
+                - cell "Won" [ref=e846]:
+                  - generic [ref=e646]: Won
+              - row "15 Mar 2026 Run Raiders Lost" [ref=e847]:
+                - cell "15 Mar 2026" [ref=e848]
+                - cell "Run Raiders" [ref=e849]
+                - cell "Lost" [ref=e850]:
+                  - generic [ref=e652]: Lost
+              - row "15 Mar 2026 Run Raiders Tie" [ref=e851]:
+                - cell "15 Mar 2026" [ref=e852]
+                - cell "Run Raiders" [ref=e853]
+                - cell "Tie" [ref=e854]:
+                  - generic [ref=e658]: Tie
+  - generic [ref=e713]: "2"

@@ -1,0 +1,144 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e1523] [cursor=pointer]:
+    - generic [ref=e1526]:
+      - text: Compiling
+      - generic [ref=e1527]:
+        - generic [ref=e1528]: .
+        - generic [ref=e1529]: .
+        - generic [ref=e1530]: .
+  - alert [ref=e32]
+  - generic [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e48]:
+        - text: Team Space
+        - heading "Moonwalkers" [level=5] [ref=e722]
+      - list [ref=e50]:
+        - link "Dashboard" [ref=e723] [cursor=pointer]:
+          - /url: /dashboard
+          - button "Dashboard" [ref=e724]:
+            - img [ref=e54]
+            - generic [ref=e57]: Dashboard
+        - link "Matches" [ref=e725] [cursor=pointer]:
+          - /url: /matches
+          - button "Matches" [ref=e726]:
+            - img [ref=e61]
+            - generic [ref=e65]: Matches
+        - link "Squad" [ref=e727] [cursor=pointer]:
+          - /url: /players
+          - button "Squad" [ref=e728]:
+            - img [ref=e69]
+            - generic [ref=e72]: Squad
+        - link "Membership" [ref=e729] [cursor=pointer]:
+          - /url: /memberships
+          - button "Membership" [active] [ref=e730]:
+            - img [ref=e76]
+            - generic [ref=e79]: Membership
+        - link "Planner" [ref=e731] [cursor=pointer]:
+          - /url: /planner
+          - button "Planner" [ref=e732]:
+            - img [ref=e83]
+            - generic [ref=e86]: Planner
+        - link "Fairness" [ref=e733] [cursor=pointer]:
+          - /url: /fairness
+          - button "Fairness" [ref=e734]:
+            - img [ref=e90]
+            - generic [ref=e93]: Fairness
+        - link "Analytics" [ref=e735] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e736]:
+            - img [ref=e97]
+            - generic [ref=e100]: Analytics
+        - link "Validation" [ref=e737] [cursor=pointer]:
+          - /url: /validation
+          - button "Validation" [ref=e738]:
+            - img [ref=e104]
+            - generic [ref=e107]: Validation
+        - link "Feedback" [ref=e739] [cursor=pointer]:
+          - /url: /feedback
+          - button "Feedback" [ref=e740]:
+            - img [ref=e111]
+            - generic [ref=e114]: Feedback
+      - button "D Davaseelan Ramamoorthy" [ref=e741] [cursor=pointer]:
+        - generic [ref=e118]: D
+        - generic [ref=e120]: Davaseelan Ramamoorthy
+    - generic [ref=e121]:
+      - generic [ref=e124]:
+        - button [ref=e125] [cursor=pointer]:
+          - img [ref=e126]
+        - generic [ref=e128]:
+          - heading "My Fairness" [level=4] [ref=e1411]
+          - paragraph [ref=e130]: Your own fairness history with available weeks, actual XI chances, bench outcomes, and quota progress.
+      - generic [ref=e1413]:
+        - generic [ref=e1416]:
+          - generic [ref=e1417]:
+            - generic [ref=e1418]: Fairness
+            - heading "My Fairness" [level=3] [ref=e1419]
+            - paragraph [ref=e1420]: Your member-only fairness history for available weeks, actual XI chances, bench outcomes, and quota progress.
+          - generic [ref=e1422]:
+            - group [ref=e1423]:
+              - button "Team View" [ref=e1424] [cursor=pointer]
+              - button "My View" [pressed] [ref=e1425] [cursor=pointer]: My View
+            - generic [ref=e1426]:
+              - generic [ref=e1427]: Season
+              - generic [ref=e1428]:
+                - combobox "Season" [ref=e1429] [cursor=pointer]: "2026"
+                - textbox: "2026"
+                - img
+                - group:
+                  - generic: Season
+        - generic [ref=e1430]:
+          - generic [ref=e1433]:
+            - generic [ref=e1434]:
+              - generic [ref=e1435]:
+                - heading "Davaseelan" [level=4] [ref=e1436]
+                - paragraph [ref=e1437]: Moonwalkers fairness history based on saved matchdays and authentic participation reconciliation when linked scorecards exist.
+              - generic [ref=e1438]:
+                - generic [ref=e1440]: 2 XI to go
+                - generic [ref=e1442]: 1 saved matchdays
+            - generic [ref=e1443]:
+              - generic [ref=e1444]:
+                - heading "Quota Progress" [level=6] [ref=e1445]
+                - heading "3/5 XI" [level=6] [ref=e1446]
+              - progressbar [ref=e1447]
+          - generic [ref=e1449]:
+            - generic [ref=e1453]:
+              - heading "Available Weeks" [level=6] [ref=e1454]
+              - heading "1" [level=3] [ref=e1455]
+              - paragraph [ref=e1456]: Saved matchdays where you were available for selection.
+            - generic [ref=e1460]:
+              - heading "Actual XI Chances" [level=6] [ref=e1461]
+              - heading "3" [level=3] [ref=e1462]
+              - paragraph [ref=e1463]: Actual XI appearances counted from linked scorecards when available, otherwise saved XI assignments.
+            - generic [ref=e1467]:
+              - heading "12th Count" [level=6] [ref=e1468]
+              - heading "0" [level=3] [ref=e1469]
+              - paragraph [ref=e1470]: Saved or reconciled 12th-man outcomes in the tracked history.
+            - generic [ref=e1474]:
+              - heading "Bench Count" [level=6] [ref=e1475]
+              - heading "0" [level=3] [ref=e1476]
+              - paragraph [ref=e1477]: Tracked bench outcomes across saved matchdays.
+            - generic [ref=e1481]:
+              - heading "Unavailable Count" [level=6] [ref=e1482]
+              - heading "0" [level=3] [ref=e1483]
+              - paragraph [ref=e1484]: Saved matchday outcomes marked unavailable.
+            - generic [ref=e1488]:
+              - heading "Quota Progress" [level=6] [ref=e1489]
+              - heading "3/5" [level=3] [ref=e1490]
+              - paragraph [ref=e1491]: 2 more XI opportunities to reach the baseline.
+          - generic [ref=e1492]:
+            - generic [ref=e1496]:
+              - heading "Recent Week-by-Week History" [level=5] [ref=e1497]
+              - generic [ref=e1501]:
+                - generic [ref=e1502]:
+                  - heading "22 Mar 2026" [level=6] [ref=e1503]
+                  - generic [ref=e1505]: 3 available slots
+                - generic [ref=e1506]:
+                  - generic [ref=e1508]: XI 3
+                  - generic [ref=e1510]: 12th 0
+                  - generic [ref=e1512]: Bench 0
+                  - generic [ref=e1514]: Unavailable 0
+                - paragraph [ref=e1515]: "22 Mar 2026: XI 3"
+            - generic [ref=e1519]:
+              - heading "My Fairness Notes" [level=5] [ref=e1520]
+              - paragraph [ref=e1522]: No active fairness warnings are attached to this member in the selected season.
+  - generic [ref=e721]: "2"

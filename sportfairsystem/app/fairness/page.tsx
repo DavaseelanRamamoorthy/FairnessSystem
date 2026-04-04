@@ -18,7 +18,6 @@ import {
   Grid,
   InputLabel,
   MenuItem,
-  Pagination,
   Select,
   Stack,
   TextField,
@@ -30,6 +29,7 @@ import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
+import PaginationFooter from "@/app/components/common/PaginationFooter";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
 import MemberFairnessView from "@/app/components/fairness/MemberFairnessView";
 import { useAuth } from "@/app/context/AuthContext";
@@ -146,6 +146,39 @@ function stripLeadingPlayerNameFromAlert(alert: PlannerFairnessAlert) {
   return message;
 }
 
+function stripBiasWatchContextFromAlert(alert: PlannerFairnessAlert) {
+  let message = stripLeadingPlayerNameFromAlert(alert);
+  const weekendLabel = alert.weekendLabel?.trim();
+  const matchLabel = alert.matchNumber ? `Match ${alert.matchNumber}` : "";
+  const combinedContext = [weekendLabel, matchLabel].filter(Boolean).join(" ");
+
+  if (combinedContext) {
+    const contextPattern = new RegExp(combinedContext.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    message = message.replace(contextPattern, "").replace(/\s{2,}/g, " ").trim();
+  }
+
+  return message
+    .replace(/\s+for\s+but\s+/i, " but ")
+    .replace(/\s+for\s+\./i, ".")
+    .trim();
+}
+
+function formatBiasWatchAlertMessage(alert: PlannerFairnessAlert) {
+  const cleanedMessage = stripBiasWatchContextFromAlert(alert)
+    .replace(/\bwas planned on the bench but appears in the linked scorecard\./i, "Started as a bench call, but ended up being used in the actual match.")
+    .replace(/\bwas planned as 12th man but was actually used in the linked scorecard\./i, "Was originally marked as 12th man, but was brought into the actual match.")
+    .replace(/\bwas planned in the XI but no actual appearance was found in the linked scorecard\./i, "Was lined up in the XI, but the linked scorecard does not show an actual appearance.")
+    .replace(/\bwas marked unavailable but appears in the linked scorecard\./i, "Was marked unavailable, but still shows up in the actual match.")
+    .replace(/\bwas planned\b/i, "Started")
+    .trim();
+
+  if (!cleanedMessage) {
+    return "This saved week shows a planning-versus-actual mismatch that is worth reviewing.";
+  }
+
+  return cleanedMessage.charAt(0).toUpperCase() + cleanedMessage.slice(1);
+}
+
 function formatTimestamp(value: string | null) {
   if (!value) {
     return "Unknown";
@@ -259,7 +292,9 @@ export default function FairnessPage() {
   const [isAutoLinkingSuggestedMatches, setIsAutoLinkingSuggestedMatches] = useState(false);
   const [fairnessTrackerPage, setFairnessTrackerPage] = useState(1);
   const [savedBatchesPage, setSavedBatchesPage] = useState(1);
+  const [weeklyInsightPage, setWeeklyInsightPage] = useState(1);
   const [selectedAlertPlayerId, setSelectedAlertPlayerId] = useState<string>("");
+  const [selectedBiasWatchPlayerId, setSelectedBiasWatchPlayerId] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -358,8 +393,11 @@ export default function FairnessPage() {
   }, [plannerIdentitySummaries]);
 
   const recentComparisonInsights = useMemo(() => {
-    const grouped = recentComparisonBatchDetails.flatMap((batchDetail) =>
-      batchDetail.matches.flatMap((match) => {
+    return recentComparisonBatchDetails.map((batchDetail) => ({
+      batchId: batchDetail.id,
+      weekendLabel: batchDetail.weekendLabel,
+      weekendDate: batchDetail.weekendDate,
+      entries: batchDetail.matches.flatMap((match) => {
         if (!match.linkedActualMatchId) {
           return [];
         }
@@ -372,30 +410,11 @@ export default function FairnessPage() {
 
         return [{
           id: `${batchDetail.id}-match-${match.matchNumber}`,
-          weekendLabel: batchDetail.weekendLabel,
           matchNumber: match.matchNumber,
           insights
         }];
       })
-    );
-
-    const groupedByWeekend = new Map<string, { weekendLabel: string; entries: Array<{ id: string; matchNumber: number; insights: string[] }> }>();
-
-    grouped.forEach((entry) => {
-      const currentEntries = groupedByWeekend.get(entry.weekendLabel)?.entries ?? [];
-      currentEntries.push({
-        id: entry.id,
-        matchNumber: entry.matchNumber,
-        insights: entry.insights
-      });
-
-      groupedByWeekend.set(entry.weekendLabel, {
-        weekendLabel: entry.weekendLabel,
-        entries: currentEntries
-      });
-    });
-
-    return Array.from(groupedByWeekend.values());
+    }));
   }, [canonicalNameByIdentityKey, recentComparisonBatchDetails]);
 
   const loadFairnessWorkspace = useCallback(async () => {
@@ -569,15 +588,125 @@ export default function FairnessPage() {
     });
   }, [fairnessAlerts]);
 
+  const weeklyFairnessStatusPages = useMemo(() => {
+    return recentComparisonInsights
+      .map((week) => {
+        const weeklyAlertGroups = groupedFairnessAlerts
+          .map((group) => {
+            const weeklyAlerts = group.alerts.filter((alert) => alert.batchId === week.batchId);
+
+            if (weeklyAlerts.length === 0) {
+              return null;
+            }
+
+            return {
+              ...group,
+              alerts: weeklyAlerts
+            };
+          })
+          .filter((group): group is { playerId: string; playerName: string; severity: "info" | "warning"; alerts: PlannerFairnessAlert[] } => Boolean(group));
+
+        if (week.entries.length === 0 && weeklyAlertGroups.length === 0) {
+          return null;
+        }
+
+        return {
+          batchId: week.batchId,
+          weekendLabel: week.weekendLabel,
+          weekendDate: week.weekendDate,
+          entries: week.entries,
+          alertGroups: weeklyAlertGroups
+        };
+      })
+      .filter((week): week is {
+        batchId: string;
+        weekendLabel: string;
+        weekendDate: string | null;
+        entries: Array<{ id: string; matchNumber: number; insights: string[] }>;
+        alertGroups: Array<{ playerId: string; playerName: string; severity: "info" | "warning"; alerts: PlannerFairnessAlert[] }>;
+      } => Boolean(week));
+  }, [groupedFairnessAlerts, recentComparisonInsights]);
+
+  const weeklyInsightPageCount = Math.max(1, weeklyFairnessStatusPages.length);
+  const selectedWeeklyFairnessStatus = weeklyFairnessStatusPages[weeklyInsightPage - 1] ?? null;
+
   const selectedAlertPlayerGroup = useMemo(() => {
-    if (groupedFairnessAlerts.length === 0) {
+    const currentWeeklyAlertGroups = selectedWeeklyFairnessStatus?.alertGroups ?? [];
+
+    if (currentWeeklyAlertGroups.length === 0) {
       return null;
     }
 
-    return groupedFairnessAlerts.find((group) => group.playerId === selectedAlertPlayerId)
-      ?? groupedFairnessAlerts[0]
+    return currentWeeklyAlertGroups.find((group) => group.playerId === selectedAlertPlayerId)
+      ?? currentWeeklyAlertGroups[0]
       ?? null;
-  }, [groupedFairnessAlerts, selectedAlertPlayerId]);
+  }, [selectedAlertPlayerId, selectedWeeklyFairnessStatus]);
+
+  const recurringWeeklyAlertPlayers = useMemo(() => {
+    return groupedFairnessAlerts
+      .map((group) => {
+        const weeklyBatchIds = Array.from(
+          new Set(group.alerts.flatMap((alert) => (alert.batchId ? [alert.batchId] : [])))
+        );
+
+        if (weeklyBatchIds.length < 2) {
+          return null;
+        }
+
+        return {
+          playerId: group.playerId,
+          playerName: group.playerName,
+          severity: group.severity,
+          weekCount: weeklyBatchIds.length
+        };
+      })
+      .filter((group): group is {
+        playerId: string;
+        playerName: string;
+        severity: "info" | "warning";
+        weekCount: number;
+      } => Boolean(group))
+      .sort((left, right) => {
+        if (left.weekCount !== right.weekCount) {
+          return right.weekCount - left.weekCount;
+        }
+
+        if (left.severity !== right.severity) {
+          return left.severity === "warning" ? -1 : 1;
+        }
+
+        return formatName(left.playerName).localeCompare(formatName(right.playerName));
+      });
+  }, [groupedFairnessAlerts]);
+
+  const selectedBiasWatchGroup = useMemo(() => {
+    if (recurringWeeklyAlertPlayers.length === 0) {
+      return null;
+    }
+
+    const selectedPlayer = recurringWeeklyAlertPlayers.find((player) => player.playerId === selectedBiasWatchPlayerId)
+      ?? recurringWeeklyAlertPlayers[0]
+      ?? null;
+
+    if (!selectedPlayer) {
+      return null;
+    }
+
+    const groupedPlayerAlerts = groupedFairnessAlerts.find((group) => group.playerId === selectedPlayer.playerId);
+
+    if (!groupedPlayerAlerts) {
+      return null;
+    }
+
+    const weeklyAlerts = groupedPlayerAlerts.alerts
+      .filter((alert) => alert.batchId)
+      .sort((left, right) => (right.weekendDate ?? "").localeCompare(left.weekendDate ?? ""));
+
+    return {
+      ...selectedPlayer,
+      alerts: weeklyAlerts
+    };
+  }, [groupedFairnessAlerts, recurringWeeklyAlertPlayers, selectedBiasWatchPlayerId]);
 
   const fairnessNoXiPlayers = useMemo(() => {
     return fairnessProgressPlayers.filter((player) => player.xiCount === 0);
@@ -606,6 +735,9 @@ export default function FairnessPage() {
   const selectedAlertMemberId = selectedAlertPlayerGroup
     ? (memberIdByPlayerId.get(selectedAlertPlayerGroup.playerId) ?? "")
     : "";
+  const selectedBiasWatchMemberId = selectedBiasWatchGroup
+    ? (memberIdByPlayerId.get(selectedBiasWatchGroup.playerId) ?? "")
+    : "";
   const savedBatchesPageCount = Math.max(1, Math.ceil(savedBatches.length / SAVED_BATCHES_PAGE_SIZE));
   const paginatedSavedBatches = useMemo(() => {
     const startIndex = (savedBatchesPage - 1) * SAVED_BATCHES_PAGE_SIZE;
@@ -621,22 +753,42 @@ export default function FairnessPage() {
   }, [savedBatchesPageCount]);
 
   useEffect(() => {
+    setWeeklyInsightPage((currentPage) => Math.min(currentPage, weeklyInsightPageCount));
+  }, [weeklyInsightPageCount]);
+
+  useEffect(() => {
     setFairnessTrackerPage(1);
     setSavedBatchesPage(1);
+    setWeeklyInsightPage(1);
   }, [selectedSeason]);
 
   useEffect(() => {
-    if (groupedFairnessAlerts.length === 0) {
+    if (recurringWeeklyAlertPlayers.length === 0) {
+      setSelectedBiasWatchPlayerId("");
+      return;
+    }
+
+    setSelectedBiasWatchPlayerId((currentPlayerId) =>
+      recurringWeeklyAlertPlayers.some((player) => player.playerId === currentPlayerId)
+        ? currentPlayerId
+        : recurringWeeklyAlertPlayers[0]?.playerId ?? ""
+    );
+  }, [recurringWeeklyAlertPlayers]);
+
+  useEffect(() => {
+    const currentWeeklyAlertGroups = selectedWeeklyFairnessStatus?.alertGroups ?? [];
+
+    if (currentWeeklyAlertGroups.length === 0) {
       setSelectedAlertPlayerId("");
       return;
     }
 
     setSelectedAlertPlayerId((currentPlayerId) =>
-      groupedFairnessAlerts.some((group) => group.playerId === currentPlayerId)
+      currentWeeklyAlertGroups.some((group) => group.playerId === currentPlayerId)
         ? currentPlayerId
-        : groupedFairnessAlerts[0]?.playerId ?? ""
+        : currentWeeklyAlertGroups[0]?.playerId ?? ""
     );
-  }, [groupedFairnessAlerts]);
+  }, [selectedWeeklyFairnessStatus]);
 
   const handleBatchNotesSave = async () => {
     if (!selectedBatchDetail) {
@@ -841,132 +993,157 @@ export default function FairnessPage() {
           </Card>
         ) : dashboard ? (
           <Stack spacing={3}>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, lg: 6 }}>
-                <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Stack spacing={2}>
-                      <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                        Comparison Insights
+            <Card variant="outlined" sx={{ borderRadius: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Stack spacing={3}>
+                  <Stack spacing={0.75}>
+                    <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                      Weekly Fairness Status
+                    </Typography>
+                    {selectedWeeklyFairnessStatus ? (
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedWeeklyFairnessStatus.weekendLabel}
                       </Typography>
-                      {isLoadingComparisonInsights ? (
-                        <Stack direction="row" spacing={1.5} alignItems="center">
-                          <CircularProgress size={18} />
-                          <Typography variant="body2" color="text.secondary">
-                            Loading recent planned-vs-actual comparison insights...
-                          </Typography>
-                        </Stack>
-                      ) : recentComparisonInsights.length === 0 ? (
-                        <EmptyStateMessage>
-                          No planned-vs-actual comparison insights yet from the last 4 saved matchdays.
-                        </EmptyStateMessage>
-                      ) : (
-                        <Stack spacing={1.5}>
-                          {recentComparisonInsights.map((entry) => (
-                            <Box key={entry.weekendLabel}>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                                {entry.weekendLabel}
-                              </Typography>
-                              <Stack spacing={1}>
-                                {entry.entries.map((matchEntry) => (
-                                  <Box key={matchEntry.id}>
-                                    <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                                      Match {matchEntry.matchNumber}
-                                    </Typography>
-                                    <Box component="ul" sx={{ m: 0, pl: 2.5, listStyle: "none" }}>
-                                      {matchEntry.insights.map((insight, index) => (
-                                        <Typography
-                                          key={`${matchEntry.id}-insight-${index}`}
-                                          component="li"
-                                          variant="body2"
-                                          sx={{ mb: 0.5 }}
-                                        >
-                                          - {insight}
-                                        </Typography>
-                                      ))}
-                                    </Box>
-                                  </Box>
-                                ))}
-                              </Stack>
-                            </Box>
-                          ))}
-                        </Stack>
-                      )}
+                    ) : null}
+                  </Stack>
+
+                  {isLoadingComparisonInsights ? (
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <CircularProgress size={18} />
+                      <Typography variant="body2" color="text.secondary">
+                        Loading recent planned-vs-actual comparison insights...
+                      </Typography>
                     </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid size={{ xs: 12, lg: 6 }}>
-                <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Stack spacing={2}>
-                      <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                        Fairness Alerts
-                      </Typography>
-                      {dashboard.savedMatchdays === 0 ? (
-                        <EmptyStateMessage>
-                          Save a friendly matchday plan first. Alerts start once planner history exists.
-                        </EmptyStateMessage>
-                      ) : groupedFairnessAlerts.length === 0 ? (
-                        <EmptyStateMessage>
-                          No active fairness alerts from the saved planner history.
-                        </EmptyStateMessage>
-                      ) : (
-                        <Stack spacing={2}>
-                          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                            {groupedFairnessAlerts.map((group) => (
-                              <Chip
-                                key={`fairness-alert-player-${group.playerId}`}
-                                label={formatName(group.playerName)}
-                                clickable
-                                color={group.severity === "warning" ? "warning" : "info"}
-                                variant={selectedAlertPlayerGroup?.playerId === group.playerId ? "filled" : "outlined"}
-                                onClick={() => setSelectedAlertPlayerId(group.playerId)}
-                              />
-                            ))}
-                          </Stack>
-                          {selectedAlertPlayerGroup ? (
-                            <Stack spacing={1}>
-                              <Stack
-                                direction={{ xs: "column", sm: "row" }}
-                                spacing={1}
-                                justifyContent="space-between"
-                                alignItems={{ xs: "flex-start", sm: "center" }}
-                              >
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                                  {formatName(selectedAlertPlayerGroup.playerName)}
+                  ) : weeklyFairnessStatusPages.length === 0 ? (
+                    <EmptyStateMessage>
+                      No planned-vs-actual weekly fairness insights yet from the recent saved matchdays.
+                    </EmptyStateMessage>
+                  ) : (
+                    <>
+                      <Grid container spacing={3}>
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                          <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
+                            <CardContent sx={{ p: 3 }}>
+                              <Stack spacing={2}>
+                                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                                  Comparison Insights
                                 </Typography>
-                                <Button
-                                  component={Link}
-                                  href={selectedAlertMemberId ? `/fairness/member/${selectedAlertMemberId}` : "/fairness"}
-                                  variant="outlined"
-                                  size="small"
-                                  disabled={!selectedAlertMemberId}
-                                >
-                                  Open Member Detail
-                                </Button>
+                                {selectedWeeklyFairnessStatus && selectedWeeklyFairnessStatus.entries.length > 0 ? (
+                                  <Stack spacing={1.5}>
+                                    {selectedWeeklyFairnessStatus.entries.map((matchEntry) => (
+                                      <Box key={matchEntry.id}>
+                                        <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                                          Match {matchEntry.matchNumber}
+                                        </Typography>
+                                        <Box component="ul" sx={{ m: 0, pl: 2.5, listStyle: "none" }}>
+                                          {matchEntry.insights.map((insight, index) => (
+                                            <Typography
+                                              key={`${matchEntry.id}-insight-${index}`}
+                                              component="li"
+                                              variant="body2"
+                                              sx={{ mb: 0.5 }}
+                                            >
+                                              - {insight}
+                                            </Typography>
+                                          ))}
+                                        </Box>
+                                      </Box>
+                                    ))}
+                                  </Stack>
+                                ) : (
+                                  <EmptyStateMessage>
+                                    No comparison insights were recorded for this saved week.
+                                  </EmptyStateMessage>
+                                )}
                               </Stack>
-                              <Box component="ul" sx={{ m: 0, pl: 2.5, listStyle: "none" }}>
-                                {selectedAlertPlayerGroup.alerts.map((alert) => (
-                                  <Typography
-                                    key={alert.id}
-                                    component="li"
-                                    variant="body2"
-                                    sx={{ mb: 0.75 }}
-                                  >
-                                    - {stripLeadingPlayerNameFromAlert(alert)}
-                                  </Typography>
-                                ))}
-                              </Box>
-                            </Stack>
-                          ) : null}
-                        </Stack>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        <Grid size={{ xs: 12, lg: 6 }}>
+                          <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
+                            <CardContent sx={{ p: 3 }}>
+                              <Stack spacing={2}>
+                                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                                  Fairness Alerts
+                                </Typography>
+                                {selectedWeeklyFairnessStatus && selectedWeeklyFairnessStatus.alertGroups.length > 0 ? (
+                                  <Stack spacing={2}>
+                                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                      {selectedWeeklyFairnessStatus.alertGroups.map((group) => (
+                                        <Chip
+                                          key={`fairness-alert-player-${selectedWeeklyFairnessStatus.batchId}-${group.playerId}`}
+                                          label={formatName(group.playerName)}
+                                          clickable
+                                          color={group.severity === "warning" ? "warning" : "info"}
+                                          variant={selectedAlertPlayerGroup?.playerId === group.playerId ? "filled" : "outlined"}
+                                          onClick={() => setSelectedAlertPlayerId(group.playerId)}
+                                        />
+                                      ))}
+                                    </Stack>
+                                    {selectedAlertPlayerGroup ? (
+                                      <Stack spacing={1}>
+                                        <Stack
+                                          direction={{ xs: "column", sm: "row" }}
+                                          spacing={1}
+                                          justifyContent="space-between"
+                                          alignItems={{ xs: "flex-start", sm: "center" }}
+                                        >
+                                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                            {formatName(selectedAlertPlayerGroup.playerName)}
+                                          </Typography>
+                                          <Button
+                                            component={Link}
+                                            href={selectedAlertMemberId ? `/fairness/member/${selectedAlertMemberId}` : "/fairness"}
+                                            variant="outlined"
+                                            size="small"
+                                            disabled={!selectedAlertMemberId}
+                                          >
+                                            Open Member Detail
+                                          </Button>
+                                        </Stack>
+                                        <Box component="ul" sx={{ m: 0, pl: 2.5, listStyle: "none" }}>
+                                          {selectedAlertPlayerGroup.alerts.map((alert) => (
+                                            <Typography
+                                              key={alert.id}
+                                              component="li"
+                                              variant="body2"
+                                              sx={{ mb: 0.75 }}
+                                            >
+                                              - {stripLeadingPlayerNameFromAlert(alert)}
+                                            </Typography>
+                                          ))}
+                                        </Box>
+                                      </Stack>
+                                    ) : null}
+                                  </Stack>
+                                ) : (
+                                  <EmptyStateMessage>
+                                    No fairness alerts were triggered for this saved week.
+                                  </EmptyStateMessage>
+                                )}
+                              </Stack>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      </Grid>
+
+                      {weeklyInsightPageCount > 1 ? (
+                        <PaginationFooter
+                          pageStart={weeklyInsightPage}
+                          pageEnd={weeklyInsightPage}
+                          totalCount={weeklyInsightPageCount}
+                          hasPreviousPage={weeklyInsightPage > 1}
+                          hasNextPage={weeklyInsightPage < weeklyInsightPageCount}
+                          onPrevious={() => setWeeklyInsightPage((currentPage) => Math.max(1, currentPage - 1))}
+                          onNext={() => setWeeklyInsightPage((currentPage) => Math.min(weeklyInsightPageCount, currentPage + 1))}
+                        />
+                      ) : null}
+                    </>
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
 
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -1335,15 +1512,15 @@ export default function FairnessPage() {
                             ))}
                           </Stack>
                           {fairnessTrackerPageCount > 1 ? (
-                            <Stack direction="row" justifyContent="flex-end">
-                              <Pagination
-                                count={fairnessTrackerPageCount}
-                                page={fairnessTrackerPage}
-                                onChange={(_, page) => setFairnessTrackerPage(page)}
-                                color="primary"
-                                size="small"
-                              />
-                            </Stack>
+                            <PaginationFooter
+                              pageStart={(fairnessTrackerPage - 1) * FAIRNESS_TRACKER_PAGE_SIZE + 1}
+                              pageEnd={Math.min(fairnessTrackerPage * FAIRNESS_TRACKER_PAGE_SIZE, dashboard.playerSummaries.length)}
+                              totalCount={dashboard.playerSummaries.length}
+                              hasPreviousPage={fairnessTrackerPage > 1}
+                              hasNextPage={fairnessTrackerPage < fairnessTrackerPageCount}
+                              onPrevious={() => setFairnessTrackerPage((currentPage) => Math.max(1, currentPage - 1))}
+                              onNext={() => setFairnessTrackerPage((currentPage) => Math.min(fairnessTrackerPageCount, currentPage + 1))}
+                            />
                           ) : null}
                         </>
                       )}
@@ -1360,20 +1537,97 @@ export default function FairnessPage() {
                         Bias Watch
                       </Typography>
                       <Stack spacing={1.5}>
+                        {recurringWeeklyAlertPlayers.length > 0 ? (
+                          <>
+                            <Alert severity="warning" variant="outlined">
+                              {recurringWeeklyAlertPlayers.length} player{recurringWeeklyAlertPlayers.length > 1 ? "s have" : " has"} triggered fairness alerts across multiple saved weeks.
+                            </Alert>
+                            <Box>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                                Repeated Weekly Alerts
+                              </Typography>
+                              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                {recurringWeeklyAlertPlayers.map((player) => (
+                                  <Chip
+                                    key={`recurring-alert-${player.playerId}`}
+                                    label={`${formatName(player.playerName)} - ${player.weekCount} weeks`}
+                                    color={player.severity === "warning" ? "warning" : "info"}
+                                    variant={selectedBiasWatchGroup?.playerId === player.playerId ? "filled" : "outlined"}
+                                    clickable
+                                    onClick={() => setSelectedBiasWatchPlayerId(player.playerId)}
+                                  />
+                                ))}
+                              </Stack>
+                            </Box>
+                          </>
+                        ) : null}
+
                         {fairnessUnderusePlayers.length > 0 ? (
                           <Alert severity="warning" variant="outlined">
                             {fairnessUnderusePlayers.length} player{fairnessUnderusePlayers.length > 1 ? "s are" : " is"} currently on underuse watch after crossing the 5-XI baseline.
                           </Alert>
-                        ) : (
+                        ) : recurringWeeklyAlertPlayers.length === 0 ? (
                           <EmptyStateMessage>
-                            No current underuse alerts in the saved planner history.
+                            Bias Watch appears when a player either repeats fairness alerts across saved weeks or hits the post-baseline underuse rule.
                           </EmptyStateMessage>
-                        )}
+                        ) : null}
 
                         {fairnessUrgentPlayers.length > 0 ? (
                           <Alert severity="info" variant="outlined">
                             {fairnessUrgentPlayers.length} player{fairnessUrgentPlayers.length > 1 ? "s still need" : " still needs"} strong rotation support to build toward the first 5 XI opportunities.
                           </Alert>
+                        ) : null}
+
+                        {selectedBiasWatchGroup ? (
+                          <Box
+                            sx={{
+                              p: 2,
+                              borderRadius: 3,
+                              border: "1px solid",
+                              borderColor: "divider",
+                              backgroundColor: "action.hover"
+                            }}
+                          >
+                            <Stack spacing={1.5}>
+                              <Stack
+                                direction={{ xs: "column", sm: "row" }}
+                                spacing={1}
+                                justifyContent="space-between"
+                                alignItems={{ xs: "flex-start", sm: "center" }}
+                              >
+                                <Stack spacing={0.5}>
+                                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                                    {formatName(selectedBiasWatchGroup.playerName)}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    Repeated fairness alerts across {selectedBiasWatchGroup.weekCount} saved weeks
+                                  </Typography>
+                                </Stack>
+                                <Button
+                                  component={Link}
+                                  href={selectedBiasWatchMemberId ? `/fairness/member/${selectedBiasWatchMemberId}` : "/fairness"}
+                                  variant="outlined"
+                                  size="small"
+                                  disabled={!selectedBiasWatchMemberId}
+                                >
+                                  Open Member Detail
+                                </Button>
+                              </Stack>
+                              <Stack spacing={1}>
+                                {selectedBiasWatchGroup.alerts.map((alert) => (
+                                  <Box key={alert.id}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                                      {alert.weekendLabel ?? "Saved week"}
+                                      {alert.matchNumber ? ` • Match ${alert.matchNumber}` : ""}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.25 }}>
+                                      {formatBiasWatchAlertMessage(alert)}
+                                    </Typography>
+                                  </Box>
+                                ))}
+                              </Stack>
+                            </Stack>
+                          </Box>
                         ) : null}
 
                         {fairnessNoXiPlayers.length > 0 ? (
@@ -1489,15 +1743,15 @@ export default function FairnessPage() {
                         </Stack>
                       )}
                       {savedBatchesPageCount > 1 ? (
-                        <Stack direction="row" justifyContent="flex-end">
-                          <Pagination
-                            count={savedBatchesPageCount}
-                            page={savedBatchesPage}
-                            onChange={(_, page) => setSavedBatchesPage(page)}
-                            color="primary"
-                            size="small"
-                          />
-                        </Stack>
+                        <PaginationFooter
+                          pageStart={(savedBatchesPage - 1) * SAVED_BATCHES_PAGE_SIZE + 1}
+                          pageEnd={Math.min(savedBatchesPage * SAVED_BATCHES_PAGE_SIZE, savedBatches.length)}
+                          totalCount={savedBatches.length}
+                          hasPreviousPage={savedBatchesPage > 1}
+                          hasNextPage={savedBatchesPage < savedBatchesPageCount}
+                          onPrevious={() => setSavedBatchesPage((currentPage) => Math.max(1, currentPage - 1))}
+                          onNext={() => setSavedBatchesPage((currentPage) => Math.min(savedBatchesPageCount, currentPage + 1))}
+                        />
                       ) : null}
                     </Stack>
                   </CardContent>

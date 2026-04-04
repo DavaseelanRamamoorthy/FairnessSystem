@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
@@ -18,18 +18,30 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
+  Tooltip,
   Typography
 } from "@mui/material";
-import UploadFileRoundedIcon from "@mui/icons-material/UploadFileRounded";
 import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import SportsCricketRoundedIcon from "@mui/icons-material/SportsCricketRounded";
 import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
 import AutorenewRoundedIcon from "@mui/icons-material/AutorenewRounded";
+import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
+import {
+  AttendanceAvailabilityState,
+  AttendanceSessionDetail,
+  AttendanceSessionRecord,
+  createPlannerAttendanceSession,
+  getPlannerAttendanceSessionDetail,
+  getPlannerAttendanceSessions,
+  savePlannerAttendanceAvailability
+} from "@/app/services/attendanceService";
 import { canAccessPlannerWorkspace } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
 import { saveFriendlyPlannerBatch } from "@/app/services/plannerHistoryService";
@@ -42,11 +54,10 @@ import {
 } from "@/app/services/playerProfileService";
 import {
   buildPlannerSuggestion,
-  buildPlannerSuggestionForRelease,
+  buildPlannerSuggestionForReleaseFromMembers,
+  buildPlannerSuggestionFromMembers,
   FriendlyMatchAvailabilityOverrides,
-  parseAttendanceWorkbook,
-  PlannerSuggestion,
-  PlannerWorkbook
+  PlannerSuggestion
 } from "@/app/services/plannerService";
 import { getLatestSeasonValue } from "@/app/utils/seasonSelection";
 import { readStoredSeasonFilter, storeSeasonFilter } from "@/app/utils/seasonFilterStorage";
@@ -57,10 +68,9 @@ const PLANNER_STATE_STORAGE_KEY = "sportfairsystem:planner-state:v1";
 type PlannerMode = "friendly" | "tournament";
 type PersistedPlannerState = {
   plannerMode: PlannerMode;
-  plannerWorkbook: PlannerWorkbook | null;
-  selectedWeekendId: string;
   selectedMatchCount: number;
-  uploadedFileName: string | null;
+  selectedNativeAttendanceSessionId: string;
+  pendingNativeAttendanceDate: string;
   selectedFriendlyWicketKeeperId: string;
   manualFriendlyMatchAvailability: Record<string, boolean[]>;
   manualTournamentAvailability: Record<string, boolean>;
@@ -94,16 +104,6 @@ function MetricCard({
       </CardContent>
     </Card>
   );
-}
-
-function buildPlayerLabel(player: PlayerSummary) {
-  const tags = [
-    player.isCaptain ? "Captain" : null,
-    player.isWicketKeeper ? "WK" : null,
-    ...player.roleTags
-  ].filter(Boolean);
-
-  return tags.length > 0 ? `${formatName(player.name)} - ${tags.join(", ")}` : formatName(player.name);
 }
 
 function buildAvailabilityLabel(player: PlayerSummary) {
@@ -144,12 +144,17 @@ export default function PlannerPage() {
   const [hasResolvedSeason, setHasResolvedSeason] = useState(false);
   const [players, setPlayers] = useState<PlannerPlayerSummary[]>([]);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
-  const [plannerWorkbook, setPlannerWorkbook] = useState<PlannerWorkbook | null>(null);
-  const [selectedWeekendId, setSelectedWeekendId] = useState("");
   const [selectedMatchCount, setSelectedMatchCount] = useState(3);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [nativeAttendanceSessions, setNativeAttendanceSessions] = useState<AttendanceSessionRecord[]>([]);
+  const [selectedNativeAttendanceSessionId, setSelectedNativeAttendanceSessionId] = useState("");
+  const [pendingNativeAttendanceDate, setPendingNativeAttendanceDate] = useState("");
+  const [nativeAttendanceDetail, setNativeAttendanceDetail] = useState<AttendanceSessionDetail | null>(null);
+  const [nativeAttendanceDraft, setNativeAttendanceDraft] = useState<Record<string, AttendanceAvailabilityState>>({});
+  const [isLoadingNativeAttendanceSessions, setIsLoadingNativeAttendanceSessions] = useState(false);
+  const [isLoadingNativeAttendanceDetail, setIsLoadingNativeAttendanceDetail] = useState(false);
+  const [isCreatingNativeAttendanceSession, setIsCreatingNativeAttendanceSession] = useState(false);
+  const [isSavingNativeAttendance, setIsSavingNativeAttendance] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isParsingWorkbook, setIsParsingWorkbook] = useState(false);
   const [selectedFriendlyWicketKeeperId, setSelectedFriendlyWicketKeeperId] = useState("");
   const [manualFriendlyMatchAvailability, setManualFriendlyMatchAvailability] = useState<Record<string, boolean[]>>({});
   const [manualTournamentAvailability, setManualTournamentAvailability] = useState<Record<string, boolean>>({});
@@ -157,6 +162,33 @@ export default function PlannerPage() {
   const [generatedMode, setGeneratedMode] = useState<PlannerMode | null>(null);
   const [isSavingFriendlyPlan, setIsSavingFriendlyPlan] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const selectedSeasonValue = selectedSeason && (selectedSeason === "all" || seasons.some((season) => season.value === selectedSeason))
+    ? selectedSeason
+    : "all";
+
+  const resetPlannerWorkspace = (nextMode?: PlannerMode) => {
+    const resolvedMode = nextMode ?? plannerMode;
+
+    setPlannerMode(resolvedMode);
+    setSelectedMatchCount(3);
+    setNativeAttendanceSessions([]);
+    setSelectedNativeAttendanceSessionId("");
+    setPendingNativeAttendanceDate("");
+    setNativeAttendanceDetail(null);
+    setNativeAttendanceDraft({});
+    setSelectedFriendlyWicketKeeperId("");
+    setManualFriendlyMatchAvailability({});
+    setManualTournamentAvailability({});
+    setGeneratedSuggestion(null);
+    setGeneratedMode(null);
+    setErrorMessage(null);
+
+    try {
+      window.localStorage.removeItem(PLANNER_STATE_STORAGE_KEY);
+    } catch {
+      // Ignore storage cleanup failures and keep the reset flow usable.
+    }
+  };
 
   useEffect(() => {
     try {
@@ -171,9 +203,6 @@ export default function PlannerPage() {
       if (persistedState.plannerMode === "friendly" || persistedState.plannerMode === "tournament") {
         setPlannerMode(persistedState.plannerMode);
       }
-
-      setPlannerWorkbook(persistedState.plannerWorkbook ?? null);
-      setSelectedWeekendId(typeof persistedState.selectedWeekendId === "string" ? persistedState.selectedWeekendId : "");
       setSelectedMatchCount(
         typeof persistedState.selectedMatchCount === "number"
           && persistedState.selectedMatchCount >= 1
@@ -181,7 +210,16 @@ export default function PlannerPage() {
           ? persistedState.selectedMatchCount
           : 3
       );
-      setUploadedFileName(typeof persistedState.uploadedFileName === "string" ? persistedState.uploadedFileName : null);
+      setSelectedNativeAttendanceSessionId(
+        typeof persistedState.selectedNativeAttendanceSessionId === "string"
+          ? persistedState.selectedNativeAttendanceSessionId
+          : ""
+      );
+      setPendingNativeAttendanceDate(
+        typeof persistedState.pendingNativeAttendanceDate === "string"
+          ? persistedState.pendingNativeAttendanceDate
+          : ""
+      );
       setSelectedFriendlyWicketKeeperId(
         typeof persistedState.selectedFriendlyWicketKeeperId === "string"
           ? persistedState.selectedFriendlyWicketKeeperId
@@ -204,10 +242,9 @@ export default function PlannerPage() {
     try {
       const nextState: PersistedPlannerState = {
         plannerMode,
-        plannerWorkbook,
-        selectedWeekendId,
         selectedMatchCount,
-        uploadedFileName,
+        selectedNativeAttendanceSessionId,
+        pendingNativeAttendanceDate,
         selectedFriendlyWicketKeeperId,
         manualFriendlyMatchAvailability,
         manualTournamentAvailability,
@@ -225,11 +262,10 @@ export default function PlannerPage() {
     manualFriendlyMatchAvailability,
     manualTournamentAvailability,
     plannerMode,
-    plannerWorkbook,
+    pendingNativeAttendanceDate,
     selectedFriendlyWicketKeeperId,
     selectedMatchCount,
-    selectedWeekendId,
-    uploadedFileName
+    selectedNativeAttendanceSessionId,
   ]);
 
   useEffect(() => {
@@ -270,10 +306,10 @@ export default function PlannerPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedSeason) {
-      storeSeasonFilter(PLANNER_SEASON_STORAGE_KEY, selectedSeason);
+    if (selectedSeasonValue) {
+      storeSeasonFilter(PLANNER_SEASON_STORAGE_KEY, selectedSeasonValue);
     }
-  }, [selectedSeason]);
+  }, [selectedSeasonValue]);
 
   useEffect(() => {
     let isActive = true;
@@ -369,19 +405,221 @@ export default function PlannerPage() {
 
   useEffect(() => {
     setSelectedFriendlyWicketKeeperId("");
-  }, [selectedWeekendId, selectedSeason, plannerMode]);
+  }, [selectedSeason, plannerMode, selectedNativeAttendanceSessionId]);
 
-  const selectedWeekend = useMemo(() => {
-    return plannerWorkbook?.weekends.find((weekend) => weekend.id === selectedWeekendId) ?? null;
-  }, [plannerWorkbook, selectedWeekendId]);
+  useEffect(() => {
+    if (!canAccessWorkspace || plannerMode !== "friendly") {
+      setNativeAttendanceSessions([]);
+      setSelectedNativeAttendanceSessionId("");
+      setNativeAttendanceDetail(null);
+      setNativeAttendanceDraft({});
+      setIsLoadingNativeAttendanceSessions(false);
+      return;
+    }
 
-  const friendlyBaseSuggestion = useMemo(() => {
-    if (!selectedWeekend || players.length === 0) {
+    let isActive = true;
+
+    const loadNativeAttendanceSessions = async () => {
+      try {
+        setIsLoadingNativeAttendanceSessions(true);
+        const nextSessions = await getPlannerAttendanceSessions(selectedSeason || null);
+
+        if (!isActive) {
+          return;
+        }
+
+        setNativeAttendanceSessions(nextSessions);
+        setSelectedNativeAttendanceSessionId((currentSessionId) => {
+          if (currentSessionId && nextSessions.some((session) => session.sessionId === currentSessionId)) {
+            return currentSessionId;
+          }
+
+          return nextSessions[0]?.sessionId ?? "";
+        });
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setNativeAttendanceSessions([]);
+        setSelectedNativeAttendanceSessionId("");
+        setNativeAttendanceDetail(null);
+        setNativeAttendanceDraft({});
+        setErrorMessage(
+          error instanceof Error ? error.message : "Could not load native attendance sessions."
+        );
+      } finally {
+        if (isActive) {
+          setIsLoadingNativeAttendanceSessions(false);
+        }
+      }
+    };
+
+    void loadNativeAttendanceSessions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [canAccessWorkspace, plannerMode, selectedSeason]);
+
+  useEffect(() => {
+    if (!selectedNativeAttendanceSessionId || plannerMode !== "friendly") {
+      setNativeAttendanceDetail(null);
+      setNativeAttendanceDraft({});
+      setIsLoadingNativeAttendanceDetail(false);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadNativeAttendanceDetail = async () => {
+      try {
+        setIsLoadingNativeAttendanceDetail(true);
+        const nextDetail = await getPlannerAttendanceSessionDetail(selectedNativeAttendanceSessionId);
+
+        if (!isActive) {
+          return;
+        }
+
+        setNativeAttendanceDetail(nextDetail);
+        setNativeAttendanceDraft(
+          nextDetail.members.reduce<Record<string, AttendanceAvailabilityState>>((result, member) => {
+            result[member.memberId] = member.availability;
+            return result;
+          }, {})
+        );
+        setPendingNativeAttendanceDate(nextDetail.session.weekendDate);
+        setSelectedMatchCount(nextDetail.session.matchCount);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setNativeAttendanceDetail(null);
+        setNativeAttendanceDraft({});
+        setErrorMessage(
+          error instanceof Error ? error.message : "Could not load the selected native attendance session."
+        );
+      } finally {
+        if (isActive) {
+          setIsLoadingNativeAttendanceDetail(false);
+        }
+      }
+    };
+
+    void loadNativeAttendanceDetail();
+
+    return () => {
+      isActive = false;
+    };
+  }, [plannerMode, selectedNativeAttendanceSessionId]);
+
+  const nativeAttendanceAvailableMemberIds = useMemo(() => {
+    if (!nativeAttendanceDetail) {
+      return [] as string[];
+    }
+
+    return nativeAttendanceDetail.members
+      .filter((member) => (nativeAttendanceDraft[member.memberId] ?? member.availability) === "available")
+      .map((member) => member.memberId);
+  }, [nativeAttendanceDetail, nativeAttendanceDraft]);
+
+  const nativeAttendanceAvailableNames = useMemo(() => {
+    if (!nativeAttendanceDetail) {
+      return [] as string[];
+    }
+
+    return nativeAttendanceDetail.members
+      .filter((member) => (nativeAttendanceDraft[member.memberId] ?? member.availability) === "available")
+      .map((member) => member.name);
+  }, [nativeAttendanceDetail, nativeAttendanceDraft]);
+
+  const nativeAttendanceSummary = useMemo(() => {
+    if (!nativeAttendanceDetail) {
+      return {
+        available: 0,
+        maybe: 0,
+        notAvailable: 0
+      };
+    }
+
+    return nativeAttendanceDetail.members.reduce(
+      (result, member) => {
+        const availability = nativeAttendanceDraft[member.memberId] ?? member.availability;
+
+        if (availability === "available") {
+          result.available += 1;
+        } else if (availability === "maybe") {
+          result.maybe += 1;
+        } else {
+          result.notAvailable += 1;
+        }
+
+        return result;
+      },
+      {
+        available: 0,
+        maybe: 0,
+        notAvailable: 0
+      }
+    );
+  }, [nativeAttendanceDetail, nativeAttendanceDraft]);
+
+  const hasUnsavedNativeAttendanceChanges = useMemo(() => {
+    if (!nativeAttendanceDetail) {
+      return false;
+    }
+
+    return nativeAttendanceDetail.members.some((member) => {
+      const draftAvailability = nativeAttendanceDraft[member.memberId] ?? member.availability;
+      return draftAvailability !== member.availability;
+    });
+  }, [nativeAttendanceDetail, nativeAttendanceDraft]);
+
+  const nativeAttendanceStatusLabel = useMemo(() => {
+    if (!nativeAttendanceDetail) {
       return null;
     }
 
-    return buildPlannerSuggestion(players, selectedWeekend.availableNames, selectedMatchCount, undefined, undefined, "friendly");
-  }, [players, selectedMatchCount, selectedWeekend]);
+    return hasUnsavedNativeAttendanceChanges ? "Unsaved attendance changes" : "Attendance saved";
+  }, [hasUnsavedNativeAttendanceChanges, nativeAttendanceDetail]);
+
+  const selectedFriendlyWeekend = useMemo(() => {
+    if (!nativeAttendanceDetail) {
+      return null;
+    }
+
+    return {
+      id: nativeAttendanceDetail.session.sessionId,
+      label: nativeAttendanceDetail.session.weekendLabel,
+      isoDate: nativeAttendanceDetail.session.weekendDate,
+      sourceColumn: "NATIVE",
+      availableNames: nativeAttendanceAvailableNames
+    };
+  }, [nativeAttendanceAvailableNames, nativeAttendanceDetail]);
+
+  const friendlyBaseSuggestion = useMemo(() => {
+    if (players.length === 0) {
+      return null;
+    }
+
+    if (!nativeAttendanceDetail) {
+      return null;
+    }
+
+    return buildPlannerSuggestionFromMembers(
+      players,
+      nativeAttendanceAvailableMemberIds,
+      nativeAttendanceDetail.session.matchCount,
+      undefined,
+      undefined,
+      "friendly"
+    );
+  }, [
+    nativeAttendanceAvailableMemberIds,
+    nativeAttendanceDetail,
+    players
+  ]);
 
   const friendlyWicketKeeperOptions = useMemo(() => {
     return friendlyBaseSuggestion?.availablePlayers ?? [];
@@ -409,35 +647,94 @@ export default function PlannerPage() {
 
   const activeSuggestion = generatedMode === plannerMode ? generatedSuggestion : null;
 
-  const handleWorkbookUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
+  const handleCreateNativeAttendanceSession = async () => {
+    if (!pendingNativeAttendanceDate) {
+      setErrorMessage("Choose an attendance date before creating the native attendance session.");
       return;
     }
 
     try {
-      setIsParsingWorkbook(true);
+      setIsCreatingNativeAttendanceSession(true);
       setErrorMessage(null);
 
-      const parsedWorkbook = await parseAttendanceWorkbook(file);
-      setPlannerWorkbook(parsedWorkbook);
-      setUploadedFileName(file.name);
-      setSelectedWeekendId(parsedWorkbook.weekends[0]?.id ?? "");
+      const createdSession = await createPlannerAttendanceSession({
+        season: selectedSeason || null,
+        weekendDate: pendingNativeAttendanceDate,
+        matchCount: selectedMatchCount
+      });
+
+      const nextSessions = await getPlannerAttendanceSessions(selectedSeason || null);
+
+      setNativeAttendanceSessions(nextSessions);
+      setSelectedNativeAttendanceSessionId(createdSession.session.sessionId);
+      setNativeAttendanceDetail(createdSession);
+      setNativeAttendanceDraft(
+        createdSession.members.reduce<Record<string, AttendanceAvailabilityState>>((result, member) => {
+          result[member.memberId] = member.availability;
+          return result;
+        }, {})
+      );
+      setSaveSuccessMessage(`Created the native attendance session for ${createdSession.session.weekendLabel}.`);
       setGeneratedSuggestion(null);
       setGeneratedMode(null);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Could not read the uploaded attendance workbook."
+        error instanceof Error ? error.message : "Could not create the native attendance session."
       );
-      setPlannerWorkbook(null);
-      setUploadedFileName(null);
-      setSelectedWeekendId("");
-      setGeneratedSuggestion(null);
-      setGeneratedMode(null);
     } finally {
-      setIsParsingWorkbook(false);
+      setIsCreatingNativeAttendanceSession(false);
+    }
+  };
+
+  const handleNativeAttendanceStateChange = (memberId: string, availability: AttendanceAvailabilityState) => {
+    setNativeAttendanceDraft((current) => ({
+      ...current,
+      [memberId]: availability
+    }));
+    setGeneratedSuggestion(null);
+    setGeneratedMode(null);
+  };
+
+  const handleSaveNativeAttendance = async () => {
+    if (!nativeAttendanceDetail) {
+      setErrorMessage("Choose a native attendance session before saving availability.");
+      return;
+    }
+
+    if (nativeAttendanceSummary.available < 8) {
+      setErrorMessage("Mark at least 8 players as available before saving attendance.");
+      return;
+    }
+
+    try {
+      setIsSavingNativeAttendance(true);
+      setErrorMessage(null);
+
+      const savedDetail = await savePlannerAttendanceAvailability({
+        sessionId: nativeAttendanceDetail.session.sessionId,
+        updates: nativeAttendanceDetail.members.map((member) => ({
+          memberId: member.memberId,
+          availability: nativeAttendanceDraft[member.memberId] ?? member.availability
+        }))
+      });
+
+      setNativeAttendanceDetail(savedDetail);
+      setNativeAttendanceDraft(
+        savedDetail.members.reduce<Record<string, AttendanceAvailabilityState>>((result, member) => {
+          result[member.memberId] = member.availability;
+          return result;
+        }, {})
+      );
+
+      const nextSessions = await getPlannerAttendanceSessions(selectedSeason || null);
+      setNativeAttendanceSessions(nextSessions);
+      setSaveSuccessMessage(`Saved native attendance for ${savedDetail.session.weekendLabel}.`);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not save native attendance."
+      );
+    } finally {
+      setIsSavingNativeAttendance(false);
     }
   };
 
@@ -475,23 +772,27 @@ export default function PlannerPage() {
   };
 
   const handleFriendlyGenerate = async () => {
-    if (!selectedWeekend) {
-      setErrorMessage("Upload the attendance workbook and choose a weekend before generating the friendly matchday plans.");
-      return;
-    }
-
     try {
       setErrorMessage(null);
-      const nextSuggestion = await buildPlannerSuggestionForRelease(
+      if (!nativeAttendanceDetail) {
+        setErrorMessage("Create or choose a native attendance session before generating the friendly matchday plans.");
+        return;
+      }
+
+      const nextSuggestion = await buildPlannerSuggestionForReleaseFromMembers(
         players,
-        selectedWeekend.availableNames,
-        selectedMatchCount,
+        nativeAttendanceAvailableMemberIds,
+        nativeAttendanceDetail.session.matchCount,
         undefined,
         selectedFriendlyWicketKeeperId || undefined,
         "friendly",
-        buildFriendlyMatchAvailabilityOverrides(manualFriendlyMatchAvailability, selectedMatchCount),
+        buildFriendlyMatchAvailabilityOverrides(
+          manualFriendlyMatchAvailability,
+          nativeAttendanceDetail.session.matchCount
+        ),
         selectedSeason || undefined
       );
+
       setGeneratedSuggestion(nextSuggestion);
       setGeneratedMode("friendly");
     } catch (error) {
@@ -504,7 +805,7 @@ export default function PlannerPage() {
   };
 
   const handleFriendlySave = async () => {
-    if (!selectedWeekend || !activeSuggestion || generatedMode !== "friendly") {
+    if (!selectedFriendlyWeekend || !activeSuggestion || generatedMode !== "friendly") {
       setErrorMessage("Generate the friendly planner first before saving the matchday plan.");
       return;
     }
@@ -515,19 +816,21 @@ export default function PlannerPage() {
     try {
       const savedBatch = await saveFriendlyPlannerBatch({
         season: selectedSeason || null,
-        attendanceWorkbookName: uploadedFileName,
-        weekend: selectedWeekend,
+        attendanceWorkbookName: null,
+        attendanceSessionId: selectedNativeAttendanceSessionId || null,
+        weekend: selectedFriendlyWeekend,
         suggestion: activeSuggestion,
         preferredWicketKeeperPlayerId: selectedFriendlyWicketKeeperId || null,
         matchAvailabilityOverrides: buildFriendlyMatchAvailabilityOverrides(
           manualFriendlyMatchAvailability,
-          selectedMatchCount
+          activeSuggestion.matchPlans.length
         )
       });
 
       setSaveSuccessMessage(
-        `Saved the friendly matchday plan for ${selectedWeekend.label} with ${savedBatch.savedAssignments} tracked assignments.`
+        `Saved the friendly matchday plan for ${selectedFriendlyWeekend.label} with ${savedBatch.savedAssignments} tracked assignments.`
       );
+      resetPlannerWorkspace("friendly");
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Could not save the friendly matchday plan."
@@ -544,10 +847,13 @@ export default function PlannerPage() {
     setGeneratedMode("tournament");
   };
 
-  const renderSuggestion = (plannerSuggestion: PlannerSuggestion, mode: PlannerMode) => {
+  const renderSuggestion = (
+    plannerSuggestion: PlannerSuggestion,
+    mode: PlannerMode
+  ) => {
     const unavailableHeading = mode === "friendly" ? "Not Available This Week" : "Not Included For Tournament";
     const unavailableDescription = mode === "friendly"
-      ? "Squad players who did not mark themselves available for the selected weekend, including no response or explicit unavailability."
+      ? "Squad players who did not mark themselves available in the current attendance session, including no response or explicit unavailability."
       : "Players manually left out before the tournament squad was generated.";
     const droppedDescription = mode === "friendly"
       ? "Players who were available this week but were not selected in any Playing XI or 12th-man slot across the generated match plans."
@@ -571,7 +877,11 @@ export default function PlannerPage() {
             <MetricCard
               label="Available Squad"
               value={plannerSuggestion.availablePlayers.length}
-              helper={mode === "friendly" ? "Matched from the uploaded weekend sheet" : "Manually confirmed for the tournament matchday"}
+              helper={
+                mode === "friendly"
+                  ? "Marked available in the native attendance session"
+                  : "Manually confirmed for the tournament matchday"
+              }
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -585,7 +895,11 @@ export default function PlannerPage() {
             <MetricCard
               label="Unmatched Names"
               value={plannerSuggestion.unmatchedAvailabilityNames.length}
-              helper={mode === "friendly" ? "Attendance names not matched to the squad" : "Not used in tournament mode"}
+              helper={
+                mode === "friendly"
+                  ? "Native attendance uses direct member selection"
+                  : "Not used in tournament mode"
+              }
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -816,7 +1130,7 @@ export default function PlannerPage() {
                 </Typography>
                 <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                   {plannerSuggestion.reserves.map((player) => (
-                    <Chip key={player.id} label={buildPlayerLabel(player)} variant="outlined" />
+                    <Chip key={player.id} label={formatName(player.name)} variant="outlined" />
                   ))}
                 </Stack>
               </Stack>
@@ -838,7 +1152,7 @@ export default function PlannerPage() {
                   {plannerSuggestion.unavailablePlayers.map((player) => (
                     <Chip
                       key={player.id}
-                      label={buildPlayerLabel(player)}
+                      label={formatName(player.name)}
                       color="default"
                       variant="outlined"
                     />
@@ -864,7 +1178,7 @@ export default function PlannerPage() {
               <InputLabel id="planner-season-label">Season</InputLabel>
               <Select
                 labelId="planner-season-label"
-                value={selectedSeason || "all"}
+                value={selectedSeasonValue}
                 label="Season"
                 onChange={(event) => setSelectedSeason(event.target.value)}
               >
@@ -895,22 +1209,6 @@ export default function PlannerPage() {
 
         {canAccessWorkspace && (
           <>
-            <Card variant="outlined" sx={{ borderRadius: 3 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Stack spacing={1}>
-                  <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                    Fairness Workspace
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Saved matchday history, fairness alerts, and planner record management now live in the separate fairness workspace.
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    That workspace is visible only to the organiser and captain.
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Card
@@ -921,7 +1219,7 @@ export default function PlannerPage() {
                     backgroundColor: plannerMode === "friendly" ? "action.hover" : "background.paper"
                   }}
                 >
-                  <CardActionArea onClick={() => setPlannerMode("friendly")} sx={{ borderRadius: 3 }}>
+                  <CardActionArea onClick={() => resetPlannerWorkspace("friendly")} sx={{ borderRadius: 3 }}>
                     <CardContent sx={{ p: 3 }}>
                       <Stack spacing={1.5}>
                         <Stack direction="row" spacing={1.5} alignItems="center">
@@ -929,12 +1227,27 @@ export default function PlannerPage() {
                           <Typography variant="h5" sx={{ fontWeight: 800 }}>
                             Friendly Matches
                           </Typography>
+                          <Tooltip
+                            title="Friendly planning uses native attendance, manual wicket keeper selection, and reshuffling across up to 3 matches."
+                            arrow
+                          >
+                            <Box
+                              component="span"
+                              sx={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                color: "text.secondary"
+                              }}
+                            >
+                              <InfoOutlinedIcon fontSize="small" />
+                            </Box>
+                          </Tooltip>
                         </Stack>
                         <Typography variant="body2" color="text.secondary">
-                          Use the attendance sheet, confirm the weekend and match count, and generate reshuffled Playing XI and 12th-man plans for the day.
+                          Create or update the in-app attendance session, confirm the match count, and generate reshuffled Playing XI and 12th-man plans for the day.
                         </Typography>
                         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                          <Chip label="Sheet-based availability" color="warning" variant="outlined" />
+                          <Chip label="Native attendance only" color="warning" variant="outlined" />
                           <Chip label="Reshuffle up to 3 matches" color="primary" variant="outlined" />
                         </Stack>
                       </Stack>
@@ -952,7 +1265,7 @@ export default function PlannerPage() {
                     backgroundColor: plannerMode === "tournament" ? "action.hover" : "background.paper"
                   }}
                 >
-                  <CardActionArea onClick={() => setPlannerMode("tournament")} sx={{ borderRadius: 3 }}>
+                  <CardActionArea onClick={() => resetPlannerWorkspace("tournament")} sx={{ borderRadius: 3 }}>
                     <CardContent sx={{ p: 3 }}>
                       <Stack spacing={1.5}>
                         <Stack direction="row" spacing={1.5} alignItems="center">
@@ -975,7 +1288,7 @@ export default function PlannerPage() {
               </Grid>
             </Grid>
 
-            {isLoadingPlayers || isParsingWorkbook ? (
+            {isLoadingPlayers ? (
               <Box
                 sx={{
                   minHeight: 280,
@@ -989,220 +1302,301 @@ export default function PlannerPage() {
             ) : plannerMode === "friendly" ? (
               <Stack spacing={3}>
                 <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, lg: 8 }}>
+                  <Grid size={{ xs: 12, lg: 12 }}>
                     <Card variant="outlined" sx={{ borderRadius: 3 }}>
                       <CardContent sx={{ p: 3 }}>
                         <Stack spacing={2.5}>
                           <Stack direction="row" spacing={1.5} alignItems="center">
-                            <UploadFileRoundedIcon color="primary" />
+                            <EventAvailableRoundedIcon color="primary" />
                             <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                              Friendly Availability Sheet
+                              Friendly Availability
                             </Typography>
                           </Stack>
 
                           <Typography variant="body2" color="text.secondary">
-                            Upload the weekly attendance sheet, choose the weekend column, confirm how many friendly matches are being played that day, and generate reshuffled XIs with a 12th man for each match.
+                            Native attendance is now the standard source of truth for friendly availability. Create a session, update attendance, and generate the matchday plan from the same workspace.
                           </Typography>
 
-                          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
-                            <Button
-                              component="label"
-                              variant="contained"
-                              startIcon={<UploadFileRoundedIcon />}
-                              sx={{ width: "fit-content" }}
-                            >
-                              Upload Attendance Sheet
-                              <input
-                                hidden
-                                type="file"
-                                accept=".xlsx,.xls"
-                                onChange={handleWorkbookUpload}
-                              />
-                            </Button>
+                          <Stack spacing={2}>
+                              <Box
+                                sx={{
+                                  display: "grid",
+                                  gap: 1.5,
+                                  gridTemplateColumns: {
+                                    xs: "1fr",
+                                    sm: "repeat(2, minmax(0, 1fr))",
+                                    lg: "repeat(5, minmax(0, 1fr))"
+                                  },
+                                  alignItems: "end"
+                                }}
+                              >
+                                <Box>
+                                  <TextField
+                                    type="date"
+                                    size="small"
+                                    fullWidth
+                                    label="Attendance Date"
+                                    InputLabelProps={{ shrink: true }}
+                                    value={pendingNativeAttendanceDate}
+                                    onChange={(event) => setPendingNativeAttendanceDate(event.target.value)}
+                                  />
+                                </Box>
 
-                            {uploadedFileName && (
-                              <Chip label={uploadedFileName} color="primary" variant="outlined" sx={{ width: "fit-content" }} />
-                            )}
-                          </Stack>
+                                <Box>
+                                  <FormControl size="small" fullWidth>
+                                    <InputLabel id="planner-native-match-count-label">Matches / Day</InputLabel>
+                                    <Select
+                                      labelId="planner-native-match-count-label"
+                                      value={String(selectedMatchCount)}
+                                      label="Matches / Day"
+                                      onChange={(event) => {
+                                        setSelectedMatchCount(Number(event.target.value));
+                                        setGeneratedSuggestion(null);
+                                        setGeneratedMode(null);
+                                      }}
+                                    >
+                                      <MenuItem value="1">1 Match</MenuItem>
+                                      <MenuItem value="2">2 Matches</MenuItem>
+                                        <MenuItem value="3">3 Matches</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                </Box>
 
-                          {plannerWorkbook && (
-                            <Grid container spacing={1.5}>
-                              <Grid size={{ xs: 12, md: 6 }}>
-                                <FormControl size="small" fullWidth>
-                                  <InputLabel id="planner-weekend-label">Weekend</InputLabel>
-                                  <Select
-                                    labelId="planner-weekend-label"
-                                    value={selectedWeekendId}
-                                    label="Weekend"
-                                    onChange={(event) => {
-                                      setSelectedWeekendId(event.target.value);
-                                      setGeneratedSuggestion(null);
-                                      setGeneratedMode(null);
-                                    }}
+                                <Box>
+                                  <FormControl size="small" fullWidth>
+                                    <InputLabel id="planner-native-wk-label">Wicket Keeper</InputLabel>
+                                    <Select
+                                      labelId="planner-native-wk-label"
+                                      value={selectedFriendlyWicketKeeperId}
+                                      label="Wicket Keeper"
+                                      onChange={(event) => {
+                                        setSelectedFriendlyWicketKeeperId(event.target.value);
+                                        setGeneratedSuggestion(null);
+                                        setGeneratedMode(null);
+                                      }}
+                                    >
+                                      <MenuItem value="">Use Squad Default</MenuItem>
+                                      {friendlyWicketKeeperOptions.map((player) => (
+                                        <MenuItem key={player.id} value={player.id}>
+                                          {formatName(player.name)}
+                                        </MenuItem>
+                                      ))}
+                                    </Select>
+                                  </FormControl>
+                                </Box>
+
+                                <Box>
+                                  <Button
+                                    variant="contained"
+                                    onClick={handleCreateNativeAttendanceSession}
+                                    disabled={!pendingNativeAttendanceDate || isCreatingNativeAttendanceSession}
+                                    startIcon={isCreatingNativeAttendanceSession ? <CircularProgress size={16} color="inherit" /> : <EventAvailableRoundedIcon />}
+                                    sx={{ width: "100%" }}
                                   >
-                                    {plannerWorkbook.weekends.map((weekend) => (
-                                      <MenuItem key={weekend.id} value={weekend.id}>
-                                        {weekend.label} ({weekend.sourceColumn})
-                                      </MenuItem>
-                                    ))}
-                                  </Select>
-                                </FormControl>
-                              </Grid>
+                                    Create Session
+                                  </Button>
+                                </Box>
+                              </Box>
 
-                              <Grid size={{ xs: 12, md: 6 }}>
-                                <FormControl size="small" fullWidth>
-                                  <InputLabel id="planner-match-count-label">Matches / Day</InputLabel>
-                                  <Select
-                                    labelId="planner-match-count-label"
-                                    value={String(selectedMatchCount)}
-                                    label="Matches / Day"
-                                    onChange={(event) => {
-                                      setSelectedMatchCount(Number(event.target.value));
-                                      setGeneratedSuggestion(null);
-                                      setGeneratedMode(null);
-                                    }}
-                                  >
-                                    <MenuItem value="1">1 Match</MenuItem>
-                                    <MenuItem value="2">2 Matches</MenuItem>
-                                    <MenuItem value="3">3 Matches</MenuItem>
-                                  </Select>
-                                </FormControl>
-                              </Grid>
+                              {isLoadingNativeAttendanceSessions && (
+                                <Alert severity="info" variant="outlined">
+                                  Loading native attendance sessions...
+                                </Alert>
+                              )}
 
-                              <Grid size={{ xs: 12, md: 6 }}>
-                                <FormControl size="small" fullWidth>
-                                  <InputLabel id="planner-friendly-wk-label">Wicket Keeper</InputLabel>
-                                  <Select
-                                    labelId="planner-friendly-wk-label"
-                                    value={selectedFriendlyWicketKeeperId}
-                                    label="Wicket Keeper"
-                                    onChange={(event) => {
-                                      setSelectedFriendlyWicketKeeperId(event.target.value);
-                                      setGeneratedSuggestion(null);
-                                      setGeneratedMode(null);
-                                    }}
-                                  >
-                                    <MenuItem value="">Use Squad Default</MenuItem>
-                                    {friendlyWicketKeeperOptions.map((player) => (
-                                      <MenuItem key={player.id} value={player.id}>
-                                        {buildPlayerLabel(player)}
-                                      </MenuItem>
-                                    ))}
-                                  </Select>
-                                </FormControl>
-                              </Grid>
-                            </Grid>
-                          )}
+                              {!isLoadingNativeAttendanceSessions && nativeAttendanceSessions.length === 0 && (
+                                <Alert severity="info" variant="outlined">
+                                  No native attendance sessions exist yet for this season. Create one to record availability directly in the app.
+                                </Alert>
+                              )}
 
-                          {friendlyBaseSuggestion && friendlyBaseSuggestion.availablePlayers.length > 0 && (
-                            <Box
-                              sx={{
-                                p: 2,
-                                borderRadius: 3,
-                                backgroundColor: "action.hover",
-                                border: "1px solid",
-                                borderColor: "divider"
-                              }}
-                            >
-                              <Stack spacing={1.5}>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                                  Matchday Overrides
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  Use this when someone leaves early, arrives late, or can only play selected matches. Turn off the matches they cannot play before generating the friendly plans.
-                                </Typography>
-                                <Stack spacing={0}>
-                                  {friendlyBaseSuggestion.availablePlayers.map((player) => {
-                                    const playerMatchAvailability =
-                                      manualFriendlyMatchAvailability[player.id]
-                                      ?? Array.from({ length: selectedMatchCount }, () => true);
-                                    const availableMatchLabels = playerMatchAvailability
-                                      .map((isAvailable, index) => (isAvailable ? `M${index + 1}` : null))
-                                      .filter((value): value is string => Boolean(value));
-                                    const isFullDayAvailable = availableMatchLabels.length === selectedMatchCount;
-                                    const availabilitySummaryLabel =
-                                      availableMatchLabels.length === 0
-                                        ? "Unavailable today"
-                                        : isFullDayAvailable
-                                          ? `All ${selectedMatchCount} matches`
-                                          : availableMatchLabels.length === 1
-                                            ? `${availableMatchLabels[0]} only`
-                                            : `Available for ${availableMatchLabels.join(", ")}`;
+                              {nativeAttendanceDetail && (
+                                <Box
+                                  sx={{
+                                    p: 2,
+                                    borderRadius: 3,
+                                    backgroundColor: "action.hover",
+                                    border: "1px solid",
+                                    borderColor: "divider"
+                                  }}
+                                >
+                                  <Stack spacing={1.5}>
+                                    <Stack
+                                      direction={{ xs: "column", md: "row" }}
+                                      spacing={1}
+                                      justifyContent="space-between"
+                                      alignItems={{ xs: "flex-start", md: "center" }}
+                                    >
+                                      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                                        {nativeAttendanceDetail.session.weekendLabel}
+                                      </Typography>
+                                      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                        {nativeAttendanceStatusLabel ? (
+                                          <Chip
+                                            label={nativeAttendanceStatusLabel}
+                                            color={hasUnsavedNativeAttendanceChanges ? "warning" : "success"}
+                                            variant="filled"
+                                          />
+                                        ) : null}
+                                        <Chip label={`${nativeAttendanceSummary.available} available`} color="success" variant="outlined" />
+                                        <Chip label={`${nativeAttendanceSummary.maybe} maybe`} color="warning" variant="outlined" />
+                                        <Chip label={`${nativeAttendanceSummary.notAvailable} not available`} variant="outlined" />
+                                      </Stack>
+                                    </Stack>
 
-                                    return (
-                                      <Box
-                                        key={`friendly-override-${player.id}`}
-                                        sx={{
-                                          py: 1.25,
-                                          borderBottom: "1px solid",
-                                          borderColor: "divider",
-                                          "&:last-of-type": {
-                                            borderBottom: "none",
-                                            pb: 0
-                                          },
-                                          "&:first-of-type": {
-                                            pt: 0
-                                          }
-                                        }}
-                                      >
-                                        <Stack
-                                          direction={{ xs: "column", lg: "row" }}
-                                          spacing={1.25}
-                                          alignItems={{ xs: "flex-start", lg: "center" }}
-                                          justifyContent="space-between"
-                                        >
-                                          <Stack
-                                            spacing={0.35}
-                                            sx={{ minWidth: { lg: 240 } }}
-                                          >
-                                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                              {formatName(player.name)}
-                                            </Typography>
-                                            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                                              <Chip
-                                                label={availabilitySummaryLabel}
-                                                size="small"
-                                                color={availableMatchLabels.length > 0 ? "success" : "default"}
-                                                variant="outlined"
-                                              />
-                                            </Stack>
-                                          </Stack>
-                                        </Stack>
-                                        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
-                                          {Array.from({ length: selectedMatchCount }, (_, index) => (
-                                            <Chip
-                                              key={`${player.id}-match-${index + 1}`}
-                                              label={`M${index + 1}`}
-                                              clickable
-                                              size="small"
-                                              color={(playerMatchAvailability[index] ?? true) ? "success" : "default"}
-                                              variant={(playerMatchAvailability[index] ?? true) ? "filled" : "outlined"}
-                                              onClick={() => toggleFriendlyMatchAvailability(player.id, index)}
-                                            />
-                                          ))}
-                                          {!isFullDayAvailable ? (
-                                            <Button
-                                              variant="text"
-                                              size="small"
-                                              onClick={() => setFriendlyFullDayAvailability(player.id)}
-                                            >
-                                              Reset All
-                                            </Button>
-                                          ) : null}
-                                        </Stack>
+                                    {isLoadingNativeAttendanceDetail ? (
+                                      <Box sx={{ py: 2, display: "flex", justifyContent: "center" }}>
+                                        <CircularProgress size={24} />
                                       </Box>
-                                    );
-                                  })}
-                                </Stack>
-                              </Stack>
-                            </Box>
-                          )}
+                                    ) : (
+                                      <Stack spacing={0}>
+                                        {nativeAttendanceDetail.members.map((member) => (
+                                          <Box
+                                            key={`native-attendance-${member.memberId}`}
+                                            sx={{
+                                              py: 1.25,
+                                              borderBottom: "1px solid",
+                                              borderColor: "divider",
+                                              "&:last-of-type": {
+                                                borderBottom: "none",
+                                                pb: 0
+                                              },
+                                              "&:first-of-type": {
+                                                pt: 0
+                                              }
+                                            }}
+                                          >
+                                            <Grid container spacing={1.5} alignItems="center">
+                                              <Grid size={{ xs: 12, md: 5 }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                                  {member.name}
+                                                </Typography>
+                                              </Grid>
+                                              <Grid size={{ xs: 12, md: 7 }}>
+                                                <Box
+                                                  sx={{
+                                                    display: "grid",
+                                                    gap: 1,
+                                                    alignItems: "center",
+                                                    gridTemplateColumns: {
+                                                      xs: "1fr",
+                                                      lg: "minmax(220px, 280px) minmax(0, 1fr)"
+                                                    }
+                                                  }}
+                                                >
+                                                  <FormControl size="small" fullWidth>
+                                                    <InputLabel id={`attendance-state-${member.memberId}`}>Availability</InputLabel>
+                                                    <Select
+                                                      labelId={`attendance-state-${member.memberId}`}
+                                                      value={nativeAttendanceDraft[member.memberId] ?? member.availability}
+                                                      label="Availability"
+                                                      onChange={(event) =>
+                                                        handleNativeAttendanceStateChange(
+                                                          member.memberId,
+                                                          event.target.value as AttendanceAvailabilityState
+                                                        )
+                                                      }
+                                                    >
+                                                      <MenuItem value="available">Available</MenuItem>
+                                                      <MenuItem value="maybe">Maybe</MenuItem>
+                                                      <MenuItem value="not_available">Not Available</MenuItem>
+                                                    </Select>
+                                                  </FormControl>
+
+                                                  {(() => {
+                                                    const attendanceIdentityId = member.playerId ?? member.memberId;
+                                                    const memberAvailability =
+                                                      nativeAttendanceDraft[member.memberId] ?? member.availability;
+
+                                                    if (memberAvailability !== "available") {
+                                                      return null;
+                                                    }
+
+                                                    const matchSlots = nativeAttendanceDetail.session.matchCount;
+                                                    const playerMatchAvailability =
+                                                      manualFriendlyMatchAvailability[attendanceIdentityId]
+                                                      ?? Array.from({ length: matchSlots }, () => true);
+                                                    const isFullDayAvailable = playerMatchAvailability.every(Boolean);
+
+                                                    return (
+                                                      <Box
+                                                        sx={{
+                                                          width: "100%",
+                                                          borderRadius: 999,
+                                                          border: "1px solid",
+                                                          borderColor: "divider",
+                                                          bgcolor: "rgba(255,255,255,0.02)",
+                                                          px: 1,
+                                                          py: 0.75,
+                                                          minHeight: 40,
+                                                          display: "flex",
+                                                          alignItems: "center",
+                                                          justifyContent: "flex-start",
+                                                          "@media (min-width:1200px)": {
+                                                            border: "none",
+                                                            bgcolor: "transparent",
+                                                            px: 0,
+                                                            py: 0,
+                                                            minHeight: "auto"
+                                                          }
+                                                        }}
+                                                      >
+                                                        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
+                                                          <Chip
+                                                            label="All Day"
+                                                            clickable
+                                                            size="small"
+                                                            color={isFullDayAvailable ? "success" : "default"}
+                                                            variant={isFullDayAvailable ? "filled" : "outlined"}
+                                                            onClick={() => setFriendlyFullDayAvailability(attendanceIdentityId)}
+                                                          />
+                                                          {Array.from({ length: matchSlots }, (_, index) => (
+                                                            <Chip
+                                                              key={`${attendanceIdentityId}-native-match-${index + 1}`}
+                                                              label={`M${index + 1}`}
+                                                              clickable
+                                                              size="small"
+                                                              color={(playerMatchAvailability[index] ?? true) ? "success" : "default"}
+                                                              variant={(playerMatchAvailability[index] ?? true) ? "filled" : "outlined"}
+                                                              onClick={() => toggleFriendlyMatchAvailability(attendanceIdentityId, index)}
+                                                            />
+                                                          ))}
+                                                        </Stack>
+                                                      </Box>
+                                                    );
+                                                  })()}
+                                                </Box>
+                                              </Grid>
+                                            </Grid>
+                                          </Box>
+                                        ))}
+                                      </Stack>
+                                    )}
+                                  </Stack>
+                                </Box>
+                              )}
+                            </Stack>
 
                           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
                             <Button
+                              variant="outlined"
+                              color="secondary"
+                              onClick={handleSaveNativeAttendance}
+                              disabled={
+                                !nativeAttendanceDetail
+                                || nativeAttendanceSummary.available < 8
+                                || !hasUnsavedNativeAttendanceChanges
+                                || isSavingNativeAttendance
+                              }
+                              startIcon={isSavingNativeAttendance ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
+                              sx={{ width: { xs: "100%", sm: "fit-content" } }}
+                            >
+                              Save Attendance
+                            </Button>
+                            <Button
                               variant="contained"
                               onClick={handleFriendlyGenerate}
-                              disabled={!selectedWeekend}
+                              disabled={!nativeAttendanceDetail}
                               startIcon={<Groups2RoundedIcon />}
                               sx={{ width: { xs: "100%", sm: "fit-content" } }}
                             >
@@ -1212,41 +1606,22 @@ export default function PlannerPage() {
                               variant="outlined"
                               color="secondary"
                               onClick={handleFriendlySave}
-                              disabled={!selectedWeekend || !activeSuggestion || isSavingFriendlyPlan}
+                              disabled={!selectedFriendlyWeekend || !activeSuggestion || isSavingFriendlyPlan}
                               startIcon={isSavingFriendlyPlan ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
                               sx={{ width: { xs: "100%", sm: "fit-content" } }}
                             >
                               Save Matchday Plan
                             </Button>
+                            <Button
+                              variant="text"
+                              color="inherit"
+                              onClick={() => resetPlannerWorkspace("friendly")}
+                              startIcon={<RestartAltRoundedIcon />}
+                              sx={{ width: { xs: "100%", sm: "fit-content" } }}
+                            >
+                              Reset Planner
+                            </Button>
                           </Stack>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  <Grid size={{ xs: 12, lg: 4 }}>
-                    <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
-                      <CardContent sx={{ p: 3 }}>
-                        <Stack spacing={1.5}>
-                          <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                            Friendly Planning Rules
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Friendly planning uses the uploaded attendance sheet as the source of truth, lets the captain choose the wicket keeper manually, and reshuffles the available squad across up to three matches on the same day.
-                          </Typography>
-                          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                            <Chip label="Sheet only" color="warning" variant="outlined" />
-                            <Chip label="Manual wicket keeper" color="success" variant="outlined" />
-                            <Chip label="Auto reshuffle for up to 3 matches" color="primary" variant="outlined" />
-                          </Stack>
-                          {friendlyBaseSuggestion && (
-                            <Chip
-                              label={`${friendlyBaseSuggestion.availablePlayers.length} matched players ready for planning`}
-                              color="primary"
-                              variant="outlined"
-                              sx={{ width: "fit-content" }}
-                            />
-                          )}
                         </Stack>
                       </CardContent>
                     </Card>
@@ -1268,7 +1643,7 @@ export default function PlannerPage() {
                       </Stack>
 
                       <Typography variant="body2" color="text.secondary">
-                        Manually choose the players available for the tournament. The generator will build one final Playing XI and one 12th man from the selected pool.
+                        Manually choose the players available for the tournament. The generator will build one final Playing XI and one 12th man from the selected pool using player performance signals, while profile preferences remain descriptive only.
                       </Typography>
 
                       <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} useFlexGap flexWrap="wrap">
@@ -1290,6 +1665,15 @@ export default function PlannerPage() {
                           sx={{ width: { xs: "100%", md: "fit-content" } }}
                         >
                           Generate Tournament Squad
+                        </Button>
+                        <Button
+                          variant="text"
+                          color="inherit"
+                          onClick={() => resetPlannerWorkspace("tournament")}
+                          startIcon={<RestartAltRoundedIcon />}
+                          sx={{ width: { xs: "100%", md: "fit-content" } }}
+                        >
+                          Reset Planner
                         </Button>
                       </Stack>
 
@@ -1313,7 +1697,7 @@ export default function PlannerPage() {
                             Select Tournament Availability
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Click a player to include or exclude them from the tournament squad pool.
+                            Click a player to include or exclude them from the tournament squad pool. Final selection is based on match performance and output, not on the player&apos;s preferred role in their profile.
                           </Typography>
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                             {players.map((player) => {
@@ -1322,7 +1706,7 @@ export default function PlannerPage() {
                               return (
                                 <Chip
                                   key={player.id}
-                                  label={buildPlayerLabel(player)}
+                                  label={formatName(player.name)}
                                   clickable
                                   onClick={() => toggleTournamentAvailability(player.id)}
                                   color={isSelected ? "success" : "default"}
@@ -1345,11 +1729,11 @@ export default function PlannerPage() {
 
                 {activeSuggestion ? (
                   renderSuggestion(activeSuggestion, "tournament")
-                ) : (
+                ) : manualTournamentSelectedCount >= 11 ? (
                   <Alert severity="info" variant="outlined">
-                    Select the tournament squad pool manually, then generate the final Playing XI and 12th man.
+                    Generate the tournament squad to review the final Playing XI and 12th man.
                   </Alert>
-                )}
+                ) : null}
               </Stack>
             )}
           </>

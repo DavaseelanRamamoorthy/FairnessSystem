@@ -445,6 +445,36 @@ export async function canAccessPlannerWorkspace() {
   return snapshot.canAccessPlanner;
 }
 
+export async function canManageAttendanceWorkspace() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  if (!access.teamId || !access.memberId) {
+    return false;
+  }
+
+  return (
+    access.teamRole === "organiser"
+    || access.permissions.includes("attendance_manage")
+  );
+}
+
+export async function requireAttendanceManagementAccess() {
+  const access = await getCurrentTeamMembershipAccess();
+
+  const canAccess =
+    Boolean(access.teamId && access.memberId)
+    && (
+      access.teamRole === "organiser"
+      || access.permissions.includes("attendance_manage")
+    );
+
+  if (!canAccess) {
+    throw new Error("You do not have permission to manage attendance.");
+  }
+
+  return withResolvedTeamMembershipAccess(access);
+}
+
 export async function requirePlannerWorkspaceAccess() {
   const access = await getCurrentTeamMembershipAccess();
 

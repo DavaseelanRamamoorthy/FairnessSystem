@@ -836,58 +836,63 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, lg: 6 }}>
-                <Card variant="outlined" sx={{ ...sectionCardSx, height: "100%" }}>
-                  <CardContent>
-                    <Stack spacing={2.5}>
-                      <SectionHeader title="Personal Performance" />
-                      <Grid container spacing={2}>
-                        <Grid size={{ xs: 12, sm: 6 }}>
+            <Card variant="outlined" sx={sectionCardSx}>
+              <CardContent>
+                <Stack spacing={2.5}>
+                  <SectionHeader title="Personal Performance" />
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                           <SummaryMetricCard
                             label="Total Runs"
                             value={myData.performance.totalRuns}
                             helper="All linked batting runs."
                           />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6 }}>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                           <SummaryMetricCard
                             label="Total Wickets"
                             value={myData.performance.totalWickets}
                             helper="All linked bowling wickets."
                           />
-                        </Grid>
-                      </Grid>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                      <SummaryMetricCard
+                        label="Strike Rate"
+                        value={formatSnapshotValue(myData.performance.strikeRate)}
+                        helper="Linked batting strike rate."
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                      <SummaryMetricCard
+                        label="Economy"
+                        value={formatSnapshotValue(myData.performance.economy)}
+                        helper="Linked bowling economy."
+                      />
+                    </Grid>
+                  </Grid>
 
-                      <Divider />
+                  <Divider />
 
-                      <Stack spacing={1}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Recent Contribution Summary
-                        </Typography>
-                        <Typography>{myData.performance.recentContributionSummary}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Strike Rate: {myData.performance.strikeRate !== null ? myData.performance.strikeRate.toFixed(2) : "-"}
-                          {" • "}
-                          Economy: {myData.performance.economy !== null ? myData.performance.economy.toFixed(2) : "-"}
-                        </Typography>
-                      </Stack>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Recent Contribution Summary
+                    </Typography>
+                    <Typography>{myData.performance.recentContributionSummary}</Typography>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
 
-              <Grid size={{ xs: 12, lg: 6 }}>
-                <Card variant="outlined" sx={{ ...sectionCardSx, height: "100%" }}>
-                  <CardContent>
-                    <Stack spacing={2.5}>
+            <Card variant="outlined" sx={sectionCardSx}>
+              <CardContent>
+                <Stack spacing={2.5}>
                       <Stack
                         direction={{ xs: "column", sm: "row" }}
                         justifyContent="space-between"
                         alignItems={{ xs: "flex-start", sm: "center" }}
                         spacing={1.5}
                       >
-                        <SectionHeader title="Current Week Planner Result" />
+                        <SectionHeader title="Current Week Friendly Matchday Plan" />
                         {!accessState.canToggleTeamView ? (
                           <Chip label="Read Only" icon={<VisibilityRoundedIcon />} variant="outlined" />
                         ) : null}
@@ -897,8 +902,12 @@ export default function DashboardPage() {
                         <>
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                             <Chip label={myData.plannerWeek.weekendLabel} color="primary" variant="outlined" />
-                            <Chip label={`${myData.plannerWeek.matchCount} planned matches`} variant="outlined" />
+                            <Chip label={`${myData.plannerWeek.matchCount} upcoming match${myData.plannerWeek.matchCount === 1 ? "" : "es"}`} variant="outlined" />
                           </Stack>
+
+                          <Typography variant="body2" color="text.secondary">
+                            The latest saved friendly planner is shown here so you can see the complete weekly plan transparently, including the full Playing XI for Match 1, Match 2, and Match 3.
+                          </Typography>
 
                           {plannerWeekSummary ? (
                             <Grid container spacing={1.25}>
@@ -935,7 +944,7 @@ export default function DashboardPage() {
 
                           <Grid container spacing={2}>
                             {myData.plannerWeek.matches.map((match) => (
-                              <Grid key={`planner-week-${match.matchNumber}`} size={{ xs: 12, md: 6 }}>
+                              <Grid key={`planner-week-${match.matchNumber}`} size={{ xs: 12, lg: 4 }}>
                                 <Card
                                   variant="outlined"
                                   sx={{
@@ -969,6 +978,27 @@ export default function DashboardPage() {
                                         {match.isCaptain ? <Chip label="Captain" size="small" variant="outlined" /> : null}
                                         {match.isWicketKeeper ? <Chip label="Wicket Keeper" size="small" variant="outlined" /> : null}
                                       </Stack>
+
+                                      <Divider />
+
+                                      <Stack spacing={1}>
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                          Planned Playing XI
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                          {match.xiPlayers
+                                            .slice()
+                                            .sort((left, right) => formatName(left).localeCompare(formatName(right)))
+                                            .map((playerName) => (
+                                            <Chip
+                                              key={`planner-week-${match.matchNumber}-${playerName}`}
+                                              label={formatName(playerName)}
+                                              size="small"
+                                              variant="outlined"
+                                            />
+                                          ))}
+                                        </Stack>
+                                      </Stack>
                                     </Stack>
                                   </CardContent>
                                 </Card>
@@ -1000,8 +1030,6 @@ export default function DashboardPage() {
                     </Stack>
                   </CardContent>
                 </Card>
-              </Grid>
-            </Grid>
 
             <Card variant="outlined" sx={sectionCardSx}>
               <CardContent sx={{ p: 0 }}>

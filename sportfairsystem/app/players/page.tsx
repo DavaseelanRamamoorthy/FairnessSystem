@@ -248,7 +248,7 @@ export default function PlayersPage() {
         <Box sx={{ display: { xs: "block", md: "none" } }}>
           <TeamPageHeader
             eyebrow="Roster Directory"
-            description="Browse the member-first roster and open linked player profiles. Manage roster setup and player details from Memberships."
+            description="Browse the member-first roster and open linked player profiles."
             action={(
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
                 <Button
@@ -287,11 +287,7 @@ export default function PlayersPage() {
           alignItems={{ xs: "flex-start", md: "center" }}
           spacing={2}
         >
-          <Box>
-            <Alert severity="info" sx={{ display: { xs: "none", md: "flex" } }}>
-              Use Memberships to create players, edit player details, or archive roster records.
-            </Alert>
-          </Box>
+          <Box />
 
           <Box sx={{ display: { xs: "none", md: "block" }, width: { md: "auto" } }}>
             {filterControls}
@@ -477,6 +473,61 @@ export default function PlayersPage() {
                                               })}
                                             />
                                           ))}
+                                        </Stack>
+
+                                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                                          <Chip
+                                            size="small"
+                                            label={player.primaryRole ?? player.role}
+                                            variant="outlined"
+                                            sx={(currentTheme) => ({
+                                              color: "text.primary",
+                                              borderColor:
+                                                currentTheme.palette.mode === "dark"
+                                                  ? alpha("#FFFFFF", 0.12)
+                                                  : alpha(currentTheme.palette.primary.main, 0.14),
+                                              backgroundColor:
+                                                currentTheme.palette.mode === "dark"
+                                                  ? alpha("#FFFFFF", 0.04)
+                                                  : alpha("#DCE7FF", 0.42)
+                                            })}
+                                          />
+                                          {player.battingStyle && (
+                                            <Chip
+                                              size="small"
+                                              label={`${player.battingStyle} batting`}
+                                              variant="outlined"
+                                              sx={(currentTheme) => ({
+                                                color: "text.primary",
+                                                borderColor:
+                                                  currentTheme.palette.mode === "dark"
+                                                    ? alpha("#FFFFFF", 0.12)
+                                                    : alpha(currentTheme.palette.primary.main, 0.14),
+                                                backgroundColor:
+                                                  currentTheme.palette.mode === "dark"
+                                                    ? alpha("#FFFFFF", 0.04)
+                                                    : alpha("#DCE7FF", 0.32)
+                                              })}
+                                            />
+                                          )}
+                                          {player.bowlingStyle && (
+                                            <Chip
+                                              size="small"
+                                              label={`${player.bowlingStyle} bowling`}
+                                              variant="outlined"
+                                              sx={(currentTheme) => ({
+                                                color: "text.primary",
+                                                borderColor:
+                                                  currentTheme.palette.mode === "dark"
+                                                    ? alpha("#FFFFFF", 0.12)
+                                                    : alpha(currentTheme.palette.primary.main, 0.14),
+                                                backgroundColor:
+                                                  currentTheme.palette.mode === "dark"
+                                                    ? alpha("#FFFFFF", 0.04)
+                                                    : alpha("#DCE7FF", 0.32)
+                                              })}
+                                            />
+                                          )}
                                         </Stack>
                                       </Stack>
                                     </Stack>

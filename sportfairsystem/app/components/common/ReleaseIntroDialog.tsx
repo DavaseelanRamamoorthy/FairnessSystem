@@ -22,28 +22,28 @@ type ReleaseIntroDialogProps = {
 
 const featureHighlights = [
   {
-    title: "Scorecard Ingestion",
-    detail: "Upload and parse cricket scorecards into structured match data."
+    title: "Connected Match Pipeline",
+    detail: "Upload scorecards, save structured match data, and keep player identity safer across matches, analytics, fairness, and planner workflows."
   },
   {
-    title: "Squad & Player Management",
-    detail: "Build and manage your team with identity-linked player profiles."
+    title: "Memberships and Team Operations",
+    detail: "Manage team roles, seasons, linked users, linked players, and organiser workflows in one operational memberships workspace."
   },
   {
-    title: "Player Intelligence & Analytics",
-    detail: "Track performance, trends, and usage across matches and seasons."
+    title: "Native Attendance and Friendly Planner",
+    detail: "Run in-app attendance sessions, save availability, and generate friendly matchday plans without relying on spreadsheet uploads."
   },
   {
-    title: "Planner Workflows",
-    detail: "Plan matches using attendance data, generate Playing XI, and manage bench decisions."
+    title: "Transparent Fairness and Player Visibility",
+    detail: "Track fairness alerts, bias watch, recent usage history, and the current week matchday plan from player-facing views."
   },
   {
-    title: "Validation & Data Integrity",
-    detail: "Detect missing links, duplicates, and inconsistencies with built-in validation tools."
+    title: "Player Profiles and Preferences",
+    detail: "Capture richer player details such as cricket role, batting and bowling style, preferences, and identity fields inside the profile flow."
   },
   {
-    title: "Authentication & Role-Based Access",
-    detail: "Secure, role-aware system with admin controls and protected workflows."
+    title: "Performance, Tournament, and Validation Support",
+    detail: "Use player performance signals for tournament planning, monitor analytics and validation, and keep the release safer through role-aware access and QA hardening."
   }
 ];
 
@@ -67,7 +67,7 @@ export default function ReleaseIntroDialog({
             Introducing SportFairSystem v1.0
           </Typography>
           <Typography color="text.secondary">
-            After months of building, refining, and real-world validation, SportFairSystem v1.0 is live, stable, and ready for real usage.
+            SportFairSystem has now grown into a practical end-to-end team operations platform for Moonwalkers, connecting organisers, players, planner workflows, fairness visibility, and player data in one place.
           </Typography>
         </Stack>
       </DialogTitle>
@@ -75,12 +75,12 @@ export default function ReleaseIntroDialog({
       <DialogContent dividers>
         <Stack spacing={3}>
           <Typography color="text.secondary">
-            SportFairSystem started as a simple scorecard parser. Today, it has evolved into a complete, role-aware team system that connects match data, player insights, and team decision-making into one unified platform.
+            What started as a scorecard-driven cricket system now supports the real weekly flow of the team: onboarding, linked memberships, player profiles, native attendance, friendly planning, tournament support, fairness tracking, player dashboards, and feedback collection.
           </Typography>
 
           <Stack spacing={1.5}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              What SportFairSystem v1.0 offers
+              What SportFairSystem now delivers end to end
             </Typography>
 
             {featureHighlights.map((item) => (
@@ -100,16 +100,16 @@ export default function ReleaseIntroDialog({
               Built for Real Teams
             </Typography>
             <Typography color="text.secondary">
-              SportFairSystem is currently designed as an internal platform for real team workflows, with a focus on simplicity, transparency, and data-driven decisions.
+              This release is shaped around real Moonwalkers usage: organisers can manage the squad and weekly operations, while players can now see their profile, personal performance, fairness view, and current week friendly matchday plan transparently.
             </Typography>
           </Stack>
 
           <Stack spacing={1}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              Version 1.0 Scope
+              What changed in the current release
             </Typography>
             <Typography color="text.secondary">
-              This release is intentionally focused and stable. Features like multi-team support, live scoring, and tournament management are planned for future versions.
+              The current product state adds native attendance as the standard friendly workflow, expands memberships and player profile management, improves fairness and bias visibility, sharpens player dashboard transparency, and hardens organiser-player access across the system.
             </Typography>
           </Stack>
 
@@ -118,7 +118,7 @@ export default function ReleaseIntroDialog({
               Why this matters
             </Typography>
             <Typography color="text.secondary">
-              Most amateur teams rely on scattered tools or manual tracking. SportFairSystem brings everything together:
+              Instead of relying on scattered spreadsheets, captain-only communication, or disconnected tools, SportFairSystem now keeps the weekly operating flow connected:
             </Typography>
             <Box
               sx={{
@@ -151,13 +151,13 @@ export default function ReleaseIntroDialog({
                 Responsive Fit Disclaimer
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                SportFairSystem is responsive across desktop, tablet, and mobile, but the best experience is still on desktop or larger tablet screens. A few dense analytics and admin workflows may feel tighter on smaller phones.
+                SportFairSystem now works across desktop, tablet, and mobile, but denser organiser workflows such as analytics, memberships, and validation still feel best on larger screens.
               </Typography>
             </Stack>
           </Box>
 
           <Typography color="text.secondary">
-            This is just the beginning. More to come.
+            This release is designed to be usable, transparent, and stable in real team operations, while keeping bigger infrastructure and future expansion work for later versions.
           </Typography>
         </Stack>
       </DialogContent>

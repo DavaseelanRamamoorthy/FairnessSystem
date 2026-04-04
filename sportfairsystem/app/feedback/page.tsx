@@ -39,6 +39,7 @@ import { usePagination } from "@/app/hooks/usePagination";
 import {
   FEEDBACK_CATEGORIES,
   FEEDBACK_MODULES,
+  FEEDBACK_MIN_DESCRIPTION_LENGTH,
   FEEDBACK_PRIORITIES,
   FEEDBACK_STATUSES,
   FeedbackCategory,
@@ -338,6 +339,11 @@ export default function FeedbackPage() {
     [teamFeedback]
   );
   const canManageTeamFeedback = workspace?.canManageTeamFeedback ?? false;
+  const normalizedTitleLength = formValues.title.trim().length;
+  const normalizedDescriptionLength = formValues.description.trim().length;
+  const isDescriptionLongEnough =
+    normalizedDescriptionLength >= FEEDBACK_MIN_DESCRIPTION_LENGTH;
+  const canSubmitFeedback = normalizedTitleLength > 0 && isDescriptionLongEnough && !isSubmitting;
 
   const handleFormChange = (field: keyof FeedbackFormValues, value: string) => {
     setFormValues((current) => ({
@@ -549,7 +555,7 @@ export default function FeedbackPage() {
                         label="Title"
                         value={formValues.title}
                         onChange={(event) => handleFormChange("title", event.target.value)}
-                        helperText={`${formValues.title.trim().length}/120 characters`}
+                        helperText={`${normalizedTitleLength}/120 characters`}
                       />
                     </Grid>
 
@@ -561,19 +567,19 @@ export default function FeedbackPage() {
                         label="Description"
                         value={formValues.description}
                         onChange={(event) => handleFormChange("description", event.target.value)}
-                        helperText="Describe the problem, suggestion, or question in enough detail for the team to act on it."
+                        helperText={`${normalizedDescriptionLength}/${FEEDBACK_MIN_DESCRIPTION_LENGTH} minimum characters. Describe the problem, suggestion, or question in enough detail for the team to act on it.`}
                       />
                     </Grid>
 
                     <Grid size={{ xs: 12 }}>
                       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }}>
                         <Typography variant="body2" color="text.secondary">
-                          Title is required and description must be at least 10 characters.
+                          Title is required and description must be at least {FEEDBACK_MIN_DESCRIPTION_LENGTH} characters.
                         </Typography>
                         <Button
                           variant="contained"
                           onClick={() => void handleSubmitFeedback()}
-                          disabled={isSubmitting}
+                          disabled={!canSubmitFeedback}
                         >
                           {isSubmitting ? "Submitting..." : "Submit Feedback"}
                         </Button>

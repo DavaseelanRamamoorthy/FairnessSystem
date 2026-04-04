@@ -67,6 +67,19 @@ type MatchDetailRow = MatchRow & {
   match_players?: MatchPlayerDetailRow[];
 };
 
+type RawLinkedUserProfileRow = {
+  user_id?: unknown;
+};
+
+type RawUserCricketProfileRow = {
+  primary_role?: unknown;
+  batting_style?: unknown;
+  bowling_style?: unknown;
+  batter_preference?: unknown;
+  bowler_preference?: unknown;
+  cricheroes_name?: unknown;
+};
+
 type BattingStatRow = {
   innings_id: string;
   player_id: string | null;
@@ -100,6 +113,12 @@ export type PlayerSummary = {
   id: string;
   name: string;
   matchesPlayed: number;
+  battingMatches: number;
+  bowlingMatches: number;
+  totalRuns: number;
+  strikeRate: number | null;
+  totalWickets: number;
+  economy: number | null;
   role: "Batter" | "Bowler" | "All-Rounder" | "Player";
   performanceLabel: string;
   performanceColor: "primary" | "warning" | "default";
@@ -121,6 +140,11 @@ export type MemberRosterSummary = PlayerSummary & {
   membershipStatus: "active" | "inactive" | "invited" | "archived";
   hasLinkedPlayer: boolean;
   seasonId: string | null;
+  primaryRole: string | null;
+  bowlingStyle: string | null;
+  batterPreference: string | null;
+  bowlerPreference: string | null;
+  cricHeroesName: string | null;
 };
 
 export type PlayerProfile = {
@@ -138,7 +162,12 @@ export type PlayerProfile = {
   totalWickets: number;
   economy: number | null;
   role: "Batter" | "Bowler" | "All-Rounder" | "Player";
+  primaryRole: string | null;
   battingStyle: string | null;
+  bowlingStyle: string | null;
+  batterPreference: string | null;
+  bowlerPreference: string | null;
+  cricHeroesName: string | null;
   isCaptain: boolean;
   isWicketKeeper: boolean;
   roleTags: string[];
@@ -165,6 +194,20 @@ type TeamMemberRosterRow = {
   status?: unknown;
   season_id?: unknown;
 };
+
+type RawMemberLinkRow = {
+  member_id?: unknown;
+  user_id?: unknown;
+};
+
+function normalizeNullableText(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
 
 type MemberLinkedPlayerRow = {
   id?: unknown;
@@ -250,6 +293,12 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       id: player.id,
       name: player.name,
       matchesPlayed,
+      battingMatches,
+      bowlingMatches,
+      totalRuns: stats.battingRuns,
+      strikeRate,
+      totalWickets: stats.bowlingWickets,
+      economy,
       role: "All-Rounder",
       performanceLabel: strikeRate !== null
         ? `Strike Rate ${strikeRate.toFixed(2)}`
@@ -269,6 +318,12 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       id: player.id,
       name: player.name,
       matchesPlayed,
+      battingMatches,
+      bowlingMatches,
+      totalRuns: stats.battingRuns,
+      strikeRate,
+      totalWickets: stats.bowlingWickets,
+      economy,
       role: "Bowler",
       performanceLabel: economy !== null ? `Economy ${economy.toFixed(2)}` : "No performance data yet",
       performanceColor: economy !== null ? "warning" : "default",
@@ -284,6 +339,12 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       id: player.id,
       name: player.name,
       matchesPlayed,
+      battingMatches,
+      bowlingMatches,
+      totalRuns: stats.battingRuns,
+      strikeRate,
+      totalWickets: stats.bowlingWickets,
+      economy,
       role: "Batter",
       performanceLabel: strikeRate !== null ? `Strike Rate ${strikeRate.toFixed(2)}` : "No performance data yet",
       performanceColor: strikeRate !== null ? "primary" : "default",
@@ -299,6 +360,12 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       id: player.id,
       name: player.name,
       matchesPlayed,
+      battingMatches,
+      bowlingMatches,
+      totalRuns: stats.battingRuns,
+      strikeRate,
+      totalWickets: stats.bowlingWickets,
+      economy,
       role: "Bowler",
       performanceLabel: `Economy ${economy.toFixed(2)}`,
       performanceColor: "warning",
@@ -314,6 +381,12 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       id: player.id,
       name: player.name,
       matchesPlayed,
+      battingMatches,
+      bowlingMatches,
+      totalRuns: stats.battingRuns,
+      strikeRate,
+      totalWickets: stats.bowlingWickets,
+      economy,
       role: "Batter",
       performanceLabel: `Strike Rate ${strikeRate.toFixed(2)}`,
       performanceColor: "primary",
@@ -329,6 +402,12 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
       id: player.id,
       name: player.name,
       matchesPlayed,
+      battingMatches,
+      bowlingMatches,
+      totalRuns: stats.battingRuns,
+      strikeRate,
+      totalWickets: stats.bowlingWickets,
+      economy,
       role: "Bowler",
       performanceLabel: `Economy ${economy.toFixed(2)}`,
       performanceColor: "warning",
@@ -343,6 +422,12 @@ function buildPlayerSummary(player: SquadPlayer, stats: AggregatedPlayerStats): 
     id: player.id,
     name: player.name,
     matchesPlayed,
+    battingMatches,
+    bowlingMatches,
+    totalRuns: stats.battingRuns,
+    strikeRate,
+    totalWickets: stats.bowlingWickets,
+    economy,
     role: "Player",
     performanceLabel: "No performance data yet",
     performanceColor: "default",
@@ -863,7 +948,9 @@ export async function getMemberRosterSummaries(season?: string) {
       bowlingStats
     },
     { data: membersData, error: membersError },
-    { data: linkedPlayersData, error: linkedPlayersError }
+    { data: linkedPlayersData, error: linkedPlayersError },
+    { data: linksData, error: linksError },
+    { data: usersData, error: usersError }
   ] = await Promise.all([
     loadSharedPlayerData(teamId, teamName, season),
     supabase
@@ -876,7 +963,16 @@ export async function getMemberRosterSummaries(season?: string) {
       .select("id, member_id, name, is_guest, batting_style, is_captain, is_wicket_keeper, role_tags")
       .eq("team_id", teamId)
       .eq("is_guest", false)
-      .not("member_id", "is", null)
+      .not("member_id", "is", null),
+    supabase
+      .from("member_links")
+      .select("member_id, user_id"),
+    supabase
+      .from("users")
+      .select(
+        "id, primary_role, batting_style, bowling_style, batter_preference, bowler_preference, cricheroes_name"
+      )
+      .eq("team_id", teamId)
   ]);
 
   if (membersError) {
@@ -885,6 +981,14 @@ export async function getMemberRosterSummaries(season?: string) {
 
   if (linkedPlayersError) {
     throw new Error("Could not load linked player profiles.");
+  }
+
+  if (linksError) {
+    throw new Error("Could not load linked member-user mappings.");
+  }
+
+  if (usersError) {
+    throw new Error("Could not load linked user cricket profiles.");
   }
 
   const statsByPlayer = aggregatePlayerStats(
@@ -899,6 +1003,8 @@ export async function getMemberRosterSummaries(season?: string) {
     squadPlayers.map((player) => [player.id, player] as const)
   );
   const linkedPlayerByMemberId = new Map<string, SquadPlayer>();
+  const linkedUserIdByMemberId = new Map<string, string>();
+  const linkedUserCricketById = new Map<string, RawUserCricketProfileRow>();
 
   ((linkedPlayersData ?? []) as MemberLinkedPlayerRow[]).forEach((row) => {
     const memberId = typeof row.member_id === "string" ? row.member_id : null;
@@ -914,6 +1020,27 @@ export async function getMemberRosterSummaries(season?: string) {
     );
   });
 
+  ((linksData ?? []) as RawMemberLinkRow[]).forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const userId = typeof row.user_id === "string" ? row.user_id : null;
+
+    if (!memberId || !userId) {
+      return;
+    }
+
+    linkedUserIdByMemberId.set(memberId, userId);
+  });
+
+  ((usersData ?? []) as Array<Record<string, unknown>>).forEach((row) => {
+    const userId = typeof row.id === "string" ? row.id : null;
+
+    if (!userId) {
+      return;
+    }
+
+    linkedUserCricketById.set(userId, row as RawUserCricketProfileRow);
+  });
+
   return ((membersData ?? []) as TeamMemberRosterRow[])
     .map((row) => {
       const memberId = typeof row.id === "string" ? row.id : "";
@@ -923,6 +1050,8 @@ export async function getMemberRosterSummaries(season?: string) {
           ? row.status
           : "active";
       const linkedPlayer = linkedPlayerByMemberId.get(memberId) ?? null;
+      const linkedUserId = linkedUserIdByMemberId.get(memberId) ?? null;
+      const linkedUserCricket = linkedUserId ? (linkedUserCricketById.get(linkedUserId) ?? null) : null;
       const basePlayer: SquadPlayer = linkedPlayer ?? {
         id: memberId,
         name,
@@ -947,7 +1076,12 @@ export async function getMemberRosterSummaries(season?: string) {
         playerId: linkedPlayer?.id ?? null,
         membershipStatus,
         hasLinkedPlayer: Boolean(linkedPlayer),
-        seasonId: typeof row.season_id === "string" ? row.season_id : null
+        seasonId: typeof row.season_id === "string" ? row.season_id : null,
+        primaryRole: normalizeNullableText(linkedUserCricket?.primary_role),
+        bowlingStyle: normalizeNullableText(linkedUserCricket?.bowling_style),
+        batterPreference: normalizeNullableText(linkedUserCricket?.batter_preference),
+        bowlerPreference: normalizeNullableText(linkedUserCricket?.bowler_preference),
+        cricHeroesName: normalizeNullableText(linkedUserCricket?.cricheroes_name)
       } satisfies MemberRosterSummary;
     })
     .sort((left, right) => {
@@ -974,6 +1108,39 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
 
   if (!player) {
     throw new Error("Player not found.");
+  }
+
+  const { data: memberLinkData, error: memberLinkError } = await supabase
+    .from("member_links")
+    .select("user_id")
+    .eq("player_id", player.id)
+    .maybeSingle();
+
+  if (memberLinkError) {
+    throw new Error("Could not load the linked member profile.");
+  }
+
+  const linkedUserId =
+    typeof (memberLinkData as RawLinkedUserProfileRow | null)?.user_id === "string"
+      ? ((memberLinkData as RawLinkedUserProfileRow).user_id as string)
+      : null;
+
+  let linkedUserCricketProfile: RawUserCricketProfileRow | null = null;
+
+  if (linkedUserId) {
+    const { data: userProfileData, error: userProfileError } = await supabase
+      .from("users")
+      .select(
+        "primary_role, batting_style, bowling_style, batter_preference, bowler_preference, cricheroes_name"
+      )
+      .eq("id", linkedUserId)
+      .maybeSingle();
+
+    if (userProfileError) {
+      throw new Error("Could not load the linked cricket profile.");
+    }
+
+    linkedUserCricketProfile = (userProfileData ?? null) as RawUserCricketProfileRow | null;
   }
 
   const statsByPlayer = aggregatePlayerStats(
@@ -1151,7 +1318,13 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     totalWickets: stats.bowlingWickets,
     economy,
     role: summary.role,
-    battingStyle: player.battingStyle,
+    primaryRole: normalizeNullableText(linkedUserCricketProfile?.primary_role),
+    battingStyle:
+      normalizeNullableText(linkedUserCricketProfile?.batting_style) ?? player.battingStyle,
+    bowlingStyle: normalizeNullableText(linkedUserCricketProfile?.bowling_style),
+    batterPreference: normalizeNullableText(linkedUserCricketProfile?.batter_preference),
+    bowlerPreference: normalizeNullableText(linkedUserCricketProfile?.bowler_preference),
+    cricHeroesName: normalizeNullableText(linkedUserCricketProfile?.cricheroes_name),
     isCaptain: player.isCaptain,
     isWicketKeeper: player.isWicketKeeper,
     roleTags: player.roleTags,

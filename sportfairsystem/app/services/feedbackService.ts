@@ -22,6 +22,7 @@ export const FEEDBACK_MODULES = [
 ] as const;
 export const FEEDBACK_PRIORITIES = ["Low", "Medium", "High"] as const;
 export const FEEDBACK_STATUSES = ["New", "Reviewed", "In Progress", "Closed"] as const;
+export const FEEDBACK_MIN_DESCRIPTION_LENGTH = 1000;
 
 export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
 export type FeedbackModule = (typeof FEEDBACK_MODULES)[number];
@@ -200,8 +201,10 @@ function validateFeedbackInput(values: FeedbackFormValues) {
     throw new Error("Feedback description is required.");
   }
 
-  if (description.length < 10) {
-    throw new Error("Feedback description must be at least 10 characters.");
+  if (description.length < FEEDBACK_MIN_DESCRIPTION_LENGTH) {
+    throw new Error(
+      `Feedback description must be at least ${FEEDBACK_MIN_DESCRIPTION_LENGTH} characters.`
+    );
   }
 
   return {

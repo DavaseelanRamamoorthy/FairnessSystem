@@ -37,7 +37,6 @@ import PaginationFooter from "@/app/components/common/PaginationFooter";
 import { usePagination } from "@/app/hooks/usePagination";
 import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 import {
-  canManageIdentityWorkspace,
   getCurrentWorkspaceAccessSnapshot
 } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
@@ -172,6 +171,10 @@ function getPlayerInitials(name: string) {
 }
 
 function getBestFitLabel(profile: PlayerProfile) {
+  if (profile.primaryRole) {
+    return profile.primaryRole;
+  }
+
   const primaryRoleTag = getPrimarySquadRoleTag(profile.roleTags);
 
   if (primaryRoleTag) {
@@ -503,7 +506,6 @@ export default function PlayerProfilePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedMatchId, setExpandedMatchId] = useState<string | false>(false);
   const [canSeeSelectionUsage, setCanSeeSelectionUsage] = useState(false);
-  const [canManagePlayerSetup, setCanManagePlayerSetup] = useState(false);
   const recentMatchesPagination = usePagination({
     items: profile?.recentMatches ?? [],
     pageSize: RECENT_MATCHES_PAGE_SIZE,
@@ -544,19 +546,14 @@ export default function PlayerProfilePage() {
 
     const loadPlayerWorkspaceAccess = async () => {
       try {
-        const [workspaceAccess, canManageIdentity] = await Promise.all([
-          getCurrentWorkspaceAccessSnapshot(),
-          canManageIdentityWorkspace()
-        ]);
+        const workspaceAccess = await getCurrentWorkspaceAccessSnapshot();
 
         if (isActive) {
           setCanSeeSelectionUsage(workspaceAccess.canAccessAnalytics);
-          setCanManagePlayerSetup(canManageIdentity);
         }
       } catch {
         if (isActive) {
           setCanSeeSelectionUsage(false);
-          setCanManagePlayerSetup(false);
         }
       }
     };
@@ -641,6 +638,17 @@ export default function PlayerProfilePage() {
     ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, canSeeSelectionUsage, activeTeamName)
     : "";
   const bestFitLabel = profile ? getBestFitLabel(profile) : "";
+  const displayRoleLabel = profile ? profile.primaryRole ?? profile.role : "";
+  const cricketProfileRows = profile
+    ? [
+      { label: "Primary Role", value: profile.primaryRole ?? profile.role },
+      { label: "Batting Style", value: profile.battingStyle ?? "Not set" },
+      { label: "Bowling Style", value: profile.bowlingStyle ?? "Not set" },
+      { label: "Batter Preference", value: profile.batterPreference ?? "Not set" },
+      { label: "Bowler Preference", value: profile.bowlerPreference ?? "Not set" },
+      { label: "CricHeroes Name", value: profile.cricHeroesName ?? "Not set" }
+    ]
+    : [];
 
   const paginatedRecentMatches = recentMatchesPagination.paginatedItems;
   const primaryRoleTag = profile ? getPrimarySquadRoleTag(profile.roleTags) : null;
@@ -769,7 +777,7 @@ export default function PlayerProfilePage() {
                               {formatName(profile.name)}
                             </Typography>
 
-                            <Chip label={profile.role} size="small" sx={getMetadataChipSx("role")} />
+                            <Chip label={displayRoleLabel} size="small" sx={getMetadataChipSx("role")} />
                             {profile.isCaptain && (
                               <Chip label="Captain" size="small" sx={getMetadataChipSx("captain")} />
                             )}
@@ -805,6 +813,22 @@ export default function PlayerProfilePage() {
                                 sx={getMetadataChipSx("tag")}
                               />
                             ))}
+                            {profile.battingStyle && (
+                              <Chip
+                                label={`${profile.battingStyle} batting`}
+                                size="small"
+                                variant="outlined"
+                                sx={getMetadataChipSx("style")}
+                              />
+                            )}
+                            {profile.bowlingStyle && (
+                              <Chip
+                                label={`${profile.bowlingStyle} bowling`}
+                                size="small"
+                                variant="outlined"
+                                sx={getMetadataChipSx("style")}
+                              />
+                            )}
                           </Stack>
                           </Stack>
                         </Stack>
@@ -831,11 +855,6 @@ export default function PlayerProfilePage() {
                         </Select>
                       </FormControl>
 
-                      {canManagePlayerSetup && (
-                        <Alert severity="info" variant="outlined">
-                          Manage player setup in Memberships.
-                        </Alert>
-                      )}
                     </Stack>
                   </Stack>
 
@@ -1162,6 +1181,83 @@ export default function PlayerProfilePage() {
                           </Stack>
                         )}
                       </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid size={{ xs: 12 }} sx={{ display: "flex" }}>
+                <Card
+                  variant="outlined"
+                  sx={(currentTheme) => ({
+                    width: "100%",
+                    borderRadius: 3,
+                    borderColor:
+                      currentTheme.palette.mode === "dark"
+                        ? alpha("#FFFFFF", 0.1)
+                        : alpha(PLAYER_NAVY, 0.12),
+                    boxShadow: "none"
+                  })}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Stack spacing={2.25}>
+                      <Stack spacing={0.75}>
+                        <Typography variant="h5" sx={{ color: "text.primary", fontWeight: 800 }}>
+                          Cricket Profile
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: theme.palette.mode === "dark" ? "text.secondary" : alpha(PLAYER_NAVY, 0.72) }}
+                        >
+                          Linked account details that help explain the player&apos;s preferred role, style, and match profile.
+                        </Typography>
+                      </Stack>
+
+                      <Grid container spacing={2}>
+                        {cricketProfileRows.map((item) => (
+                          <Grid key={item.label} size={{ xs: 12, sm: 6, lg: 4 }}>
+                            <Box
+                              sx={{
+                                p: 1.75,
+                                borderRadius: 2.5,
+                                border: "1px solid",
+                                borderColor: (currentTheme) =>
+                                  currentTheme.palette.mode === "dark"
+                                    ? alpha("#FFFFFF", 0.08)
+                                    : alpha(PLAYER_NAVY, 0.08),
+                                backgroundColor: (currentTheme) =>
+                                  currentTheme.palette.mode === "dark"
+                                    ? alpha("#FFFFFF", 0.04)
+                                    : "#FFFFFF",
+                                height: "100%"
+                              }}
+                            >
+                              <Stack spacing={0.65}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    letterSpacing: 0.8,
+                                    color: theme.palette.mode === "dark"
+                                      ? "text.secondary"
+                                      : alpha(PLAYER_NAVY, 0.64)
+                                  }}
+                                >
+                                  {item.label}
+                                </Typography>
+                                <Typography
+                                  sx={{
+                                    color: "text.primary",
+                                    fontWeight: 700,
+                                    lineHeight: 1.4
+                                  }}
+                                >
+                                  {item.value}
+                                </Typography>
+                              </Stack>
+                            </Box>
+                          </Grid>
+                        ))}
+                      </Grid>
                     </Stack>
                   </CardContent>
                 </Card>

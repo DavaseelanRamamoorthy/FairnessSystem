@@ -43,11 +43,15 @@ type PlannerAssignmentDetailRow = {
   player_name?: unknown;
   assignment?: unknown;
   is_available?: unknown;
+  member_id?: unknown;
+  is_captain?: unknown;
+  is_wicket_keeper?: unknown;
 };
 
 type SaveFriendlyPlannerBatchInput = {
   season: string | null;
   attendanceWorkbookName: string | null;
+  attendanceSessionId?: string | null;
   weekend: PlannerWeekendOption;
   suggestion: PlannerSuggestion;
   preferredWicketKeeperPlayerId?: string | null;
@@ -102,6 +106,7 @@ export type CurrentMemberPlannerWeekSnapshot = {
     assignment: "xi" | "twelfth" | "bench" | "unavailable";
     isCaptain: boolean;
     isWicketKeeper: boolean;
+    xiPlayers: string[];
   }>;
 };
 
@@ -162,6 +167,7 @@ function resolveFriendlyAssignment(
 export async function saveFriendlyPlannerBatch({
   season,
   attendanceWorkbookName,
+  attendanceSessionId,
   weekend,
   suggestion,
   preferredWicketKeeperPlayerId,
@@ -252,6 +258,7 @@ export async function saveFriendlyPlannerBatch({
       weekend_label: weekend.label,
       weekend_source_column: weekend.sourceColumn,
       attendance_workbook_name: attendanceWorkbookName,
+      attendance_session_id: attendanceSessionId ?? null,
       match_count: suggestion.matchPlans.length,
       preferred_wicket_keeper_player_id: preferredWicketKeeperIdentity?.playerId ?? null,
       generated_by_user_id: access.user.id,
@@ -377,21 +384,27 @@ export async function listFriendlyPlannerBatches(season?: string) {
     .filter((value): value is PlannerBatchListItem => Boolean(value));
 }
 
-export async function getCurrentMemberFriendlyPlannerWeekSnapshot() {
+export async function getCurrentMemberFriendlyPlannerWeekSnapshot(season?: string) {
   const access = await getCurrentTeamMembershipAccess();
 
   if (!access.teamId || !access.memberId) {
     return null;
   }
 
-  const { data: batchData, error: batchError } = await supabase
+  let batchQuery = supabase
     .from("planner_matchday_batches")
-    .select("id, weekend_date, weekend_label, match_count, notes, created_at")
+    .select("id, season, weekend_date, weekend_label, match_count, notes, created_at")
     .eq("team_id", access.teamId)
     .eq("planner_mode", "friendly")
     .order("weekend_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1);
+
+  if (season) {
+    batchQuery = batchQuery.eq("season", season);
+  }
+
+  const { data: batchData, error: batchError } = await batchQuery;
 
   if (batchError) {
     if (isPlannerPersistenceMissingError(batchError)) {
@@ -411,40 +424,60 @@ export async function getCurrentMemberFriendlyPlannerWeekSnapshot() {
 
   const { data: assignmentData, error: assignmentError } = await supabase
     .from("planner_matchday_assignments")
-    .select("match_number, assignment, is_captain, is_wicket_keeper")
+    .select("match_number, player_name, assignment, member_id, is_captain, is_wicket_keeper")
     .eq("team_id", access.teamId)
     .eq("batch_id", latestBatch.id)
-    .eq("member_id", access.memberId)
     .order("match_number", { ascending: true });
 
   if (assignmentError) {
     throw new Error("Could not load your current planner assignments.");
   }
 
-  const matches: CurrentMemberPlannerWeekSnapshot["matches"] = (assignmentData ?? [])
-    .flatMap((row) => {
-      const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
-      const assignment = typeof row.assignment === "string" ? row.assignment : null;
+  const assignmentRows = (assignmentData ?? []) as PlannerAssignmentDetailRow[];
+  const rowsByMatchNumber = new Map<number, PlannerAssignmentDetailRow[]>();
 
-      if (
-        !matchNumber
-        || (
-          assignment !== "xi"
-          && assignment !== "twelfth"
-          && assignment !== "bench"
-          && assignment !== "unavailable"
-        )
-      ) {
-        return [];
-      }
+  assignmentRows.forEach((row) => {
+    const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
 
-      return [{
-        matchNumber,
-        assignment: assignment as CurrentMemberPlannerWeekSnapshot["matches"][number]["assignment"],
-        isCaptain: row.is_captain === true,
-        isWicketKeeper: row.is_wicket_keeper === true
-      }];
-    });
+    if (!matchNumber) {
+      return;
+    }
+
+    const currentRows = rowsByMatchNumber.get(matchNumber) ?? [];
+    currentRows.push(row);
+    rowsByMatchNumber.set(matchNumber, currentRows);
+  });
+
+  const matches: CurrentMemberPlannerWeekSnapshot["matches"] = Array.from(
+    { length: latestBatch.matchCount },
+    (_, index) => index + 1
+  ).flatMap((matchNumber) => {
+    const matchRows = rowsByMatchNumber.get(matchNumber) ?? [];
+    const memberRow = matchRows.find((row) => row.member_id === access.memberId) ?? null;
+    const assignment = typeof memberRow?.assignment === "string" ? memberRow.assignment : null;
+
+    if (
+      !memberRow
+      || (
+        assignment !== "xi"
+        && assignment !== "twelfth"
+        && assignment !== "bench"
+        && assignment !== "unavailable"
+      )
+    ) {
+      return [];
+    }
+
+    return [{
+      matchNumber,
+      assignment: assignment as CurrentMemberPlannerWeekSnapshot["matches"][number]["assignment"],
+      isCaptain: memberRow.is_captain === true,
+      isWicketKeeper: memberRow.is_wicket_keeper === true,
+      xiPlayers: matchRows
+        .filter((row) => row.assignment === "xi" && typeof row.player_name === "string")
+        .map((row) => row.player_name as string)
+    }];
+  });
 
   if (matches.length === 0) {
     return null;

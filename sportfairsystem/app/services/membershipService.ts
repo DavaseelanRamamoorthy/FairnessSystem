@@ -44,6 +44,11 @@ export type TeamMembershipRecord = {
   userId: string | null;
   userDisplayName: string | null;
   userEmail: string | null;
+  primaryRole: string | null;
+  bowlingStyle: string | null;
+  batterPreference: string | null;
+  bowlerPreference: string | null;
+  cricHeroesName: string | null;
   playerId: string | null;
   playerName: string | null;
   battingStyle: string | null;
@@ -107,6 +112,12 @@ type RawUserRow = {
   username?: unknown;
   first_name?: unknown;
   last_name?: unknown;
+  primary_role?: unknown;
+  batting_style?: unknown;
+  bowling_style?: unknown;
+  batter_preference?: unknown;
+  bowler_preference?: unknown;
+  cricheroes_name?: unknown;
 };
 
 type RawPlayerRow = {
@@ -296,7 +307,9 @@ export async function getTeamMembershipRecords() {
       .eq("team_id", access.teamId),
     supabase
       .from("users")
-      .select("id, email, username, first_name, last_name")
+      .select(
+        "id, email, username, first_name, last_name, primary_role, batting_style, bowling_style, batter_preference, bowler_preference, cricheroes_name"
+      )
       .eq("team_id", access.teamId),
     supabase
       .from("players")
@@ -370,7 +383,16 @@ export async function getTeamMembershipRecords() {
       .filter((entry): entry is readonly [string, string] => Boolean(entry))
   );
 
-  const userDisplayById = new Map<string, { displayName: string | null; email: string | null }>(
+  const userDisplayById = new Map<string, {
+    displayName: string | null;
+    email: string | null;
+    primaryRole: string | null;
+    battingStyle: string | null;
+    bowlingStyle: string | null;
+    batterPreference: string | null;
+    bowlerPreference: string | null;
+    cricHeroesName: string | null;
+  }>(
     ((usersData ?? []) as RawUserRow[]).map((row) => {
       const userId = typeof row.id === "string" ? row.id : "";
       const email = normalizeNullableText(row.email);
@@ -387,7 +409,13 @@ export async function getTeamMembershipRecords() {
             firstName,
             lastName
           }),
-          email
+          email,
+          primaryRole: normalizeNullableText(row.primary_role),
+          battingStyle: normalizeNullableText(row.batting_style),
+          bowlingStyle: normalizeNullableText(row.bowling_style),
+          batterPreference: normalizeNullableText(row.batter_preference),
+          bowlerPreference: normalizeNullableText(row.bowler_preference),
+          cricHeroesName: normalizeNullableText(row.cricheroes_name)
         }
       ] as const;
     })
@@ -483,9 +511,14 @@ export async function getTeamMembershipRecords() {
       userId,
       userDisplayName: userDisplay?.displayName ?? null,
       userEmail: userDisplay?.email ?? null,
+      primaryRole: userDisplay?.primaryRole ?? null,
+      bowlingStyle: userDisplay?.bowlingStyle ?? null,
+      batterPreference: userDisplay?.batterPreference ?? null,
+      bowlerPreference: userDisplay?.bowlerPreference ?? null,
+      cricHeroesName: userDisplay?.cricHeroesName ?? null,
       playerId,
       playerName: playerDetails?.name ?? null,
-      battingStyle: playerDetails?.battingStyle ?? null,
+      battingStyle: userDisplay?.battingStyle ?? playerDetails?.battingStyle ?? null,
       isCaptain: playerDetails?.isCaptain ?? false,
       isWicketKeeper: playerDetails?.isWicketKeeper ?? false,
       roleTags: playerDetails?.roleTags ?? [],

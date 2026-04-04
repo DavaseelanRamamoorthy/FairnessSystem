@@ -109,16 +109,53 @@ function buildFairnessRoleLabel(player: PlannerFairnessPlayerSummary) {
 }
 
 function buildFairnessHistoryLabel(entry: PlannerFairnessHistoryEntry) {
-  const resultParts = [
-    entry.xiCount > 0 ? `XI ${entry.xiCount}` : null,
-    entry.twelfthCount > 0 ? `12th ${entry.twelfthCount}` : null,
-    entry.benchCount > 0 ? `Bench ${entry.benchCount}` : null,
-    entry.unavailableCount > 0 ? `Unavailable ${entry.unavailableCount}` : null
-  ].filter(Boolean);
+  const plannedMatches = entry.availableMatchCount;
 
-  return resultParts.length > 0
-    ? `${entry.weekendLabel}: ${resultParts.join(", ")}`
-    : `${entry.weekendLabel}: No tracked assignments`;
+  if (plannedMatches <= 0) {
+    return "Unavailable for this week.";
+  }
+
+  if (entry.pendingMatchCount === plannedMatches) {
+    return `Planned for ${plannedMatches} match${plannedMatches > 1 ? "es" : ""}. Actual scorecards are still pending.`;
+  }
+
+  if (entry.pendingMatchCount > 0) {
+    return `Used in ${entry.xiCount} of ${plannedMatches} planned match${plannedMatches > 1 ? "es" : ""} so far. ${entry.pendingMatchCount} match result${entry.pendingMatchCount > 1 ? "s are" : " is"} still pending.`;
+  }
+
+  if (entry.xiCount === plannedMatches) {
+    return `Used in all ${plannedMatches} planned match${plannedMatches > 1 ? "es" : ""}.`;
+  }
+
+  if (entry.xiCount > 0) {
+    return `Used in ${entry.xiCount} of ${plannedMatches} planned match${plannedMatches > 1 ? "es" : ""}.`;
+  }
+
+  if (entry.twelfthCount > 0) {
+    return `Planned for ${plannedMatches} match${plannedMatches > 1 ? "es" : ""}, but stayed as 12th man.`;
+  }
+
+  if (entry.benchCount > 0) {
+    return `Planned for ${plannedMatches} match${plannedMatches > 1 ? "es" : ""}, but stayed on the bench.`;
+  }
+
+  return `Planned for ${plannedMatches} match${plannedMatches > 1 ? "es" : ""}, with no tracked XI use recorded.`;
+}
+
+function buildFairnessHistorySummaryLabel(entry: PlannerFairnessHistoryEntry) {
+  if (entry.availableMatchCount <= 0) {
+    return "Unavailable";
+  }
+
+  if (entry.pendingMatchCount === entry.availableMatchCount) {
+    return `Planned for ${entry.availableMatchCount} match${entry.availableMatchCount > 1 ? "es" : ""}`;
+  }
+
+  if (entry.pendingMatchCount > 0) {
+    return `${entry.pendingMatchCount} result${entry.pendingMatchCount > 1 ? "s" : ""} pending`;
+  }
+
+  return `Available for ${entry.availableMatchCount} match${entry.availableMatchCount > 1 ? "es" : ""}`;
 }
 
 function stripLeadingPlayerNameFromAlert(alert: PlannerFairnessAlert) {
@@ -395,7 +432,10 @@ export default function MemberFairnessView({
                         color={member.xiCount >= 5 ? "success" : member.xiCount === 0 ? "warning" : "default"}
                         variant={member.xiCount >= 5 ? "filled" : "outlined"}
                       />
-                      <Chip label={`${snapshot?.savedMatchdays ?? 0} saved matchdays`} variant="outlined" />
+                      <Chip
+                        label={`${snapshot?.savedMatchdays ?? 0} upcoming match${(snapshot?.savedMatchdays ?? 0) === 1 ? "" : "es"}`}
+                        variant="outlined"
+                      />
                       {mode === "leadership" ? (
                         <Chip label="Leadership Detail" color="primary" variant="outlined" />
                       ) : null}
@@ -494,15 +534,31 @@ export default function MemberFairnessView({
                                       {entry.weekendLabel}
                                     </Typography>
                                     <Chip
-                                      label={entry.availableMatchCount > 0 ? `${entry.availableMatchCount} available slot${entry.availableMatchCount > 1 ? "s" : ""}` : "Unavailable"}
+                                      label={buildFairnessHistorySummaryLabel(entry)}
                                       size="small"
                                       variant="outlined"
                                     />
                                   </Stack>
                                   <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                                    <Chip label={`XI ${entry.xiCount}`} size="small" color="primary" variant="outlined" />
-                                    <Chip label={`12th ${entry.twelfthCount}`} size="small" variant="outlined" />
-                                    <Chip label={`Bench ${entry.benchCount}`} size="small" variant="outlined" />
+                                    <Chip
+                                      label={entry.pendingMatchCount === entry.availableMatchCount ? `Planned XI ${entry.plannedXiCount}` : `XI ${entry.xiCount}`}
+                                      size="small"
+                                      color="primary"
+                                      variant="outlined"
+                                    />
+                                    <Chip
+                                      label={entry.pendingMatchCount === entry.availableMatchCount ? `Planned 12th ${entry.plannedTwelfthCount}` : `12th ${entry.twelfthCount}`}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                    <Chip
+                                      label={entry.pendingMatchCount === entry.availableMatchCount ? `Planned Bench ${entry.plannedBenchCount}` : `Bench ${entry.benchCount}`}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                    {entry.pendingMatchCount > 0 && entry.pendingMatchCount !== entry.availableMatchCount ? (
+                                      <Chip label={`Pending ${entry.pendingMatchCount}`} size="small" color="warning" variant="outlined" />
+                                    ) : null}
                                     <Chip label={`Unavailable ${entry.unavailableCount}`} size="small" variant="outlined" />
                                   </Stack>
                                   <Typography variant="body2" color="text.secondary">

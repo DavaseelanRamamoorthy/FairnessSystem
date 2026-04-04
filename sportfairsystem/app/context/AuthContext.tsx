@@ -32,6 +32,12 @@ export type AuthProfile = {
   username: string | null;
   phoneCountryCode: string | null;
   phoneNumber: string | null;
+  primaryRole: string | null;
+  battingStyle: string | null;
+  bowlingStyle: string | null;
+  batterPreference: string | null;
+  bowlerPreference: string | null;
+  cricHeroesName: string | null;
 };
 
 type AuthContextValue = {
@@ -63,6 +69,12 @@ type UserProfileRow = {
   username?: string | null;
   phone_country_code?: string | null;
   phone_number?: string | null;
+  primary_role?: string | null;
+  batting_style?: string | null;
+  bowling_style?: string | null;
+  batter_preference?: string | null;
+  bowler_preference?: string | null;
+  cricheroes_name?: string | null;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -97,7 +109,13 @@ function mapUserProfile(row: UserProfileRow, fallbackEmail: string | undefined):
     lastName: normalizeProfileText(row.last_name),
     username: normalizeProfileText(row.username),
     phoneCountryCode: normalizeProfileText(row.phone_country_code),
-    phoneNumber: normalizeProfileText(row.phone_number)
+    phoneNumber: normalizeProfileText(row.phone_number),
+    primaryRole: normalizeProfileText(row.primary_role),
+    battingStyle: normalizeProfileText(row.batting_style),
+    bowlingStyle: normalizeProfileText(row.bowling_style),
+    batterPreference: normalizeProfileText(row.batter_preference),
+    bowlerPreference: normalizeProfileText(row.bowler_preference),
+    cricHeroesName: normalizeProfileText(row.cricheroes_name)
   };
 }
 

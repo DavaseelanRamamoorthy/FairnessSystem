@@ -15,12 +15,14 @@ import {
   Container,
   Divider,
   Grid,
+  MenuItem,
   Stack,
   TextField,
   Typography
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
+import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
@@ -48,6 +50,62 @@ import {
 const PROFILE_NAVY = "#0A1A49";
 const PROFILE_NAVY_DEEP = "#061230";
 const PROFILE_RED = "#E53935";
+const DEFAULT_PHONE_COUNTRY_CODE = "+49";
+const DEFAULT_PHONE_COUNTRY_ISO: CountryCode = "DE";
+const PRIMARY_ROLE_OPTIONS = [
+  "Batter",
+  "Bowler",
+  "All-Rounder",
+  "Wicket Keeper",
+  "Batting All-Rounder",
+  "Bowling All-Rounder"
+] as const;
+const BATTING_STYLE_OPTIONS = [
+  "Righty",
+  "Lefty"
+] as const;
+const BOWLING_STYLE_OPTIONS = [
+  "Righty",
+  "Lefty"
+] as const;
+const BATTER_PREFERENCE_OPTIONS = [
+  "Top Order",
+  "Middle Order",
+  "Lower Order",
+  "Flexible"
+] as const;
+const BOWLER_PREFERENCE_OPTIONS = [
+  "Powerplay",
+  "Middle Overs",
+  "Death Overs",
+  "Flexible"
+] as const;
+
+type PhoneCountryOption = {
+  isoCode: CountryCode;
+  dialCode: string;
+  label: string;
+};
+
+const countryNameFormatter = new Intl.DisplayNames(["en"], { type: "region" });
+const phoneCountryPreferenceByDialCode: Record<string, CountryCode> = {
+  "+1": "US",
+  "+7": "RU",
+  "+39": "IT",
+  "+44": "GB"
+};
+const PHONE_COUNTRY_OPTIONS: PhoneCountryOption[] = getCountries()
+  .map((isoCode) => {
+    const dialCode = `+${getCountryCallingCode(isoCode)}`;
+    const countryName = countryNameFormatter.of(isoCode) ?? isoCode;
+
+    return {
+      isoCode,
+      dialCode,
+      label: `${countryName} (${dialCode})`
+    };
+  })
+  .sort((left, right) => left.label.localeCompare(right.label));
 
 type ProfileFormState = {
   firstName: string;
@@ -55,23 +113,86 @@ type ProfileFormState = {
   username: string;
   phoneCountryCode: string;
   phoneNumber: string;
+  primaryRole: string;
+  battingStyle: string;
+  bowlingStyle: string;
+  batterPreference: string;
+  bowlerPreference: string;
+  cricHeroesName: string;
 };
 
 function normalizeProfileInput(value: string) {
   return value.trim();
 }
 
-function normalizePhoneNumber(value: string) {
-  return value.replace(/\s+/g, "").trim();
+function buildSelectOptions(
+  options: readonly string[],
+  currentValue: string
+) {
+  const normalizedValue = currentValue.trim();
+
+  if (!normalizedValue || options.includes(normalizedValue)) {
+    return options;
+  }
+
+  return [normalizedValue, ...options];
+}
+
+function resolvePhoneCountryIso(phoneCountryCode: string | null | undefined): CountryCode {
+  const normalizedCode = phoneCountryCode?.trim();
+
+  if (!normalizedCode) {
+    return DEFAULT_PHONE_COUNTRY_ISO;
+  }
+
+  const preferredIso = phoneCountryPreferenceByDialCode[normalizedCode];
+  if (preferredIso) {
+    return preferredIso;
+  }
+
+  const matchedCountry = PHONE_COUNTRY_OPTIONS.find((option) => option.dialCode === normalizedCode);
+  return matchedCountry?.isoCode ?? DEFAULT_PHONE_COUNTRY_ISO;
+}
+
+function getPhoneDigits(value: string) {
+  return value.replace(/\D+/g, "").trim();
+}
+
+function getPhoneCountryOption(isoCode: CountryCode) {
+  return PHONE_COUNTRY_OPTIONS.find((option) => option.isoCode === isoCode) ?? PHONE_COUNTRY_OPTIONS.find((option) => option.isoCode === DEFAULT_PHONE_COUNTRY_ISO)!;
+}
+
+function formatPhoneNumber(value: string, countryIso: CountryCode) {
+  const digits = getPhoneDigits(value);
+
+  if (!digits) {
+    return "";
+  }
+
+  return new AsYouType(countryIso).input(digits);
+}
+
+function isPhoneNumberValid(value: string, countryIso: CountryCode) {
+  const parsed = parsePhoneNumberFromString(value, countryIso);
+  return Boolean(parsed?.isValid());
 }
 
 function buildProfileFormState(profile: ReturnType<typeof useAuth>["profile"]): ProfileFormState {
+  const resolvedPhoneCountryCode = profile?.phoneCountryCode || DEFAULT_PHONE_COUNTRY_CODE;
+  const resolvedPhoneCountryIso = resolvePhoneCountryIso(resolvedPhoneCountryCode);
+
   return {
     firstName: profile?.firstName ?? "",
     lastName: profile?.lastName ?? "",
     username: profile?.username ?? "",
-    phoneCountryCode: profile?.phoneCountryCode ?? "",
-    phoneNumber: profile?.phoneNumber ?? ""
+    phoneCountryCode: resolvedPhoneCountryCode,
+    phoneNumber: formatPhoneNumber(profile?.phoneNumber ?? "", resolvedPhoneCountryIso),
+    primaryRole: profile?.primaryRole ?? "",
+    battingStyle: profile?.battingStyle ?? "",
+    bowlingStyle: profile?.bowlingStyle ?? "",
+    batterPreference: profile?.batterPreference ?? "",
+    bowlerPreference: profile?.bowlerPreference ?? "",
+    cricHeroesName: profile?.cricHeroesName ?? ""
   };
 }
 
@@ -126,12 +247,19 @@ export default function ProfilePage() {
   const [isTeamActionSubmitting, setIsTeamActionSubmitting] = useState(false);
   const [pendingJoinRequest, setPendingJoinRequest] = useState<TeamJoinRequestRecord | null>(null);
   const [workspaceAccess, setWorkspaceAccess] = useState<WorkspaceAccessSnapshot | null>(null);
+  const [selectedPhoneCountryIso, setSelectedPhoneCountryIso] = useState(DEFAULT_PHONE_COUNTRY_ISO);
   const [formValues, setFormValues] = useState<ProfileFormState>({
     firstName: "",
     lastName: "",
     username: "",
-    phoneCountryCode: "",
-    phoneNumber: ""
+    phoneCountryCode: DEFAULT_PHONE_COUNTRY_CODE,
+    phoneNumber: "",
+    primaryRole: "",
+    battingStyle: "",
+    bowlingStyle: "",
+    batterPreference: "",
+    bowlerPreference: "",
+    cricHeroesName: ""
   });
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -139,6 +267,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setFormValues(buildProfileFormState(profile));
+    setSelectedPhoneCountryIso(resolvePhoneCountryIso(profile?.phoneCountryCode));
   }, [profile]);
 
   useEffect(() => {
@@ -152,7 +281,20 @@ export default function ProfilePage() {
 
       const { error } = await supabase
         .from("users")
-        .select("id, first_name, last_name, username, phone_country_code, phone_number")
+        .select(`
+          id,
+          first_name,
+          last_name,
+          username,
+          phone_country_code,
+          phone_number,
+          primary_role,
+          batting_style,
+          bowling_style,
+          batter_preference,
+          bowler_preference,
+          cricheroes_name
+        `)
         .eq("id", profile.id)
         .single();
 
@@ -431,11 +573,26 @@ export default function ProfilePage() {
     : mappingColumnsReady
       ? resolvedPlayerName
       : "Mapping not installed";
-  const formattedPhone = [profile.phoneCountryCode, profile.phoneNumber].filter(Boolean).join(" ");
+  const formattedPhone = [
+    profile.phoneCountryCode,
+    profile.phoneNumber ? formatPhoneNumber(profile.phoneNumber, resolvePhoneCountryIso(profile.phoneCountryCode)) : null
+  ].filter(Boolean).join(" ");
+  const selectedPhoneCountry = getPhoneCountryOption(selectedPhoneCountryIso);
+  const primaryRoleOptions = buildSelectOptions(PRIMARY_ROLE_OPTIONS, formValues.primaryRole);
+  const battingStyleOptions = buildSelectOptions(BATTING_STYLE_OPTIONS, formValues.battingStyle);
+  const bowlingStyleOptions = buildSelectOptions(BOWLING_STYLE_OPTIONS, formValues.bowlingStyle);
+  const batterPreferenceOptions = buildSelectOptions(BATTER_PREFERENCE_OPTIONS, formValues.batterPreference);
+  const bowlerPreferenceOptions = buildSelectOptions(BOWLER_PREFERENCE_OPTIONS, formValues.bowlerPreference);
   const accountSummary = [
     { label: "Email", value: profile.email },
     { label: "Username", value: profile.username ?? "Not set" },
     { label: "Contact", value: formattedPhone || "Not set" },
+    { label: "Primary Role", value: profile.primaryRole ?? "Not set" },
+    { label: "Batting Style", value: profile.battingStyle ?? "Not set" },
+    { label: "Bowling Style", value: profile.bowlingStyle ?? "Not set" },
+    { label: "Batter Preference", value: profile.batterPreference ?? "Not set" },
+    { label: "Bowler Preference", value: profile.bowlerPreference ?? "Not set" },
+    { label: "CricHeroes Name", value: profile.cricHeroesName ?? "Not set" },
     { label: "App Role", value: profile.role === "admin" ? "Admin" : "Member" },
     { label: "Workspace Access", value: workspaceAccessLabel },
     { label: "Team", value: isTeamLoading ? "Loading..." : resolvedTeamName },
@@ -452,6 +609,31 @@ export default function ProfilePage() {
     }));
   };
 
+  const handlePhoneCountryCodeChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const nextPhoneCountryIso = event.target.value as CountryCode;
+    const nextPhoneCountry = getPhoneCountryOption(nextPhoneCountryIso);
+
+    setFormValues((currentValues) => ({
+      ...currentValues,
+      phoneCountryCode: nextPhoneCountry.dialCode,
+      phoneNumber: formatPhoneNumber(currentValues.phoneNumber, nextPhoneCountryIso)
+    }));
+    setSelectedPhoneCountryIso(nextPhoneCountryIso);
+  };
+
+  const handlePhoneNumberChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const nextPhoneNumber = formatPhoneNumber(event.target.value, selectedPhoneCountryIso);
+
+    setFormValues((currentValues) => ({
+      ...currentValues,
+      phoneNumber: nextPhoneNumber
+    }));
+  };
+
   const handleSaveProfile = async () => {
     if (profileColumnsReady !== true) {
       setErrorMessage(
@@ -465,7 +647,13 @@ export default function ProfilePage() {
       last_name: normalizeProfileInput(formValues.lastName),
       username: normalizeProfileInput(formValues.username),
       phone_country_code: normalizeProfileInput(formValues.phoneCountryCode),
-      phone_number: normalizePhoneNumber(formValues.phoneNumber)
+      phone_number: getPhoneDigits(formValues.phoneNumber),
+      primary_role: normalizeProfileInput(formValues.primaryRole),
+      batting_style: normalizeProfileInput(formValues.battingStyle),
+      bowling_style: normalizeProfileInput(formValues.bowlingStyle),
+      batter_preference: normalizeProfileInput(formValues.batterPreference),
+      bowler_preference: normalizeProfileInput(formValues.bowlerPreference),
+      cricheroes_name: normalizeProfileInput(formValues.cricHeroesName)
     };
 
     if (
@@ -481,6 +669,11 @@ export default function ProfilePage() {
 
     if (!nextValues.phone_country_code.startsWith("+")) {
       setErrorMessage("Country code should start with +, for example +49.");
+      return;
+    }
+
+    if (!isPhoneNumberValid(formValues.phoneNumber, selectedPhoneCountryIso)) {
+      setErrorMessage(`Enter a valid mobile number for ${selectedPhoneCountry.label}.`);
       return;
     }
 
@@ -1004,6 +1197,8 @@ export default function ProfilePage() {
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
+                        id="profile-first-name"
+                        name="firstName"
                         label="First Name"
                         value={formValues.firstName}
                         onChange={handleFieldChange("firstName")}
@@ -1014,6 +1209,8 @@ export default function ProfilePage() {
 
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
+                        id="profile-last-name"
+                        name="lastName"
                         label="Last Name"
                         value={formValues.lastName}
                         onChange={handleFieldChange("lastName")}
@@ -1024,6 +1221,8 @@ export default function ProfilePage() {
 
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
+                        id="profile-username"
+                        name="username"
                         label="Username"
                         value={formValues.username}
                         onChange={handleFieldChange("username")}
@@ -1034,22 +1233,152 @@ export default function ProfilePage() {
 
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
+                        id="profile-country-code"
+                        name="phoneCountryCode"
+                        select
                         label="Country Code"
-                        placeholder="+49"
-                        value={formValues.phoneCountryCode}
-                        onChange={handleFieldChange("phoneCountryCode")}
+                        value={selectedPhoneCountryIso}
+                        onChange={handlePhoneCountryCodeChange}
+                        helperText={`Dial code ${selectedPhoneCountry.dialCode}`}
                         fullWidth
                         required
-                      />
+                      >
+                        {PHONE_COUNTRY_OPTIONS.map((option) => (
+                          <MenuItem key={option.isoCode} value={option.isoCode}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
                     </Grid>
 
                     <Grid size={{ xs: 12 }}>
                       <TextField
+                        id="profile-phone-number"
+                        name="phoneNumber"
                         label="Contact Number"
                         value={formValues.phoneNumber}
-                        onChange={handleFieldChange("phoneNumber")}
+                        onChange={handlePhoneNumberChange}
+                        helperText="Formatted automatically for the selected country."
+                        inputProps={{
+                          inputMode: "numeric"
+                        }}
                         fullWidth
                         required
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Divider />
+
+                  <Stack spacing={0.75}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: "text.primary" }}>
+                      Cricket Profile
+                    </Typography>
+                    <Typography color="text.secondary">
+                      Keep your playing identity aligned with the squad and membership records.
+                    </Typography>
+                  </Stack>
+
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        id="profile-primary-role"
+                        name="primaryRole"
+                        select
+                        label="Primary Role"
+                        value={formValues.primaryRole}
+                        onChange={handleFieldChange("primaryRole")}
+                        fullWidth
+                      >
+                        {primaryRoleOptions.map((option) => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        id="profile-batting-style"
+                        name="battingStyle"
+                        select
+                        label="Batting Style"
+                        value={formValues.battingStyle}
+                        onChange={handleFieldChange("battingStyle")}
+                        fullWidth
+                      >
+                        {battingStyleOptions.map((option) => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        id="profile-bowling-style"
+                        name="bowlingStyle"
+                        select
+                        label="Bowling Style"
+                        value={formValues.bowlingStyle}
+                        onChange={handleFieldChange("bowlingStyle")}
+                        fullWidth
+                      >
+                        {bowlingStyleOptions.map((option) => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        id="profile-batter-preference"
+                        name="batterPreference"
+                        select
+                        label="Batter Preference"
+                        value={formValues.batterPreference}
+                        onChange={handleFieldChange("batterPreference")}
+                        fullWidth
+                      >
+                        {batterPreferenceOptions.map((option) => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        id="profile-bowler-preference"
+                        name="bowlerPreference"
+                        select
+                        label="Bowler Preference"
+                        value={formValues.bowlerPreference}
+                        onChange={handleFieldChange("bowlerPreference")}
+                        fullWidth
+                      >
+                        {bowlerPreferenceOptions.map((option) => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        id="profile-cricheroes-name"
+                        name="cricHeroesName"
+                        label="CricHeroes Name"
+                        placeholder="Player name as shown on CricHeroes"
+                        value={formValues.cricHeroesName}
+                        onChange={handleFieldChange("cricHeroesName")}
+                        fullWidth
                       />
                     </Grid>
                   </Grid>

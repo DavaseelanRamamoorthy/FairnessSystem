@@ -25,6 +25,8 @@ export type PlannerWorkbook = {
 };
 
 export type PlannerPlayer = PlayerSummary & {
+  memberId: string;
+  playerId: string | null;
   identityMatchKeys: string[];
   normalizedName: string;
   normalizedMatchKeys: string[];
@@ -232,6 +234,29 @@ function getPlannerRole(player: PlayerSummary): PlannerPlayer["plannerRole"] {
   return "batter";
 }
 
+function getTournamentPlannerRole(player: PlayerSummary): PlannerPlayer["plannerRole"] {
+  const hasBattingPerformance = player.totalRuns > 0 || (player.battingMatches > 0 && player.strikeRate !== null);
+  const hasBowlingPerformance = player.totalWickets > 0 || (player.bowlingMatches > 0 && player.economy !== null);
+
+  if (hasBattingPerformance && hasBowlingPerformance) {
+    return "all-rounder";
+  }
+
+  if (
+    hasBowlingPerformance
+    && (!hasBattingPerformance || player.bowlingMatches > player.battingMatches)
+  ) {
+    return "bowler";
+  }
+
+  if (hasBattingPerformance) {
+    return "batter";
+  }
+
+  // Fall back only when the player has no usable performance history yet.
+  return getPlannerRole(player);
+}
+
 function getPlannerScore(player: PlayerSummary) {
   let score = player.matchesPlayed * 3;
 
@@ -254,6 +279,67 @@ function getPlannerScore(player: PlayerSummary) {
 
   if (player.battingStyle) {
     score += 2;
+  }
+
+  return score;
+}
+
+function parsePerformanceMetric(label: string, prefix: "Strike Rate" | "Economy") {
+  const pattern = new RegExp(`^${prefix}\\s+([0-9]+(?:\\.[0-9]+)?)$`, "i");
+  const match = label.trim().match(pattern);
+
+  if (!match) {
+    return null;
+  }
+
+  const parsedValue = Number(match[1]);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
+function getTournamentPlannerScore(player: PlayerSummary) {
+  const plannerRole = getTournamentPlannerRole(player);
+  const strikeRate = player.strikeRate ?? parsePerformanceMetric(player.performanceLabel, "Strike Rate");
+  const economy = player.economy ?? parsePerformanceMetric(player.performanceLabel, "Economy");
+  let score = player.matchesPlayed;
+
+  if (player.isCaptain) {
+    score += 8;
+  }
+
+  if (player.isWicketKeeper) {
+    score += 6;
+  }
+
+  if (plannerRole === "all-rounder") {
+    score += 8;
+  } else if (plannerRole === "bowler") {
+    score += 5;
+  } else {
+    score += 4;
+  }
+
+  if (player.totalRuns > 0) {
+    score += player.totalRuns * 0.45;
+  }
+
+  if (player.totalWickets > 0) {
+    score += player.totalWickets * 18;
+  }
+
+  if (player.battingMatches > 0) {
+    score += player.battingMatches * 1.25;
+  }
+
+  if (player.bowlingMatches > 0) {
+    score += player.bowlingMatches * 1.5;
+  }
+
+  if (strikeRate !== null) {
+    score += Math.max(0, strikeRate - 90) * (plannerRole === "all-rounder" ? 0.22 : 0.32);
+  }
+
+  if (economy !== null) {
+    score += Math.max(0, 8.5 - economy) * (plannerRole === "all-rounder" ? 8 : 11);
   }
 
   return score;
@@ -1198,7 +1284,8 @@ function buildPlannerSuggestionInternal(
   preferredWicketKeeperId?: string,
   plannerMode: PlannerGenerationMode = "friendly",
   friendlyMatchAvailabilityOverrides?: FriendlyMatchAvailabilityOverrides,
-  opportunityContext?: FriendlyOpportunityCorrectionContext | null
+  opportunityContext?: FriendlyOpportunityCorrectionContext | null,
+  availableMemberIds?: string[]
 ): PlannerSuggestion {
   const rulebook = inferCricketRulebook("T10", "T10");
   const enhancedPlayers: PlannerPlayer[] = players
@@ -1209,19 +1296,24 @@ function buildPlannerSuggestionInternal(
       normalizedMatchKeys: buildPlannerTokenVariants(player.name).map((tokens) => tokens.join(" ")),
       normalizedTokens: tokenizePlannerName(player.name),
       normalizedInitial: getPlannerInitial(tokenizePlannerName(player.name)),
-      plannerRole: getPlannerRole(player),
+      plannerRole: plannerMode === "friendly"
+        ? getPlannerRole(player)
+        : getTournamentPlannerRole(player),
       previousOpportunityStatus: plannerMode === "friendly"
         ? (opportunityContext?.statusesByPlayerId.get(player.id) ?? "unknown")
         : "unknown",
       previousOpportunityBoost: plannerMode === "friendly"
         ? getOpportunityBoost(opportunityContext?.statusesByPlayerId.get(player.id) ?? "unknown")
         : 0,
-      plannerScore: getPlannerScore(player)
-        + (
-          plannerMode === "friendly"
-            ? getOpportunityBoost(opportunityContext?.statusesByPlayerId.get(player.id) ?? "unknown")
-            : 0
-        )
+      plannerScore: (
+        plannerMode === "friendly"
+          ? getPlannerScore(player)
+          : getTournamentPlannerScore(player)
+      ) + (
+        plannerMode === "friendly"
+          ? getOpportunityBoost(opportunityContext?.statusesByPlayerId.get(player.id) ?? "unknown")
+          : 0
+      )
     }))
     .sort((left, right) => {
       if (plannerMode === "friendly") {
@@ -1239,17 +1331,31 @@ function buildPlannerSuggestionInternal(
   const unmatchedAvailabilityNames: string[] = [];
   const uniqueAvailableNames = dedupeAvailabilityNames(availableNames);
 
-  uniqueAvailableNames.forEach((attendanceName) => {
-    const matchedPlayer =
-      findPlannerIdentityMatch(enhancedPlayers, attendanceName)
-      ?? findPlannerPlayerMatch(enhancedPlayers, attendanceName);
+  if (availableMemberIds && availableMemberIds.length > 0) {
+    const availableMemberIdSet = new Set(availableMemberIds);
 
-    if (matchedPlayer) {
-      matchedPlayerIds.add(matchedPlayer.id);
-    } else {
-      unmatchedAvailabilityNames.push(attendanceName);
-    }
-  });
+    enhancedPlayers.forEach((player) => {
+      if (
+        availableMemberIdSet.has(player.memberId)
+        || (player.playerId && availableMemberIdSet.has(player.playerId))
+        || availableMemberIdSet.has(player.id)
+      ) {
+        matchedPlayerIds.add(player.id);
+      }
+    });
+  } else {
+    uniqueAvailableNames.forEach((attendanceName) => {
+      const matchedPlayer =
+        findPlannerIdentityMatch(enhancedPlayers, attendanceName)
+        ?? findPlannerPlayerMatch(enhancedPlayers, attendanceName);
+
+      if (matchedPlayer) {
+        matchedPlayerIds.add(matchedPlayer.id);
+      } else {
+        unmatchedAvailabilityNames.push(attendanceName);
+      }
+    });
+  }
 
   if (manualAvailabilityOverrides) {
     Object.entries(manualAvailabilityOverrides).forEach(([playerId, isAvailable]) => {
@@ -1395,7 +1501,30 @@ export function buildPlannerSuggestion(
     preferredWicketKeeperId,
     plannerMode,
     friendlyMatchAvailabilityOverrides,
-    null
+    null,
+    undefined
+  );
+}
+
+export function buildPlannerSuggestionFromMembers(
+  players: PlannerPlayerSummary[],
+  availableMemberIds: string[],
+  maxMatches: number,
+  manualAvailabilityOverrides?: Record<string, boolean>,
+  preferredWicketKeeperId?: string,
+  plannerMode: PlannerGenerationMode = "friendly",
+  friendlyMatchAvailabilityOverrides?: FriendlyMatchAvailabilityOverrides
+): PlannerSuggestion {
+  return buildPlannerSuggestionInternal(
+    players,
+    [],
+    maxMatches,
+    manualAvailabilityOverrides,
+    preferredWicketKeeperId,
+    plannerMode,
+    friendlyMatchAvailabilityOverrides,
+    null,
+    availableMemberIds
   );
 }
 
@@ -1421,6 +1550,34 @@ export async function buildPlannerSuggestionForRelease(
     preferredWicketKeeperId,
     plannerMode,
     friendlyMatchAvailabilityOverrides,
-    opportunityContext
+    opportunityContext,
+    undefined
+  );
+}
+
+export async function buildPlannerSuggestionForReleaseFromMembers(
+  players: PlannerPlayerSummary[],
+  availableMemberIds: string[],
+  maxMatches: number,
+  manualAvailabilityOverrides?: Record<string, boolean>,
+  preferredWicketKeeperId?: string,
+  plannerMode: PlannerGenerationMode = "friendly",
+  friendlyMatchAvailabilityOverrides?: FriendlyMatchAvailabilityOverrides,
+  season?: string
+): Promise<PlannerSuggestion> {
+  const opportunityContext = plannerMode === "friendly"
+    ? await getFriendlyOpportunityCorrectionContext(players, season)
+    : null;
+
+  return buildPlannerSuggestionInternal(
+    players,
+    [],
+    maxMatches,
+    manualAvailabilityOverrides,
+    preferredWicketKeeperId,
+    plannerMode,
+    friendlyMatchAvailabilityOverrides,
+    opportunityContext,
+    availableMemberIds
   );
 }

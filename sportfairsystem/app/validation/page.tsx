@@ -289,6 +289,103 @@ const V2_FUTURE_SCOPE_DETAILS: ScopeDetailItem[] = [
   }
 ];
 
+const V2_1_PROJECT_SUMMARY_ITEMS: ScopeDetailItem[] = [
+  {
+    key: "v2-1-platform-state",
+    title: "SportFairSystem V2.1 is the practical team-operations release",
+    detail: "V2.1 turns the product into a more complete weekly operating system for Moonwalkers, connecting organisers, players, match data, memberships, planner workflows, fairness visibility, and dashboard transparency."
+  },
+  {
+    key: "v2-1-team-core",
+    title: "The team workflow now works more cleanly end to end",
+    detail: "Membership linkage, player profile capture, native attendance, planner persistence, player dashboard visibility, and fairness self-view now work together as one release baseline."
+  },
+  {
+    key: "v2-1-hardening",
+    title: "Release work emphasized workflow stability and real usage clarity",
+    detail: "V2.1 prioritizes memberships usability, native attendance, planner fairness continuity, player transparency, permission cleanup, security cleanup, and smoke-tested release hardening over feature sprawl."
+  }
+];
+
+const V2_1_IMPLEMENTATION_ITEMS: ScopeDetailItem[] = [
+  {
+    key: "v2-1-memberships",
+    title: "Memberships and linked team administration",
+    detail: "The memberships workspace now supports role, season, linked user, linked player, external naming, search, change visibility, smoother saves, and organiser-friendly player preference review."
+  },
+  {
+    key: "v2-1-profile",
+    title: "Player profile expansion and standardized data capture",
+    detail: "Profiles now support richer cricket information such as primary role, batting and bowling style, batter and bowler preferences, CricHeroes identity, and real country-aware phone handling."
+  },
+  {
+    key: "v2-1-attendance",
+    title: "Native attendance as the friendly-planner standard",
+    detail: "Friendly planning now runs through in-app attendance sessions, minimum availability checks, responsive member availability controls, and a cleaner planner flow without spreadsheet dependency."
+  },
+  {
+    key: "v2-1-dashboard",
+    title: "Player dashboard and planner transparency",
+    detail: "Players can now see personal performance separately from the current week friendly matchday plan, including the full planned Playing XI for each match in the weekly batch."
+  },
+  {
+    key: "v2-1-fairness",
+    title: "Fairness, bias watch, and self-service clarity",
+    detail: "Fairness views now separate organiser insight from player understanding, including clearer weekly history wording, repeated bias watch summaries, and better current-week transparency."
+  },
+  {
+    key: "v2-1-tournament-feedback",
+    title: "Tournament and feedback workflows were tightened",
+    detail: "Tournament planning now leans on actual player performance rather than profile preferences, and the feedback module now enforces higher-quality submission detail with status handling."
+  },
+  {
+    key: "v2-1-security",
+    title: "Permission, access, and release hardening improved",
+    detail: "Role-aware access, player planner visibility, smoke testing, and security cleanup around leaked local artifacts are part of the V2.1 hardening state."
+  }
+];
+
+const V2_1_RELEASE_GATES: ScopeDetailItem[] = [
+  {
+    key: "v2-1-schema-gate",
+    title: "Production must include the active V2.1 migration set",
+    detail: "The release environment must include the permissions, native attendance, user cricket profile fields, and player planner visibility migrations before V2.1 is considered production-safe."
+  },
+  {
+    key: "v2-1-build-gate",
+    title: "TypeScript, lint, and build must stay green",
+    detail: "Release signoff assumes branch-wide verification passes on the final release branch immediately before deployment."
+  },
+  {
+    key: "v2-1-smoke-gate",
+    title: "Organiser and player smoke flows must be green",
+    detail: "Release signoff requires organiser and player workspace checks across login, dashboard, profile, memberships, planner, fairness, feedback, and player dashboard visibility with no critical runtime failures."
+  },
+  {
+    key: "v2-1-post-deploy-gate",
+    title: "Post-deploy smoke is mandatory before final go-live signoff",
+    detail: "Login, dashboard, memberships, upload, matches, planner, fairness, analytics, validation, and player dashboard transparency must be rechecked after deployment."
+  }
+];
+
+const V2_1_FUTURE_SCOPE_DETAILS: ScopeDetailItem[] = [
+  {
+    key: "v2-1-email",
+    title: "SMTP and app-side email infrastructure remain future scope",
+    detail: "Mailjet or other real email infrastructure for auth branding and app-generated invite delivery was intentionally deferred from the active V2.1 implementation path."
+  },
+  {
+    key: "v2-1-broader-platform",
+    title: "Broader platform expansion remains outside the release",
+    detail: "Events, communication modules, multi-team structures, and larger non-blocking product additions remain future roadmap items and should not block V2.1 signoff."
+  },
+  {
+    key: "v2-1-history-push",
+    title: "Remote git history cleanup still needs explicit publishing",
+    detail: "The leaked Playwright artifact history was rewritten locally in an isolated clean clone, but the cleaned history still needs a deliberate force-push workflow if the remote repository is to be fully corrected."
+  }
+];
+
 const RELEASE_NOTES_BY_VERSION: Array<{
   key: string;
   title: string;
@@ -357,6 +454,38 @@ const RELEASE_NOTES_BY_VERSION: Array<{
         title: "Future Scope / Final Caveats",
         intro: "These items remain outside the narrowed V2.0 release or are still recommended validation steps before final production go-live.",
         items: V2_FUTURE_SCOPE_DETAILS
+      }
+    ]
+  },
+  {
+    key: "v2-1-release-notes",
+    title: "V2.1 Release Note",
+    badgeLabel: "Current",
+    intro: "V2.1 is the practical team-operations release focused on native attendance, planner continuity, memberships usability, player transparency, fairness visibility, profile expansion, and release hardening.",
+    sections: [
+      {
+        key: "v2-1-summary",
+        title: "Current Project Summary",
+        intro: "This is the practical V2.1 position based on the current repository release path and completed implementation.",
+        items: V2_1_PROJECT_SUMMARY_ITEMS
+      },
+      {
+        key: "v2-1-implementation",
+        title: "Current V2.1 Implementation",
+        intro: "These are the major release-facing capabilities that now define the V2.1 product baseline.",
+        items: V2_1_IMPLEMENTATION_ITEMS
+      },
+      {
+        key: "v2-1-release-gates",
+        title: "Release Signoff Gate",
+        intro: "These are the conditions that still define the final production go decision for V2.1.",
+        items: V2_1_RELEASE_GATES
+      },
+      {
+        key: "v2-1-future",
+        title: "Future Scope / Final Caveats",
+        intro: "These items remain outside the active V2.1 release or still require an explicit follow-through before final production housekeeping is fully complete.",
+        items: V2_1_FUTURE_SCOPE_DETAILS
       }
     ]
   }

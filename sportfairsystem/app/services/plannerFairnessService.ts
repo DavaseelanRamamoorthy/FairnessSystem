@@ -58,6 +58,10 @@ export type PlannerFairnessHistoryEntry = {
   benchCount: number;
   unavailableCount: number;
   availableMatchCount: number;
+  pendingMatchCount: number;
+  plannedXiCount: number;
+  plannedTwelfthCount: number;
+  plannedBenchCount: number;
 };
 
 export type PlannerFairnessDashboard = {
@@ -90,6 +94,10 @@ export type PlannerFairnessAlert = {
   severity: "info" | "warning";
   playerId: string;
   playerName: string;
+  batchId?: string | null;
+  weekendLabel?: string | null;
+  weekendDate?: string | null;
+  matchNumber?: number | null;
   message: string;
 };
 
@@ -481,6 +489,16 @@ async function buildPlannerFairnessDashboard(
           }
 
           const metadata = batchMetadataById.get(batchId);
+          const pendingMatchCount = batchAssignments.filter((row) => {
+            const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
+            const actualLink = matchNumber ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null : null;
+
+            return (
+              row.is_available !== false
+              && row.assignment !== "unavailable"
+              && !actualLink
+            );
+          }).length;
           const actualXiCount = batchAssignments.filter((row) => {
             const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
             const actualLink = matchNumber ? actualLinkMap.get(`${batchId}:${matchNumber}`) ?? null : null;
@@ -492,7 +510,7 @@ async function buildPlannerFairnessDashboard(
               return didPlayerActuallyParticipate(row, actualParticipation);
             }
 
-            return row.assignment === "xi";
+            return false;
           }).length;
           const actualTwelfthCount = batchAssignments.filter((row) => {
             const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
@@ -533,7 +551,11 @@ async function buildPlannerFairnessDashboard(
             ).length,
             availableMatchCount: batchAssignments.filter(
               (row) => row.is_available !== false && row.assignment !== "unavailable"
-            ).length
+            ).length,
+            pendingMatchCount,
+            plannedXiCount: batchAssignments.filter((row) => row.assignment === "xi").length,
+            plannedTwelfthCount: batchAssignments.filter((row) => row.assignment === "twelfth").length,
+            plannedBenchCount: batchAssignments.filter((row) => row.assignment === "bench").length
           } satisfies PlannerFairnessHistoryEntry;
         })
         .filter((entry): entry is PlannerFairnessHistoryEntry => Boolean(entry))
@@ -587,6 +609,10 @@ async function buildPlannerFairnessDashboard(
         severity: "warning",
         playerId: player.playerId,
         playerName: player.name,
+        batchId: null,
+        weekendLabel: null,
+        weekendDate: null,
+        matchNumber: null,
         message: player.xiCount === 0
           ? `${player.name} has been available for ${player.consecutiveAvailableNoXiBatches} consecutive saved week${player.consecutiveAvailableNoXiBatches > 1 ? "s" : ""} but still has 0 actual XI selections.`
           : `${player.name} has been available for ${player.consecutiveAvailableNoXiBatches} consecutive saved week${player.consecutiveAvailableNoXiBatches > 1 ? "s" : ""} without an actual XI selection.`
@@ -600,6 +626,10 @@ async function buildPlannerFairnessDashboard(
         severity: "warning",
         playerId: player.playerId,
         playerName: player.name,
+        batchId: null,
+        weekendLabel: null,
+        weekendDate: null,
+        matchNumber: null,
         message: `${player.name} already crossed the 5-XI baseline but has now missed XI chances across ${player.consecutiveAvailableNoXiBatches} saved matchdays.`
       });
     }
@@ -615,6 +645,10 @@ async function buildPlannerFairnessDashboard(
         severity: "warning",
         playerId: player.playerId,
         playerName: player.name,
+        batchId: null,
+        weekendLabel: null,
+        weekendDate: null,
+        matchNumber: null,
         message: `${player.name} is picking up repeated bench or 12th-man outcomes before reaching the 5-XI baseline.`
       });
     }
@@ -664,6 +698,10 @@ async function buildPlannerFairnessDashboard(
           severity: "warning",
           playerId: player.playerId,
           playerName: player.name,
+          batchId,
+          weekendLabel,
+          weekendDate: metadata?.weekendDate ?? null,
+          matchNumber,
           message: `${player.name} was planned in the XI for ${batchMatchLabel} but no actual appearance was found in the linked scorecard.`
         });
         return;
@@ -676,6 +714,10 @@ async function buildPlannerFairnessDashboard(
           severity: "info",
           playerId: player.playerId,
           playerName: player.name,
+          batchId,
+          weekendLabel,
+          weekendDate: metadata?.weekendDate ?? null,
+          matchNumber,
           message: `${player.name} was planned as 12th man for ${batchMatchLabel} but was actually used in the linked scorecard.`
         });
         return;
@@ -688,6 +730,10 @@ async function buildPlannerFairnessDashboard(
           severity: "warning",
           playerId: player.playerId,
           playerName: player.name,
+          batchId,
+          weekendLabel,
+          weekendDate: metadata?.weekendDate ?? null,
+          matchNumber,
           message: `${player.name} was planned on the bench for ${batchMatchLabel} but appears in the linked scorecard.`
         });
         return;
@@ -700,6 +746,10 @@ async function buildPlannerFairnessDashboard(
           severity: "warning",
           playerId: player.playerId,
           playerName: player.name,
+          batchId,
+          weekendLabel,
+          weekendDate: metadata?.weekendDate ?? null,
+          matchNumber,
           message: `${player.name} was marked unavailable for ${batchMatchLabel} but appears in the linked scorecard.`
         });
       }

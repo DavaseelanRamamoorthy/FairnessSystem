@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Accordion,
@@ -38,11 +38,9 @@ import {
   Typography
 } from "@mui/material";
 import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
-import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import EventRepeatRoundedIcon from "@mui/icons-material/EventRepeatRounded";
-import GroupAddRoundedIcon from "@mui/icons-material/GroupAddRounded";
 import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 
@@ -58,14 +56,6 @@ import {
   canManageTeamInvites
 } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
-import {
-  cancelTeamInvite,
-  createExistingMemberInvite,
-  createNewMemberInvite,
-  listTeamInvites,
-  TeamInviteRecord,
-  TeamInviteRole
-} from "@/app/services/inviteService";
 import {
   ApproveTeamJoinRequestInput,
   approveTeamJoinRequest,
@@ -84,7 +74,6 @@ import {
   getTeamMembershipUserOptions,
   hasMembershipFoundationSupport,
   MembershipSeasonRecord,
-  TeamMemberAliasRecord,
   TeamMembershipPlayerOption,
   TeamMembershipRecord,
   TeamMembershipRole,
@@ -128,25 +117,25 @@ function normalizeExternalNameInput(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function sortAliases(aliases: TeamMemberAliasRecord[]) {
-  return [...aliases].sort((left, right) => {
-    if (left.isPrimary !== right.isPrimary) {
-      return left.isPrimary ? -1 : 1;
-    }
-
-    if (left.aliasType !== right.aliasType) {
-      return left.aliasType.localeCompare(right.aliasType);
-    }
-
-    return left.alias.localeCompare(right.alias);
-  });
-}
-
 function normalizeMembershipMatchValue(value: string | null | undefined) {
   return (value ?? "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
+}
+
+function buildMembershipSearchIndex(membership: TeamMembershipRecord) {
+  return [
+    membership.name,
+    membership.userDisplayName,
+    membership.userEmail,
+    membership.playerName,
+    membership.seasonName,
+    ...membership.aliases.map((alias) => alias.alias)
+  ]
+    .map((value) => normalizeMembershipMatchValue(value))
+    .filter(Boolean)
+    .join(" ");
 }
 
 function tokenizeMembershipMatchValue(value: string | null | undefined) {
@@ -259,16 +248,6 @@ function getExistingMemberSuggestions(
       return left.membership.name.localeCompare(right.membership.name);
     });
 }
-
-type InviteManagementSectionProps = {
-  memberships: TeamMembershipRecord[];
-  seasons: MembershipSeasonRecord[];
-  invites: TeamInviteRecord[];
-  onInviteCreated: (invite: TeamInviteRecord) => void;
-  onInviteCancelled: (inviteId: string) => void;
-  onErrorMessage: (message: string | null) => void;
-  onSuccessMessage: (message: string | null) => void;
-};
 
 type JoinRequestManagementSectionProps = {
   joinRequests: TeamJoinRequestRecord[];
@@ -634,381 +613,6 @@ function JoinRequestManagementSection({
   );
 }
 
-function InviteManagementSection({
-  memberships,
-  seasons,
-  invites,
-  onInviteCreated,
-  onInviteCancelled,
-  onErrorMessage,
-  onSuccessMessage
-}: InviteManagementSectionProps) {
-  const [isCreatingExistingInvite, setIsCreatingExistingInvite] = useState(false);
-  const [isCreatingNewInvite, setIsCreatingNewInvite] = useState(false);
-  const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
-  const [existingInviteMemberId, setExistingInviteMemberId] = useState("");
-  const [existingInviteEmailInput, setExistingInviteEmailInput] = useState("");
-  const [newInviteNameInput, setNewInviteNameInput] = useState("");
-  const [newInviteEmailInput, setNewInviteEmailInput] = useState("");
-  const [newInviteSeasonId, setNewInviteSeasonId] = useState("");
-  const [newInviteRole, setNewInviteRole] = useState<TeamInviteRole>("player");
-  const [latestInviteUrl, setLatestInviteUrl] = useState<string | null>(null);
-
-  const pendingInvites = useMemo(
-    () => invites.filter((invite) => invite.status === "pending"),
-    [invites]
-  );
-  const invitableMemberships = useMemo(() => {
-    const pendingMemberIds = new Set(
-      pendingInvites
-        .map((invite) => invite.memberId)
-        .filter((memberId): memberId is string => Boolean(memberId))
-    );
-
-    return memberships.filter((membership) => !membership.userId && !pendingMemberIds.has(membership.memberId));
-  }, [memberships, pendingInvites]);
-
-  const handleExistingInviteMemberChange = (memberId: string) => {
-    setExistingInviteMemberId(memberId);
-    const selectedMembership = memberships.find((membership) => membership.memberId === memberId);
-    setExistingInviteEmailInput(selectedMembership?.userEmail ?? "");
-    setLatestInviteUrl(null);
-    onErrorMessage(null);
-    onSuccessMessage(null);
-  };
-
-  const handleCopyInviteUrl = async (inviteUrl: string) => {
-    try {
-      if (!navigator.clipboard?.writeText) {
-        throw new Error("Clipboard copy is not available in this browser.");
-      }
-
-      await navigator.clipboard.writeText(inviteUrl);
-      onSuccessMessage("Invite link copied to clipboard.");
-    } catch (error) {
-      onErrorMessage(error instanceof Error ? error.message : "Could not copy the invite link.");
-    }
-  };
-
-  const handleCreateExistingInvite = async () => {
-    if (!existingInviteMemberId || !existingInviteEmailInput.trim()) {
-      return;
-    }
-
-    try {
-      setIsCreatingExistingInvite(true);
-      onErrorMessage(null);
-      onSuccessMessage(null);
-
-      const result = await createExistingMemberInvite({
-        memberId: existingInviteMemberId,
-        email: existingInviteEmailInput
-      });
-
-      onInviteCreated(result.invite);
-      setLatestInviteUrl(result.inviteUrl);
-      setExistingInviteMemberId("");
-      setExistingInviteEmailInput("");
-      onSuccessMessage(`Created a claim invite for ${result.invite.inviteName}. Copy the link before leaving this page.`);
-    } catch (error) {
-      onErrorMessage(error instanceof Error ? error.message : "Could not create the existing member invite.");
-    } finally {
-      setIsCreatingExistingInvite(false);
-    }
-  };
-
-  const handleCreateNewInvite = async () => {
-    if (!newInviteNameInput.trim() || !newInviteEmailInput.trim()) {
-      return;
-    }
-
-    try {
-      setIsCreatingNewInvite(true);
-      onErrorMessage(null);
-      onSuccessMessage(null);
-
-      const result = await createNewMemberInvite({
-        inviteName: newInviteNameInput,
-        email: newInviteEmailInput,
-        seasonId: newInviteSeasonId || null,
-        invitedRole: newInviteRole
-      });
-
-      onInviteCreated(result.invite);
-      setLatestInviteUrl(result.inviteUrl);
-      setNewInviteNameInput("");
-      setNewInviteEmailInput("");
-      setNewInviteSeasonId("");
-      setNewInviteRole("player");
-      onSuccessMessage(`Created a new member invite for ${result.invite.inviteName}. Copy the link before leaving this page.`);
-    } catch (error) {
-      onErrorMessage(error instanceof Error ? error.message : "Could not create the new member invite.");
-    } finally {
-      setIsCreatingNewInvite(false);
-    }
-  };
-
-  const handleCancelInvite = async (inviteId: string) => {
-    try {
-      setCancellingInviteId(inviteId);
-      onErrorMessage(null);
-      onSuccessMessage(null);
-
-      await cancelTeamInvite(inviteId);
-      onInviteCancelled(inviteId);
-      onSuccessMessage("Cancelled the pending invite.");
-    } catch (error) {
-      onErrorMessage(error instanceof Error ? error.message : "Could not cancel the invite.");
-    } finally {
-      setCancellingInviteId(null);
-    }
-  };
-
-  return (
-    <>
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
-            <CardContent>
-              <Stack spacing={2.5}>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <GroupAddRoundedIcon color="primary" />
-                  <Stack spacing={0.25}>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Invite Existing Member</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Claim an existing roster member without creating duplicate people or players.
-                    </Typography>
-                  </Stack>
-                </Stack>
-
-                <FormControl fullWidth size="small">
-                  <InputLabel id="existing-invite-member-label">Member</InputLabel>
-                  <Select
-                    labelId="existing-invite-member-label"
-                    value={existingInviteMemberId}
-                    label="Member"
-                    onChange={(event) => handleExistingInviteMemberChange(event.target.value)}
-                  >
-                    <MenuItem value="">Select a member</MenuItem>
-                    {invitableMemberships.map((membership) => (
-                      <MenuItem key={membership.memberId} value={membership.memberId}>
-                        {formatName(membership.name)}
-                        {membership.seasonName ? ` - ${membership.seasonName}` : ""}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Invite Email"
-                  value={existingInviteEmailInput}
-                  onChange={(event) => setExistingInviteEmailInput(event.target.value)}
-                  placeholder="member@example.com"
-                />
-
-                <Button
-                  variant="contained"
-                  onClick={() => void handleCreateExistingInvite()}
-                  disabled={isCreatingExistingInvite || !existingInviteMemberId || !existingInviteEmailInput.trim()}
-                >
-                  {isCreatingExistingInvite ? "Creating Invite..." : "Create Claim Invite"}
-                </Button>
-
-                {invitableMemberships.length === 0 && (
-                  <Typography variant="body2" color="text.secondary">
-                    Every unclaimed member already has an active claim invite or is already linked to a user.
-                  </Typography>
-                )}
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
-            <CardContent>
-              <Stack spacing={2.5}>
-                <Stack spacing={0.25}>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>Invite New Member</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Create an invite for someone who is not on the roster yet. Their team membership record will be created when they accept.
-                  </Typography>
-                </Stack>
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Member Name"
-                      value={newInviteNameInput}
-                      onChange={(event) => setNewInviteNameInput(event.target.value)}
-                      placeholder="John Doe"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Invite Email"
-                      value={newInviteEmailInput}
-                      onChange={(event) => setNewInviteEmailInput(event.target.value)}
-                      placeholder="john@example.com"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel id="new-invite-season-label">Season</InputLabel>
-                      <Select
-                        labelId="new-invite-season-label"
-                        value={newInviteSeasonId}
-                        label="Season"
-                        onChange={(event) => setNewInviteSeasonId(event.target.value)}
-                      >
-                        <MenuItem value="">Use acceptance-time default</MenuItem>
-                        {seasons.map((season) => (
-                          <MenuItem key={season.id} value={season.id}>{season.name}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel id="new-invite-role-label">Team Role</InputLabel>
-                      <Select
-                        labelId="new-invite-role-label"
-                        value={newInviteRole}
-                        label="Team Role"
-                        onChange={(event) => setNewInviteRole(event.target.value as TeamInviteRole)}
-                      >
-                        {TEAM_BUSINESS_ROLE_OPTIONS.map((option) => (
-                          <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </Grid>
-
-                <Button
-                  variant="contained"
-                  onClick={() => void handleCreateNewInvite()}
-                  disabled={isCreatingNewInvite || !newInviteNameInput.trim() || !newInviteEmailInput.trim()}
-                >
-                  {isCreatingNewInvite ? "Creating Invite..." : "Create New Member Invite"}
-                </Button>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {latestInviteUrl && (
-        <Card variant="outlined" sx={{ borderRadius: 3 }}>
-          <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6" sx={{ fontWeight: 800 }}>Latest Invite Link</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Tokens are only shown when the invite is created. Copy this link now, then share it with the invited person.
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                value={latestInviteUrl}
-                slotProps={{ input: { readOnly: true } }}
-              />
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <Button
-                  variant="contained"
-                  startIcon={<ContentCopyRoundedIcon />}
-                  onClick={() => void handleCopyInviteUrl(latestInviteUrl)}
-                >
-                  Copy Invite Link
-                </Button>
-                <Button variant="text" onClick={() => setLatestInviteUrl(null)}>
-                  Hide Link
-                </Button>
-              </Stack>
-            </Stack>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card variant="outlined" sx={{ borderRadius: 3 }}>
-        <CardContent>
-          <Stack spacing={2}>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between">
-              <Stack spacing={0.25}>
-                <Typography variant="h6" sx={{ fontWeight: 800 }}>Pending Invites</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Track outstanding claim and new-member onboarding links. Pending invite links cannot be recovered later, so cancelling and reissuing is the safe reset path.
-                </Typography>
-              </Stack>
-              <Chip
-                label={`${pendingInvites.length} pending`}
-                size="small"
-                color={pendingInvites.length > 0 ? "warning" : "default"}
-                variant="outlined"
-              />
-            </Stack>
-
-            {pendingInvites.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                No pending invites yet.
-              </Typography>
-            ) : (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Season</TableCell>
-                      <TableCell>Expires</TableCell>
-                      <TableCell align="right">Action</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {pendingInvites.map((invite) => (
-                      <TableRow key={invite.inviteId}>
-                        <TableCell>{formatName(invite.inviteName)}</TableCell>
-                        <TableCell>{invite.email}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={invite.inviteType === "existing_member" ? "Existing Member" : "New Member"}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>{seasons.find((season) => season.id === invite.seasonId)?.name ?? "Default"}</TableCell>
-                        <TableCell>{new Date(invite.tokenExpiresAt).toLocaleDateString()}</TableCell>
-                        <TableCell align="right">
-                          <Button
-                            color="error"
-                            variant="text"
-                            onClick={() => void handleCancelInvite(invite.inviteId)}
-                            disabled={cancellingInviteId === invite.inviteId}
-                          >
-                            {cancellingInviteId === invite.inviteId ? "Cancelling..." : "Cancel"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Stack>
-        </CardContent>
-      </Card>
-    </>
-  );
-}
-
 export default function MembershipsPage() {
   const [canAccessWorkspace, setCanAccessWorkspace] = useState<boolean | null>(null);
   const [canManageMembershipDetails, setCanManageMembershipDetails] = useState(false);
@@ -1021,6 +625,7 @@ export default function MembershipsPage() {
   const [hasInitializedSeasonFilter, setHasInitializedSeasonFilter] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("active");
   const [selectedRole, setSelectedRole] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [draftRoles, setDraftRoles] = useState<Record<string, TeamMembershipRole>>({});
   const [draftStatuses, setDraftStatuses] = useState<Record<string, TeamMembershipStatus>>({});
   const [draftSeasonIds, setDraftSeasonIds] = useState<Record<string, string>>({});
@@ -1033,7 +638,6 @@ export default function MembershipsPage() {
   const [draftRoleTags, setDraftRoleTags] = useState<Record<string, string[]>>({});
   const [teamUserOptions, setTeamUserOptions] = useState<TeamMembershipUserOption[]>([]);
   const [teamPlayerOptions, setTeamPlayerOptions] = useState<TeamMembershipPlayerOption[]>([]);
-  const [invites, setInvites] = useState<TeamInviteRecord[]>([]);
   const [joinRequests, setJoinRequests] = useState<TeamJoinRequestRecord[]>([]);
   const [canEditExternalNames, setCanEditExternalNames] = useState(false);
   const [membershipFoundationReady, setMembershipFoundationReady] = useState<boolean | null>(null);
@@ -1070,7 +674,6 @@ export default function MembershipsPage() {
           setSeasons([]);
           setTeamUserOptions([]);
           setTeamPlayerOptions([]);
-          setInvites([]);
           setJoinRequests([]);
           setDraftAliasInputs({});
           setDraftRoles({});
@@ -1090,12 +693,11 @@ export default function MembershipsPage() {
 
         if (!isActive.current) return;
 
-        const [nextMemberships, nextSeasons, nextTeamUserOptions, nextTeamPlayerOptions, nextInvites, nextJoinRequests] = await Promise.all([
+        const [nextMemberships, nextSeasons, nextTeamUserOptions, nextTeamPlayerOptions, nextJoinRequests] = await Promise.all([
           getTeamMembershipRecords(),
           getMembershipSeasons(),
           nextCanEditExternalNames ? getTeamMembershipUserOptions() : Promise.resolve([]),
           nextCanEditExternalNames ? getTeamMembershipPlayerOptions() : Promise.resolve([]),
-          accessFlags.canManageInvites ? listTeamInvites() : Promise.resolve([]),
           accessFlags.canManageInvites ? listPendingTeamJoinRequests() : Promise.resolve([])
         ]);
 
@@ -1106,7 +708,6 @@ export default function MembershipsPage() {
         setCanEditExternalNames(nextCanEditExternalNames);
         setTeamUserOptions(nextTeamUserOptions);
         setTeamPlayerOptions(nextTeamPlayerOptions);
-        setInvites(nextInvites);
         setJoinRequests(nextJoinRequests);
         setDraftAliasInputs({});
         setDraftRoles(nextMemberships.reduce<Record<string, TeamMembershipRole>>((acc, membership) => {
@@ -1151,7 +752,6 @@ export default function MembershipsPage() {
         setSeasons([]);
         setTeamUserOptions([]);
         setTeamPlayerOptions([]);
-        setInvites([]);
         setJoinRequests([]);
         setCanEditExternalNames(false);
         setDraftAliasInputs({});
@@ -1170,6 +770,11 @@ export default function MembershipsPage() {
       }
     };
   }, []);
+
+  const refreshMembershipWorkspace = useCallback(async () => {
+    const activity = { current: true };
+    await loadMembershipWorkspace(activity, { canManageInvites });
+  }, [canManageInvites, loadMembershipWorkspace]);
 
   useEffect(() => {
     const activity = { current: true };
@@ -1245,13 +850,17 @@ export default function MembershipsPage() {
   }, [hasInitializedSeasonFilter, seasons]);
 
   const filteredMemberships = useMemo(() => {
+    const normalizedSearchQuery = normalizeMembershipMatchValue(searchQuery);
+
     return memberships.filter((membership) => {
       const seasonMatches = selectedSeason === "all" || membership.seasonId === selectedSeason;
       const statusMatches = selectedStatus === "all" || membership.status === selectedStatus;
       const roleMatches = selectedRole === "all" || membership.role === selectedRole;
-      return seasonMatches && statusMatches && roleMatches;
+      const searchMatches =
+        !normalizedSearchQuery || buildMembershipSearchIndex(membership).includes(normalizedSearchQuery);
+      return seasonMatches && statusMatches && roleMatches && searchMatches;
     });
-  }, [memberships, selectedRole, selectedSeason, selectedStatus]);
+  }, [memberships, searchQuery, selectedRole, selectedSeason, selectedStatus]);
 
   const playerSeasonOptions = useMemo<SeasonOption[]>(
     () => seasons.map((season) => ({
@@ -1280,7 +889,6 @@ export default function MembershipsPage() {
   const activeMemberCount = filteredMemberships.filter((membership) => membership.status === "active").length;
   const inactiveMemberCount = filteredMemberships.filter((membership) => membership.status === "inactive").length;
   const fullyLinkedCount = filteredMemberships.filter((membership) => membership.userId && membership.playerId).length;
-  const pendingInviteCount = invites.filter((invite) => invite.status === "pending").length;
 
   const hasMembershipPendingChanges = (membership: TeamMembershipRecord) => {
     const currentExternalAlias = membership.aliases.find((alias) => !alias.isPrimary) ?? null;
@@ -1299,6 +907,46 @@ export default function MembershipsPage() {
       || JSON.stringify(draftRoleTags[membership.memberId] ?? membership.roleTags) !== JSON.stringify(membership.roleTags)
       || normalizeExternalNameInput(nextExternalName) !== normalizeExternalNameInput(currentExternalName)
     );
+  };
+
+  const getMembershipPendingChangeLabels = (membership: TeamMembershipRecord) => {
+    const currentExternalAlias = membership.aliases.find((alias) => !alias.isPrimary) ?? null;
+    const currentExternalName = currentExternalAlias?.alias ?? "";
+    const nextExternalName = draftAliasInputs[membership.memberId] ?? currentExternalName;
+    const labels: string[] = [];
+
+    if ((draftRoles[membership.memberId] ?? membership.role) !== membership.role) {
+      labels.push("Role");
+    }
+    if ((draftStatuses[membership.memberId] ?? membership.status) !== membership.status) {
+      labels.push("Status");
+    }
+    if ((draftSeasonIds[membership.memberId] ?? membership.seasonId ?? "") !== (membership.seasonId ?? "")) {
+      labels.push("Season");
+    }
+    if ((draftUserIds[membership.memberId] ?? membership.userId ?? "") !== (membership.userId ?? "")) {
+      labels.push("Linked User");
+    }
+    if ((draftPlayerIds[membership.memberId] ?? membership.playerId ?? "") !== (membership.playerId ?? "")) {
+      labels.push("Linked Player");
+    }
+    if ((draftBattingStyles[membership.memberId] ?? membership.battingStyle ?? "") !== (membership.battingStyle ?? "")) {
+      labels.push("Batting Style");
+    }
+    if ((draftIsCaptain[membership.memberId] ?? membership.isCaptain) !== membership.isCaptain) {
+      labels.push("Captain");
+    }
+    if ((draftIsWicketKeeper[membership.memberId] ?? membership.isWicketKeeper) !== membership.isWicketKeeper) {
+      labels.push("Wicket Keeper");
+    }
+    if (JSON.stringify(draftRoleTags[membership.memberId] ?? membership.roleTags) !== JSON.stringify(membership.roleTags)) {
+      labels.push("Role Tags");
+    }
+    if (normalizeExternalNameInput(nextExternalName) !== normalizeExternalNameInput(currentExternalName)) {
+      labels.push("External Name");
+    }
+
+    return labels;
   };
 
   useEffect(() => {
@@ -1488,24 +1136,9 @@ export default function MembershipsPage() {
     return linkedMemberIdByPlayerId;
   }, [draftPlayerIds, memberships, teamPlayerOptions]);
 
-  const handleInviteCreated = (invite: TeamInviteRecord) => {
-    setInvites((current) => [invite, ...current]);
-  };
-
-  const handleInviteCancelled = (inviteId: string) => {
-    setInvites((current) =>
-      current.map((invite) =>
-        invite.inviteId === inviteId
-          ? { ...invite, status: "cancelled", updatedAt: new Date().toISOString() }
-          : invite
-      )
-    );
-  };
-
   const handleJoinRequestApproved = async (requestId: string) => {
     setJoinRequests((current) => current.filter((request) => request.requestId !== requestId));
-    const activity = { current: true };
-    await loadMembershipWorkspace(activity, { canManageInvites });
+    await refreshMembershipWorkspace();
   };
 
   const handleJoinRequestRejected = (requestId: string) => {
@@ -1591,31 +1224,44 @@ export default function MembershipsPage() {
         seasonUpdate
       ]);
 
-      const linkedUserResult = shouldUpdateLinkedUser
-        ? await updateTeamMembershipLinkedUser(memberId, nextUserId)
-        : null;
+      let nextResolvedUserId = nextUserId;
+      let nextResolvedUserDisplayName = currentMembership.userDisplayName;
+      let nextResolvedUserEmail = currentMembership.userEmail;
+      if (shouldUpdateLinkedUser) {
+        const linkedUserResult = await updateTeamMembershipLinkedUser(memberId, nextUserId);
+        nextResolvedUserId = linkedUserResult.userId;
+        nextResolvedUserDisplayName = linkedUserResult.userDisplayName;
+        nextResolvedUserEmail = linkedUserResult.userEmail;
+      }
+
+      let nextResolvedPlayerId = nextPlayerId;
+      let nextResolvedPlayerName = currentMembership.playerName;
       const linkedPlayerResult = shouldUpdateLinkedPlayer
         ? await updateTeamMembershipLinkedPlayer(memberId, nextPlayerId)
         : null;
+      if (linkedPlayerResult) {
+        nextResolvedPlayerId = linkedPlayerResult.playerId;
+        nextResolvedPlayerName = linkedPlayerResult.playerName;
+      }
       const shouldUpdatePlayerMetadata =
-        Boolean(linkedPlayerResult?.playerId ?? nextPlayerId ?? currentMembership.playerId)
+        Boolean(nextResolvedPlayerId ?? currentMembership.playerId)
         && (
           nextBattingStyle !== (currentMembership.battingStyle ?? "")
           || nextIsCaptain !== currentMembership.isCaptain
           || nextIsWicketKeeper !== currentMembership.isWicketKeeper
           || JSON.stringify(nextRoleTags) !== JSON.stringify(currentMembership.roleTags)
         );
-      const metadataPlayerId = linkedPlayerResult?.playerId ?? nextPlayerId ?? currentMembership.playerId;
-      const updatedPlayer = shouldUpdatePlayerMetadata && metadataPlayerId
-        ? await updateSquadPlayerMetadata(metadataPlayerId, {
+      const metadataPlayerId = nextResolvedPlayerId ?? currentMembership.playerId;
+      if (shouldUpdatePlayerMetadata && metadataPlayerId) {
+        await updateSquadPlayerMetadata(metadataPlayerId, {
             battingStyle: nextBattingStyle,
             isCaptain: nextIsCaptain,
             isWicketKeeper: nextIsWicketKeeper,
             roleTags: nextRoleTags
-          })
-        : null;
-      let nextAliases = currentMembership.aliases;
+          });
+      }
 
+      let nextAliases = currentMembership.aliases;
       if (shouldUpdateExternalName) {
         if (!nextExternalName || normalizedNextExternalName === normalizedMemberName) {
           if (currentExternalAlias) {
@@ -1623,73 +1269,58 @@ export default function MembershipsPage() {
             nextAliases = currentMembership.aliases.filter((alias) => alias.aliasId !== currentExternalAlias.aliasId);
           }
         } else if (currentExternalAlias) {
-          const result = await updateTeamMemberAlias(currentExternalAlias.aliasId, nextExternalName);
-          nextAliases = sortAliases(
-            currentMembership.aliases.map((alias) =>
-              alias.aliasId === currentExternalAlias.aliasId ? result.alias : alias
-            )
+          const updatedAliasResult = await updateTeamMemberAlias(currentExternalAlias.aliasId, nextExternalName);
+          nextAliases = currentMembership.aliases.map((alias) =>
+            alias.aliasId === updatedAliasResult.alias.aliasId ? updatedAliasResult.alias : alias
           );
         } else {
-          const result = await createTeamMemberAlias(currentMembership.memberId, nextExternalName, "legacy");
-          nextAliases = sortAliases([...currentMembership.aliases, result.alias]);
+          const createdAliasResult = await createTeamMemberAlias(currentMembership.memberId, nextExternalName, "legacy");
+          nextAliases = [...currentMembership.aliases, createdAliasResult.alias];
         }
       }
 
+      const nextSeasonName = nextSeasonId
+        ? (seasons.find((season) => season.id === nextSeasonId)?.name ?? currentMembership.seasonName)
+        : null;
+      const fallbackUserOption = nextResolvedUserId
+        ? (teamUserOptions.find((option) => option.userId === nextResolvedUserId) ?? null)
+        : null;
+      const fallbackPlayerOption = nextResolvedPlayerId
+        ? (teamPlayerOptions.find((option) => option.playerId === nextResolvedPlayerId) ?? null)
+        : null;
+      const updatedMembership: TeamMembershipRecord = {
+        ...currentMembership,
+        role: nextRole,
+        status: nextStatus,
+        seasonId: nextSeasonId,
+        seasonName: nextSeasonName,
+        userId: nextResolvedUserId,
+        userDisplayName: nextResolvedUserDisplayName ?? fallbackUserOption?.displayName ?? null,
+        userEmail: nextResolvedUserEmail ?? fallbackUserOption?.email ?? null,
+        playerId: nextResolvedPlayerId,
+        playerName: nextResolvedPlayerName ?? fallbackPlayerOption?.displayName ?? null,
+        battingStyle: metadataPlayerId ? nextBattingStyle : currentMembership.battingStyle,
+        isCaptain: metadataPlayerId ? nextIsCaptain : currentMembership.isCaptain,
+        isWicketKeeper: metadataPlayerId ? nextIsWicketKeeper : currentMembership.isWicketKeeper,
+        roleTags: metadataPlayerId ? nextRoleTags : currentMembership.roleTags,
+        aliases: nextAliases,
+        permissions: roleResult?.permissions ?? currentMembership.permissions
+      };
+
       setMemberships((current) =>
         current.map((membership) =>
-          membership.memberId === memberId
-            ? {
-              ...membership,
-              role: roleResult?.role ?? membership.role,
-              permissions: roleResult?.permissions ?? membership.permissions,
-              status: canManageMembershipDetails ? nextStatus : membership.status,
-              seasonId: canManageMembershipDetails ? nextSeasonId : membership.seasonId,
-              seasonName: canManageMembershipDetails
-                ? (nextSeasonId ? (seasons.find((season) => season.id === nextSeasonId)?.name ?? null) : null)
-                : membership.seasonName,
-              userId: linkedUserResult?.userId ?? membership.userId,
-              userDisplayName: linkedUserResult?.userDisplayName ?? membership.userDisplayName,
-              userEmail: linkedUserResult?.userEmail ?? membership.userEmail,
-              playerId: linkedPlayerResult?.playerId ?? membership.playerId,
-              playerName: linkedPlayerResult?.playerName ?? membership.playerName,
-              battingStyle: updatedPlayer?.battingStyle ?? nextBattingStyle,
-              isCaptain: updatedPlayer?.isCaptain ?? nextIsCaptain,
-              isWicketKeeper: updatedPlayer?.isWicketKeeper ?? nextIsWicketKeeper,
-              roleTags: updatedPlayer?.roleTags ?? nextRoleTags,
-              aliases: membership.memberId === currentMembership.memberId ? nextAliases : membership.aliases
-            }
-            : membership
+          membership.memberId === memberId ? updatedMembership : membership
         )
       );
-      setDraftAliasInputs((current) => ({
-        ...current,
-        [memberId]: nextAliases.find((alias) => !alias.isPrimary)?.alias ?? ""
-      }));
-      setDraftBattingStyles((current) => ({
-        ...current,
-        [memberId]: updatedPlayer?.battingStyle ?? nextBattingStyle
-      }));
-      setDraftIsCaptain((current) => ({
-        ...current,
-        [memberId]: updatedPlayer?.isCaptain ?? nextIsCaptain
-      }));
-      setDraftIsWicketKeeper((current) => ({
-        ...current,
-        [memberId]: updatedPlayer?.isWicketKeeper ?? nextIsWicketKeeper
-      }));
-      setDraftRoleTags((current) => ({
-        ...current,
-        [memberId]: updatedPlayer?.roleTags ?? nextRoleTags
-      }));
 
-      if (linkedUserResult) {
+      if (shouldUpdateLinkedUser) {
         setTeamUserOptions((current) =>
           current.map((option) => {
-            if (option.linkedMemberId === memberId && option.userId !== linkedUserResult.userId) {
+            if (currentMembership.userId && option.userId === currentMembership.userId) {
               return { ...option, linkedMemberId: null };
             }
 
-            if (linkedUserResult.userId && option.userId === linkedUserResult.userId) {
+            if (nextResolvedUserId && option.userId === nextResolvedUserId) {
               return { ...option, linkedMemberId: memberId };
             }
 
@@ -1698,14 +1329,14 @@ export default function MembershipsPage() {
         );
       }
 
-      if (linkedPlayerResult) {
+      if (shouldUpdateLinkedPlayer) {
         setTeamPlayerOptions((current) =>
           current.map((option) => {
-            if (option.linkedMemberId === memberId && option.playerId !== linkedPlayerResult.playerId) {
+            if (currentMembership.playerId && option.playerId === currentMembership.playerId) {
               return { ...option, linkedMemberId: null };
             }
 
-            if (linkedPlayerResult.playerId && option.playerId === linkedPlayerResult.playerId) {
+            if (nextResolvedPlayerId && option.playerId === nextResolvedPlayerId) {
               return { ...option, linkedMemberId: memberId };
             }
 
@@ -1714,6 +1345,7 @@ export default function MembershipsPage() {
         );
       }
 
+      resetMembershipDraft(updatedMembership);
       setEditingMemberId((current) => (current === memberId ? null : current));
       setSuccessMessage(`Updated ${currentMembership.name} membership details.`);
     } catch (error) {
@@ -1769,44 +1401,7 @@ export default function MembershipsPage() {
         roleTags: values.roleTags
       });
 
-      const refreshedPlayerOptions = await getTeamMembershipPlayerOptions();
-
-      setTeamPlayerOptions(refreshedPlayerOptions);
-      setMemberships((current) =>
-        current.map((membership) =>
-          membership.memberId === linkedPlayerDialogMembership.memberId
-            ? {
-              ...membership,
-              playerId: result.player.id,
-              playerName: formatName(result.player.name),
-              battingStyle: result.player.battingStyle,
-              isCaptain: result.player.isCaptain,
-              isWicketKeeper: result.player.isWicketKeeper,
-              roleTags: result.player.roleTags
-            }
-            : membership
-        )
-      );
-      setDraftPlayerIds((current) => ({
-        ...current,
-        [linkedPlayerDialogMembership.memberId]: result.player.id
-      }));
-      setDraftBattingStyles((current) => ({
-        ...current,
-        [linkedPlayerDialogMembership.memberId]: result.player.battingStyle ?? ""
-      }));
-      setDraftIsCaptain((current) => ({
-        ...current,
-        [linkedPlayerDialogMembership.memberId]: result.player.isCaptain
-      }));
-      setDraftIsWicketKeeper((current) => ({
-        ...current,
-        [linkedPlayerDialogMembership.memberId]: result.player.isWicketKeeper
-      }));
-      setDraftRoleTags((current) => ({
-        ...current,
-        [linkedPlayerDialogMembership.memberId]: result.player.roleTags
-      }));
+      await refreshMembershipWorkspace();
       setLinkedPlayerDialogMemberId(null);
       setSuccessMessage(`Created and linked ${formatName(result.player.name)} for ${formatName(linkedPlayerDialogMembership.name)}.`);
     } catch (error) {
@@ -1832,47 +1427,7 @@ export default function MembershipsPage() {
         roleTags: values.roleTags
       });
 
-      const refreshedMemberships = await getTeamMembershipRecords();
-      const refreshedPlayerOptions = await getTeamMembershipPlayerOptions();
-
-      setMemberships(refreshedMemberships);
-      setTeamPlayerOptions(refreshedPlayerOptions);
-      setDraftRoles(refreshedMemberships.reduce<Record<string, TeamMembershipRole>>((acc, membership) => {
-        acc[membership.memberId] = membership.role;
-        return acc;
-      }, {}));
-      setDraftStatuses(refreshedMemberships.reduce<Record<string, TeamMembershipStatus>>((acc, membership) => {
-        acc[membership.memberId] = membership.status;
-        return acc;
-      }, {}));
-      setDraftSeasonIds(refreshedMemberships.reduce<Record<string, string>>((acc, membership) => {
-        acc[membership.memberId] = membership.seasonId ?? "";
-        return acc;
-      }, {}));
-      setDraftUserIds(refreshedMemberships.reduce<Record<string, string>>((acc, membership) => {
-        acc[membership.memberId] = membership.userId ?? "";
-        return acc;
-      }, {}));
-      setDraftPlayerIds(refreshedMemberships.reduce<Record<string, string>>((acc, membership) => {
-        acc[membership.memberId] = membership.playerId ?? "";
-        return acc;
-      }, {}));
-      setDraftBattingStyles(refreshedMemberships.reduce<Record<string, string>>((acc, membership) => {
-        acc[membership.memberId] = membership.battingStyle ?? "";
-        return acc;
-      }, {}));
-      setDraftIsCaptain(refreshedMemberships.reduce<Record<string, boolean>>((acc, membership) => {
-        acc[membership.memberId] = membership.isCaptain;
-        return acc;
-      }, {}));
-      setDraftIsWicketKeeper(refreshedMemberships.reduce<Record<string, boolean>>((acc, membership) => {
-        acc[membership.memberId] = membership.isWicketKeeper;
-        return acc;
-      }, {}));
-      setDraftRoleTags(refreshedMemberships.reduce<Record<string, string[]>>((acc, membership) => {
-        acc[membership.memberId] = membership.roleTags;
-        return acc;
-      }, {}));
+      await refreshMembershipWorkspace();
       setIsCreateRosterPlayerDialogOpen(false);
       setSuccessMessage(`Created ${formatName(values.name)} in the roster.`);
     } catch (error) {
@@ -1971,65 +1526,15 @@ export default function MembershipsPage() {
             )}
 
             {canManageInvites && (
-              <>
-                <JoinRequestManagementSection
-                  joinRequests={joinRequests}
-                  memberships={memberships}
-                  seasons={seasons}
-                  onJoinRequestApproved={handleJoinRequestApproved}
-                  onJoinRequestRejected={handleJoinRequestRejected}
-                  onErrorMessage={setErrorMessage}
-                  onSuccessMessage={setSuccessMessage}
-                />
-
-                <Accordion
-                  disableGutters
-                  defaultExpanded={pendingInviteCount > 0}
-                  sx={{
-                    borderRadius: 3,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    backgroundColor: "background.paper",
-                    "&::before": { display: "none" }
-                  }}
-                >
-                  <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={1.5}
-                      alignItems={{ xs: "flex-start", md: "center" }}
-                      justifyContent="space-between"
-                      sx={{ width: "100%", pr: 1 }}
-                    >
-                      <Stack spacing={0.35}>
-                        <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                          Advanced Invite Links
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Team ID and join approval are the main V2 path. Keep invite links only for exceptional admin flows like claiming an existing unlinked member.
-                        </Typography>
-                      </Stack>
-                      <Chip
-                        size="small"
-                        label={pendingInviteCount > 0 ? `${pendingInviteCount} pending` : "Optional flow"}
-                        color={pendingInviteCount > 0 ? "warning" : "default"}
-                        variant="outlined"
-                      />
-                    </Stack>
-                  </AccordionSummary>
-                  <AccordionDetails sx={{ pt: 0 }}>
-                    <InviteManagementSection
-                      memberships={memberships}
-                      seasons={seasons}
-                      invites={invites}
-                      onInviteCreated={handleInviteCreated}
-                      onInviteCancelled={handleInviteCancelled}
-                      onErrorMessage={setErrorMessage}
-                      onSuccessMessage={setSuccessMessage}
-                    />
-                  </AccordionDetails>
-                </Accordion>
-              </>
+              <JoinRequestManagementSection
+                joinRequests={joinRequests}
+                memberships={memberships}
+                seasons={seasons}
+                onJoinRequestApproved={handleJoinRequestApproved}
+                onJoinRequestRejected={handleJoinRequestRejected}
+                onErrorMessage={setErrorMessage}
+                onSuccessMessage={setSuccessMessage}
+              />
             )}
 
             <Card variant="outlined" sx={{ borderRadius: 3 }}>
@@ -2055,6 +1560,15 @@ export default function MembershipsPage() {
                     </Stack>
 
                     <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                      <TextField
+                        size="small"
+                        label="Search Members"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder="Name, email, player, alias"
+                        sx={{ minWidth: { xs: "100%", md: 260 } }}
+                      />
+
                       <FormControl size="small" sx={{ minWidth: { xs: "100%", md: 220 } }}>
                         <InputLabel id="membership-season-filter-label">Season</InputLabel>
                         <Select labelId="membership-season-filter-label" value={selectedSeason} label="Season" onChange={(event) => setSelectedSeason(event.target.value)}>
@@ -2112,9 +1626,18 @@ export default function MembershipsPage() {
                       const draftMemberIsWicketKeeper = draftIsWicketKeeper[membership.memberId] ?? membership.isWicketKeeper;
                       const draftMemberRoleTags = draftRoleTags[membership.memberId] ?? membership.roleTags;
                       const hasPendingChanges = hasMembershipPendingChanges(membership);
+                      const pendingChangeLabels = getMembershipPendingChangeLabels(membership);
                       const isEditingMember = editingMemberId === membership.memberId;
                       const resolvedUserLabel = membership.userDisplayName ?? membership.userEmail ?? "Not Linked";
                       const resolvedPlayerLabel = membership.playerName ? formatName(membership.playerName) : "Not Linked";
+                      const linkedCricketProfileChips = [
+                        membership.primaryRole,
+                        membership.battingStyle ? `${membership.battingStyle} batting` : null,
+                        membership.bowlingStyle ? `${membership.bowlingStyle} bowling` : null,
+                        membership.batterPreference ? `${membership.batterPreference} batter pref` : null,
+                        membership.bowlerPreference ? `${membership.bowlerPreference} bowler pref` : null
+                      ].filter((value): value is string => Boolean(value));
+                      const hasLinkedCricketProfile = linkedCricketProfileChips.length > 0 || Boolean(membership.cricHeroesName);
 
                             return (
                         <Accordion
@@ -2154,12 +1677,22 @@ export default function MembershipsPage() {
                               <Typography sx={{ fontWeight: 800, color: "text.primary" }}>
                                 {formatName(membership.name)}
                               </Typography>
-                              <Chip
-                                size="small"
-                                label={membership.userId && membership.playerId ? "Fully linked" : "Needs linking"}
-                                color={membership.userId && membership.playerId ? "success" : "warning"}
-                                variant="outlined"
-                              />
+                              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" justifyContent="flex-end">
+                                {hasPendingChanges ? (
+                                  <Chip
+                                    size="small"
+                                    label={`${pendingChangeLabels.length} pending`}
+                                    color="primary"
+                                    variant="filled"
+                                  />
+                                ) : null}
+                                <Chip
+                                  size="small"
+                                  label={membership.userId && membership.playerId ? "Fully linked" : "Needs linking"}
+                                  color={membership.userId && membership.playerId ? "success" : "warning"}
+                                  variant="outlined"
+                                />
+                              </Stack>
                             </Stack>
                           </AccordionSummary>
 
@@ -2175,6 +1708,38 @@ export default function MembershipsPage() {
                                   }}
                                 >
                                   <Stack spacing={1.5}>
+                                    {hasPendingChanges ? (
+                                      <Alert severity="info" variant="outlined">
+                                        Unsaved changes: {pendingChangeLabels.join(", ")}
+                                      </Alert>
+                                    ) : null}
+                                    {hasLinkedCricketProfile ? (
+                                      <Box
+                                        sx={{
+                                          p: 1.5,
+                                          borderRadius: 2,
+                                          border: "1px solid",
+                                          borderColor: "divider",
+                                          backgroundColor: "background.default"
+                                        }}
+                                      >
+                                        <Stack spacing={1}>
+                                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                            Player Preferences
+                                          </Typography>
+                                          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                            {linkedCricketProfileChips.map((label) => (
+                                              <Chip key={`${membership.memberId}-${label}`} size="small" label={label} variant="outlined" />
+                                            ))}
+                                          </Stack>
+                                          {membership.cricHeroesName ? (
+                                            <Typography variant="body2" color="text.secondary">
+                                              CricHeroes: {membership.cricHeroesName}
+                                            </Typography>
+                                          ) : null}
+                                        </Stack>
+                                      </Box>
+                                    ) : null}
                                     <Grid container spacing={1}>
                                       <Grid size={{ xs: 12, md: 4 }}>
                                         <FormControl size="small" fullWidth>

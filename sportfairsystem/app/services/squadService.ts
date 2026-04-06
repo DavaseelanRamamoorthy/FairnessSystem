@@ -100,16 +100,29 @@ type MatchPlayerLinkRow = {
   match_id: string;
   team_name: string | null;
   player_name: string | null;
+  player_id?: string | null;
 };
 
 type BattingLinkRow = {
   innings_id: string;
   player_name: string | null;
+  player_id?: string | null;
 };
 
 type BowlingLinkRow = {
   innings_id: string;
   player_name: string | null;
+  player_id?: string | null;
+};
+
+type MemberLinkPlayerRow = {
+  member_id?: unknown;
+  player_id?: unknown;
+};
+
+type TeamMemberAliasBridgeRow = {
+  member_id?: unknown;
+  alias?: unknown;
 };
 
 export type SquadIdentityBridgeResult = {
@@ -233,6 +246,64 @@ function buildUniquePlayerIdMap(players: SquadPlayerRecord[]) {
 
 export function buildSquadIdentityBridge(players: SquadPlayerRecord[]) {
   return buildUniquePlayerIdMap(players);
+}
+
+function buildAliasIdentityBridge(
+  players: SquadPlayerRecord[],
+  memberLinks: MemberLinkPlayerRow[],
+  aliasRows: TeamMemberAliasBridgeRow[]
+) {
+  const playerById = new Map(players.map((player) => [player.id, player] as const));
+  const playerIdByMemberId = new Map<string, string>();
+
+  memberLinks.forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const playerId = typeof row.player_id === "string" ? row.player_id : null;
+
+    if (!memberId || !playerId || !playerById.has(playerId)) {
+      return;
+    }
+
+    playerIdByMemberId.set(memberId, playerId);
+  });
+
+  const aliasCandidates = new Map<string, Set<string>>();
+
+  aliasRows.forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const alias = cleanName(typeof row.alias === "string" ? row.alias : "");
+    const playerId = memberId ? (playerIdByMemberId.get(memberId) ?? null) : null;
+
+    if (!alias || !playerId) {
+      return;
+    }
+
+    const currentCandidates = aliasCandidates.get(alias) ?? new Set<string>();
+    currentCandidates.add(playerId);
+    aliasCandidates.set(alias, currentCandidates);
+  });
+
+  const aliasPlayerIdByName = new Map<string, string>();
+  const ambiguousAliases: string[] = [];
+
+  aliasCandidates.forEach((playerIds, alias) => {
+    if (playerIds.size === 1) {
+      const [playerId] = Array.from(playerIds);
+
+      if (playerId) {
+        aliasPlayerIdByName.set(alias, playerId);
+      }
+
+      return;
+    }
+
+    ambiguousAliases.push(alias);
+  });
+
+  return {
+    aliasPlayerIdByName,
+    ambiguousAliases: ambiguousAliases.sort()
+  };
 }
 
 export async function getCurrentTeamId() {
@@ -838,6 +909,33 @@ export async function bridgeCurrentTeamPlayerIdentities(
 
   const allTeamPlayers = (playerData ?? []).map((row) => mapSquadPlayerRecord(row as RawPlayerRecord));
   const { uniquePlayerIdByName, ambiguousNames } = buildUniquePlayerIdMap(allTeamPlayers);
+  const [
+    { data: memberLinkData, error: memberLinkError },
+    { data: aliasData, error: aliasError }
+  ] = await Promise.all([
+    supabase
+      .from("member_links")
+      .select("member_id, player_id")
+      .not("player_id", "is", null),
+    supabase
+      .from("team_member_aliases")
+      .select("member_id, alias")
+      .eq("team_id", teamId)
+  ]);
+
+  if (memberLinkError) {
+    throw new Error("Could not load member links for identity repair.");
+  }
+
+  if (aliasError) {
+    throw new Error("Could not load team aliases for identity repair.");
+  }
+
+  const { aliasPlayerIdByName, ambiguousAliases } = buildAliasIdentityBridge(
+    allTeamPlayers,
+    (memberLinkData ?? []) as MemberLinkPlayerRow[],
+    (aliasData ?? []) as TeamMemberAliasBridgeRow[]
+  );
   const allowedPlayerIds = requestedPlayerIds.length > 0
     ? new Set(requestedPlayerIds)
     : null;
@@ -846,14 +944,22 @@ export async function bridgeCurrentTeamPlayerIdentities(
         Array.from(uniquePlayerIdByName.entries()).filter(([, playerId]) => allowedPlayerIds.has(playerId))
       )
     : uniquePlayerIdByName;
+  const bridgeableAliasPlayerIdByName = new Map<string, string>();
 
-  if (bridgeablePlayerIdByName.size === 0) {
+  aliasPlayerIdByName.forEach((playerId, alias) => {
+    if (!allowedPlayerIds || allowedPlayerIds.has(playerId)) {
+      bridgeableAliasPlayerIdByName.set(alias, playerId);
+    }
+  });
+  const skippedAmbiguousNames = Array.from(new Set([...ambiguousNames, ...ambiguousAliases])).sort();
+
+  if (bridgeablePlayerIdByName.size === 0 && bridgeableAliasPlayerIdByName.size === 0) {
     return {
       linkedMatchPlayers: 0,
       linkedBattingRows: 0,
       linkedBowlingRows: 0,
       totalLinkedRows: 0,
-      skippedAmbiguousNames: ambiguousNames
+      skippedAmbiguousNames
     };
   }
 
@@ -874,7 +980,7 @@ export async function bridgeCurrentTeamPlayerIdentities(
       linkedBattingRows: 0,
       linkedBowlingRows: 0,
       totalLinkedRows: 0,
-      skippedAmbiguousNames: ambiguousNames
+      skippedAmbiguousNames
     };
   }
 
@@ -884,9 +990,8 @@ export async function bridgeCurrentTeamPlayerIdentities(
   ] = await Promise.all([
     supabase
       .from("match_players")
-      .select("match_id, team_name, player_name")
-      .in("match_id", matchIds)
-      .is("player_id", null),
+      .select("match_id, team_name, player_name, player_id")
+      .in("match_id", matchIds),
     supabase
       .from("innings")
       .select("id, team_name")
@@ -919,16 +1024,14 @@ export async function bridgeCurrentTeamPlayerIdentities(
     currentTeamInningsIds.length > 0
       ? supabase
           .from("batting_stats")
-          .select("innings_id, player_name")
+          .select("innings_id, player_name, player_id")
           .in("innings_id", currentTeamInningsIds)
-          .is("player_id", null)
       : Promise.resolve({ data: [], error: null }),
     opponentInningsIds.length > 0
       ? supabase
           .from("bowling_stats")
-          .select("innings_id, player_name")
+          .select("innings_id, player_name, player_id")
           .in("innings_id", opponentInningsIds)
-          .is("player_id", null)
       : Promise.resolve({ data: [], error: null })
   ]);
 
@@ -940,19 +1043,22 @@ export async function bridgeCurrentTeamPlayerIdentities(
     throw new Error("Could not load bowling repair rows.");
   }
 
-  const missingMatchPlayers = ((missingMatchPlayerData ?? []) as MatchPlayerLinkRow[])
+  const repairableMatchPlayers = ((missingMatchPlayerData ?? []) as MatchPlayerLinkRow[])
     .filter((row) => normalizeTeamName(row.team_name) === normalizeTeamName(activeTeamName));
-  const missingBattingRows = (missingBattingData ?? []) as BattingLinkRow[];
-  const missingBowlingRows = (missingBowlingData ?? []) as BowlingLinkRow[];
+  const repairableBattingRows = (missingBattingData ?? []) as BattingLinkRow[];
+  const repairableBowlingRows = (missingBowlingData ?? []) as BowlingLinkRow[];
 
   let linkedMatchPlayers = 0;
   let linkedBattingRows = 0;
   let linkedBowlingRows = 0;
 
-  for (const row of missingMatchPlayers) {
-    const playerId = bridgeablePlayerIdByName.get(cleanName(row.player_name ?? ""));
+  for (const row of repairableMatchPlayers) {
+    const normalizedName = cleanName(row.player_name ?? "");
+    const playerId =
+      bridgeablePlayerIdByName.get(normalizedName)
+      ?? bridgeableAliasPlayerIdByName.get(normalizedName);
 
-    if (!playerId || !row.player_name || !row.team_name) {
+    if (!playerId || !row.player_name || !row.team_name || row.player_id === playerId) {
       continue;
     }
 
@@ -961,8 +1067,7 @@ export async function bridgeCurrentTeamPlayerIdentities(
       .update({ player_id: playerId })
       .eq("match_id", row.match_id)
       .eq("team_name", row.team_name)
-      .eq("player_name", row.player_name)
-      .is("player_id", null);
+      .eq("player_name", row.player_name);
 
     if (error) {
       throw new Error("Could not repair match-player identity links.");
@@ -971,10 +1076,13 @@ export async function bridgeCurrentTeamPlayerIdentities(
     linkedMatchPlayers += 1;
   }
 
-  for (const row of missingBattingRows) {
-    const playerId = bridgeablePlayerIdByName.get(cleanName(row.player_name ?? ""));
+  for (const row of repairableBattingRows) {
+    const normalizedName = cleanName(row.player_name ?? "");
+    const playerId =
+      bridgeablePlayerIdByName.get(normalizedName)
+      ?? bridgeableAliasPlayerIdByName.get(normalizedName);
 
-    if (!playerId || !row.player_name) {
+    if (!playerId || !row.player_name || row.player_id === playerId) {
       continue;
     }
 
@@ -982,8 +1090,7 @@ export async function bridgeCurrentTeamPlayerIdentities(
       .from("batting_stats")
       .update({ player_id: playerId })
       .eq("innings_id", row.innings_id)
-      .eq("player_name", row.player_name)
-      .is("player_id", null);
+      .eq("player_name", row.player_name);
 
     if (error) {
       throw new Error("Could not repair batting identity links.");
@@ -992,10 +1099,13 @@ export async function bridgeCurrentTeamPlayerIdentities(
     linkedBattingRows += 1;
   }
 
-  for (const row of missingBowlingRows) {
-    const playerId = bridgeablePlayerIdByName.get(cleanName(row.player_name ?? ""));
+  for (const row of repairableBowlingRows) {
+    const normalizedName = cleanName(row.player_name ?? "");
+    const playerId =
+      bridgeablePlayerIdByName.get(normalizedName)
+      ?? bridgeableAliasPlayerIdByName.get(normalizedName);
 
-    if (!playerId || !row.player_name) {
+    if (!playerId || !row.player_name || row.player_id === playerId) {
       continue;
     }
 
@@ -1003,8 +1113,7 @@ export async function bridgeCurrentTeamPlayerIdentities(
       .from("bowling_stats")
       .update({ player_id: playerId })
       .eq("innings_id", row.innings_id)
-      .eq("player_name", row.player_name)
-      .is("player_id", null);
+      .eq("player_name", row.player_name);
 
     if (error) {
       throw new Error("Could not repair bowling identity links.");
@@ -1018,6 +1127,6 @@ export async function bridgeCurrentTeamPlayerIdentities(
     linkedBattingRows,
     linkedBowlingRows,
     totalLinkedRows: linkedMatchPlayers + linkedBattingRows + linkedBowlingRows,
-    skippedAmbiguousNames: ambiguousNames
+    skippedAmbiguousNames
   };
 }

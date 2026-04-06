@@ -88,6 +88,7 @@ import {
 } from "@/app/services/membershipService";
 import { SeasonOption } from "@/app/services/playerProfileService";
 import {
+  bridgeCurrentTeamPlayerIdentities,
   createLinkedPlayerForMember,
   createSquadPlayer,
   primarySquadRoleTagOptions,
@@ -1279,6 +1280,15 @@ export default function MembershipsPage() {
         }
       }
 
+      const playerIdForHistoryRepair = nextResolvedPlayerId ?? currentMembership.playerId;
+      if (playerIdForHistoryRepair && (shouldUpdateExternalName || shouldUpdateLinkedPlayer)) {
+        try {
+          await bridgeCurrentTeamPlayerIdentities({ playerIds: [playerIdForHistoryRepair] });
+        } catch (repairError) {
+          console.warn("Could not repair historical scorecard identity links after membership update.", repairError);
+        }
+      }
+
       const nextSeasonName = nextSeasonId
         ? (seasons.find((season) => season.id === nextSeasonId)?.name ?? currentMembership.seasonName)
         : null;
@@ -1973,6 +1983,11 @@ export default function MembershipsPage() {
                                         onChange={(event) => handleAliasInputChange(membership.memberId, event.target.value)}
                                         placeholder="Spond Name"
                                         disabled={!isEditingMember}
+                                        helperText={
+                                          isEditingMember
+                                            ? "Update the Spond or external display name, or leave it blank to use the member name."
+                                            : "Click Edit to update the external name."
+                                        }
                                       />
                                     ) : visibleExternalNames.length > 0 ? (
                                       <TextField

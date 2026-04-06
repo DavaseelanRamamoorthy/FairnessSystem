@@ -98,6 +98,22 @@ type BowlingStatRow = {
   wickets: number | null;
 };
 
+type PlannerUsageBatchRow = {
+  id?: unknown;
+  weekend_date?: unknown;
+  weekend_label?: unknown;
+  created_at?: unknown;
+};
+
+type PlannerUsageAssignmentRow = {
+  batch_id?: unknown;
+  match_number?: unknown;
+  assignment?: unknown;
+  is_available?: unknown;
+  player_id?: unknown;
+  member_id?: unknown;
+};
+
 type AggregatedPlayerStats = {
   matchIds: Set<string>;
   battingMatchIds: Set<string>;
@@ -140,6 +156,7 @@ export type MemberRosterSummary = PlayerSummary & {
   membershipStatus: "active" | "inactive" | "invited" | "archived";
   hasLinkedPlayer: boolean;
   seasonId: string | null;
+  externalName: string | null;
   primaryRole: string | null;
   bowlingStyle: string | null;
   batterPreference: string | null;
@@ -152,6 +169,8 @@ export type PlayerProfile = {
   name: string;
   matchesPlayed: number;
   totalTeamMatches: number;
+  availableMatchSlots: number;
+  selectedXiMatches: number;
   activeMatches: number;
   benchMatches: number;
   battingMatches: number;
@@ -163,6 +182,7 @@ export type PlayerProfile = {
   economy: number | null;
   role: "Batter" | "Bowler" | "All-Rounder" | "Player";
   primaryRole: string | null;
+  externalName: string | null;
   battingStyle: string | null;
   bowlingStyle: string | null;
   batterPreference: string | null;
@@ -198,6 +218,7 @@ type TeamMemberRosterRow = {
 type RawMemberLinkRow = {
   member_id?: unknown;
   user_id?: unknown;
+  player_id?: unknown;
 };
 
 function normalizeNullableText(value: unknown) {
@@ -256,6 +277,39 @@ function createEmptyStats(): AggregatedPlayerStats {
     bowlingBalls: 0,
     bowlingWickets: 0
   };
+}
+
+function getPlannerUsageWeekendKey(row: PlannerUsageBatchRow) {
+  const weekendDate = typeof row.weekend_date === "string" ? row.weekend_date : "";
+  const weekendLabel = typeof row.weekend_label === "string" ? row.weekend_label : "";
+  return weekendDate || weekendLabel;
+}
+
+function getLatestPlannerBatchIds(rows: PlannerUsageBatchRow[]) {
+  const latestBatchByWeekend = new Map<string, { id: string; createdAt: string }>();
+
+  rows.forEach((row) => {
+    if (typeof row.id !== "string" || typeof row.created_at !== "string") {
+      return;
+    }
+
+    const weekendKey = getPlannerUsageWeekendKey(row);
+
+    if (!weekendKey) {
+      return;
+    }
+
+    const currentValue = latestBatchByWeekend.get(weekendKey);
+
+    if (!currentValue || row.created_at > currentValue.createdAt) {
+      latestBatchByWeekend.set(weekendKey, {
+        id: row.id,
+        createdAt: row.created_at
+      });
+    }
+  });
+
+  return Array.from(latestBatchByWeekend.values()).map((row) => row.id);
 }
 
 function resolveSquadPlayerId(
@@ -950,7 +1004,8 @@ export async function getMemberRosterSummaries(season?: string) {
     { data: membersData, error: membersError },
     { data: linkedPlayersData, error: linkedPlayersError },
     { data: linksData, error: linksError },
-    { data: usersData, error: usersError }
+    { data: usersData, error: usersError },
+    { data: aliasRows, error: aliasRowsError }
   ] = await Promise.all([
     loadSharedPlayerData(teamId, teamName, season),
     supabase
@@ -972,6 +1027,10 @@ export async function getMemberRosterSummaries(season?: string) {
       .select(
         "id, primary_role, batting_style, bowling_style, batter_preference, bowler_preference, cricheroes_name"
       )
+      .eq("team_id", teamId),
+    supabase
+      .from("team_member_aliases")
+      .select("member_id, alias, is_primary")
       .eq("team_id", teamId)
   ]);
 
@@ -991,6 +1050,10 @@ export async function getMemberRosterSummaries(season?: string) {
     throw new Error("Could not load linked user cricket profiles.");
   }
 
+  if (aliasRowsError) {
+    throw new Error("Could not load linked external names.");
+  }
+
   const statsByPlayer = aggregatePlayerStats(
     squadPlayers,
     matchPlayers,
@@ -1005,6 +1068,7 @@ export async function getMemberRosterSummaries(season?: string) {
   const linkedPlayerByMemberId = new Map<string, SquadPlayer>();
   const linkedUserIdByMemberId = new Map<string, string>();
   const linkedUserCricketById = new Map<string, RawUserCricketProfileRow>();
+  const externalNameByMemberId = new Map<string, string>();
 
   ((linkedPlayersData ?? []) as MemberLinkedPlayerRow[]).forEach((row) => {
     const memberId = typeof row.member_id === "string" ? row.member_id : null;
@@ -1039,6 +1103,17 @@ export async function getMemberRosterSummaries(season?: string) {
     }
 
     linkedUserCricketById.set(userId, row as RawUserCricketProfileRow);
+  });
+
+  ((aliasRows ?? []) as Array<{ member_id?: unknown; alias?: unknown; is_primary?: unknown }>).forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const alias = normalizeNullableText(row.alias);
+
+    if (!memberId || !alias || row.is_primary === true || externalNameByMemberId.has(memberId)) {
+      return;
+    }
+
+    externalNameByMemberId.set(memberId, alias);
   });
 
   return ((membersData ?? []) as TeamMemberRosterRow[])
@@ -1077,6 +1152,7 @@ export async function getMemberRosterSummaries(season?: string) {
         membershipStatus,
         hasLinkedPlayer: Boolean(linkedPlayer),
         seasonId: typeof row.season_id === "string" ? row.season_id : null,
+        externalName: externalNameByMemberId.get(memberId) ?? null,
         primaryRole: normalizeNullableText(linkedUserCricket?.primary_role),
         bowlingStyle: normalizeNullableText(linkedUserCricket?.bowling_style),
         batterPreference: normalizeNullableText(linkedUserCricket?.batter_preference),
@@ -1112,7 +1188,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
 
   const { data: memberLinkData, error: memberLinkError } = await supabase
     .from("member_links")
-    .select("user_id")
+    .select("user_id, member_id")
     .eq("player_id", player.id)
     .maybeSingle();
 
@@ -1124,8 +1200,13 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     typeof (memberLinkData as RawLinkedUserProfileRow | null)?.user_id === "string"
       ? ((memberLinkData as RawLinkedUserProfileRow).user_id as string)
       : null;
+  const linkedMemberId =
+    typeof (memberLinkData as RawMemberLinkRow | null)?.member_id === "string"
+      ? ((memberLinkData as RawMemberLinkRow).member_id as string)
+      : null;
 
   let linkedUserCricketProfile: RawUserCricketProfileRow | null = null;
+  let externalName: string | null = null;
 
   if (linkedUserId) {
     const { data: userProfileData, error: userProfileError } = await supabase
@@ -1141,6 +1222,88 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     }
 
     linkedUserCricketProfile = (userProfileData ?? null) as RawUserCricketProfileRow | null;
+  }
+
+  if (linkedMemberId) {
+    const { data: aliasData, error: aliasError } = await supabase
+      .from("team_member_aliases")
+      .select("alias, is_primary")
+      .eq("member_id", linkedMemberId)
+      .eq("team_id", teamId)
+      .eq("is_primary", false)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (aliasError) {
+      throw new Error("Could not load the linked external name.");
+    }
+
+    externalName = normalizeNullableText((aliasData as { alias?: unknown } | null)?.alias);
+  }
+
+  let availableMatchSlots = 0;
+  let selectedXiMatches = 0;
+
+  const plannerBatchQuery = supabase
+    .from("planner_matchday_batches")
+    .select("id, weekend_date, weekend_label, created_at")
+    .eq("team_id", teamId)
+    .eq("planner_mode", "friendly");
+
+  const { data: plannerBatchData, error: plannerBatchError } = season
+    ? await plannerBatchQuery.eq("season", season)
+    : await plannerBatchQuery;
+
+  if (plannerBatchError) {
+    throw new Error("Could not load saved planner usage for this player.");
+  }
+
+  const plannerBatchIds = getLatestPlannerBatchIds((plannerBatchData ?? []) as PlannerUsageBatchRow[]);
+
+  if (plannerBatchIds.length > 0) {
+    let assignmentQuery = supabase
+      .from("planner_matchday_assignments")
+      .select("batch_id, match_number, assignment, is_available, player_id, member_id")
+      .eq("team_id", teamId)
+      .in("batch_id", plannerBatchIds);
+
+    if (linkedMemberId) {
+      assignmentQuery = assignmentQuery.or(`player_id.eq.${player.id},member_id.eq.${linkedMemberId}`);
+    } else {
+      assignmentQuery = assignmentQuery.eq("player_id", player.id);
+    }
+
+    const { data: plannerAssignmentData, error: plannerAssignmentError } = await assignmentQuery;
+
+    if (plannerAssignmentError) {
+      throw new Error("Could not load saved planner assignments for this player.");
+    }
+
+    const uniqueAvailableSlots = new Set<string>();
+    const uniqueSelectedSlots = new Set<string>();
+
+    ((plannerAssignmentData ?? []) as PlannerUsageAssignmentRow[]).forEach((row) => {
+      if (typeof row.batch_id !== "string" || typeof row.match_number !== "number") {
+        return;
+      }
+
+      const isAvailableForMatch = row.is_available !== false && row.assignment !== "unavailable";
+
+      if (!isAvailableForMatch) {
+        return;
+      }
+
+      const slotKey = `${row.batch_id}:${row.match_number}`;
+      uniqueAvailableSlots.add(slotKey);
+
+      if (row.assignment === "xi") {
+        uniqueSelectedSlots.add(slotKey);
+      }
+    });
+
+    availableMatchSlots = uniqueAvailableSlots.size;
+    selectedXiMatches = uniqueSelectedSlots.size;
   }
 
   const statsByPlayer = aggregatePlayerStats(
@@ -1308,6 +1471,8 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     name: player.name,
     matchesPlayed: stats.matchIds.size,
     totalTeamMatches: matches.length,
+    availableMatchSlots,
+    selectedXiMatches,
     activeMatches: activeMatchIds.size,
     benchMatches: Math.max(0, stats.matchIds.size - activeMatchIds.size),
     battingMatches: stats.battingMatchIds.size,
@@ -1319,6 +1484,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     economy,
     role: summary.role,
     primaryRole: normalizeNullableText(linkedUserCricketProfile?.primary_role),
+    externalName,
     battingStyle:
       normalizeNullableText(linkedUserCricketProfile?.batting_style) ?? player.battingStyle,
     bowlingStyle: normalizeNullableText(linkedUserCricketProfile?.bowling_style),

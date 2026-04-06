@@ -197,11 +197,19 @@ function getBestFitLabel(profile: PlayerProfile) {
 }
 
 function formatUsageFooter(profile: PlayerProfile) {
-  if (profile.totalTeamMatches === 0) {
-    return "No team matches in scope";
+  if (profile.availableMatchSlots === 0) {
+    return "No saved availability in scope";
   }
 
-  return `${profile.matchesPlayed} of ${profile.totalTeamMatches} selected matches`;
+  return `${profile.selectedXiMatches} of ${profile.availableMatchSlots} available matches selected in XI`;
+}
+
+function formatActiveUsageFooter(profile: PlayerProfile) {
+  if (profile.availableMatchSlots === 0) {
+    return "No saved availability in scope";
+  }
+
+  return `${profile.activeMatches} active matches from ${profile.availableMatchSlots} available slots`;
 }
 
 function buildPlayerSummaryText(
@@ -213,7 +221,9 @@ function buildPlayerSummaryText(
 ) {
   const name = formatName(profile.name);
   const bestFit = getBestFitLabel(profile);
-  const selectionLine = `${profile.matchesPlayed} of ${profile.totalTeamMatches} team matches`;
+  const selectionLine = profile.availableMatchSlots > 0
+    ? `${profile.selectedXiMatches} of ${profile.availableMatchSlots} available matches selected in XI`
+    : null;
   const activeLine = `${profile.activeMatches} active matches`;
   const battingLine = profile.totalRuns > 0
     ? `${profile.totalRuns} runs at SR ${profile.strikeRate?.toFixed(2) ?? "-"}`
@@ -224,20 +234,23 @@ function buildPlayerSummaryText(
   const selectionUsageText = includeSelectionUsage
     ? `with selection usage at ${usagePercent}% and `
     : "";
+  const usageScopeText = selectionLine
+    ? `Across ${selectionLine}, `
+    : "No saved availability is in scope yet, but ";
 
   if (bestFit === "All-Rounder") {
-    return `${name} is currently profiling as an All-Rounder for ${teamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the player has delivered ${battingLine} and ${bowlingLine}, making them a two-phase contributor in the current scope.`;
+    return `${name} is currently profiling as an All-Rounder for ${teamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. ${usageScopeText}the player has delivered ${battingLine} and ${bowlingLine}, making them a two-phase contributor in the current scope.`;
   }
 
   if (bestFit === "Bowler") {
-    return `${name} is currently profiling as a Bowler for ${teamName}. The player has been selected in ${selectionLine}, with ${activeLine} and ${activeUsagePercent}% active usage. ${includeSelectionUsage ? `Selection usage currently sits at ${usagePercent}%. ` : ""}The strongest return is ${bowlingLine}, while batting impact is currently ${battingLine}.`;
+    return `${name} is currently profiling as a Bowler for ${teamName}. ${selectionLine ? `The player has been selected in ${selectionLine}, with ${activeLine} and ${activeUsagePercent}% active usage. ` : `No saved availability is in scope yet, and current output shows ${activeLine}. `}${includeSelectionUsage && selectionLine ? `Selection usage currently sits at ${usagePercent}%. ` : ""}The strongest return is ${bowlingLine}, while batting impact is currently ${battingLine}.`;
   }
 
   if (bestFit === "Batter") {
-    return `${name} is currently profiling as a Batter for ${teamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. Across ${selectionLine}, the primary output is ${battingLine}, while bowling impact remains ${bowlingLine}.`;
+    return `${name} is currently profiling as a Batter for ${teamName}, ${selectionUsageText}active usage at ${activeUsagePercent}%. ${usageScopeText}the primary output is ${battingLine}, while bowling impact remains ${bowlingLine}.`;
   }
 
-  return `${name} is still developing into a clearer role fit. The player has been selected in ${selectionLine}, with ${activeLine}, and currently shows ${battingLine} alongside ${bowlingLine}.`;
+  return `${name} is still developing into a clearer role fit. ${selectionLine ? `The player has been selected in ${selectionLine}, with ${activeLine}, ` : "No saved availability is in scope yet, and the current profile "}and currently shows ${battingLine} alongside ${bowlingLine}.`;
 }
 
 function getRatePercentage(value: number, total: number) {
@@ -628,11 +641,11 @@ export default function PlayerProfilePage() {
     setExpandedMatchId(false);
   }, [recentMatchesPagination.currentPage]);
 
-  const usagePercent = profile && profile.totalTeamMatches > 0
-    ? Math.round((profile.matchesPlayed / profile.totalTeamMatches) * 100)
+  const usagePercent = profile && profile.availableMatchSlots > 0
+    ? Math.round((profile.selectedXiMatches / profile.availableMatchSlots) * 100)
     : 0;
-  const activeUsagePercent = profile && profile.totalTeamMatches > 0
-    ? Math.round((profile.activeMatches / profile.totalTeamMatches) * 100)
+  const activeUsagePercent = profile && profile.availableMatchSlots > 0
+    ? Math.round((profile.activeMatches / profile.availableMatchSlots) * 100)
     : 0;
   const playerSummaryText = profile
     ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, canSeeSelectionUsage, activeTeamName)
@@ -642,6 +655,7 @@ export default function PlayerProfilePage() {
   const cricketProfileRows = profile
     ? [
       { label: "Primary Role", value: profile.primaryRole ?? profile.role },
+      { label: "External Name", value: profile.externalName ?? "Not set" },
       { label: "Batting Style", value: profile.battingStyle ?? "Not set" },
       { label: "Bowling Style", value: profile.bowlingStyle ?? "Not set" },
       { label: "Batter Preference", value: profile.batterPreference ?? "Not set" },
@@ -670,7 +684,7 @@ export default function PlayerProfilePage() {
       {
         label: "Active Usage",
         value: profile.activeMatches,
-        total: profile.totalTeamMatches,
+        total: profile.availableMatchSlots,
         color: "#29C77A"
       }
     ]
@@ -800,6 +814,20 @@ export default function PlayerProfilePage() {
                           >
                             {activeTeamName} player profile with batting, bowling, and recent-match contributions.
                           </Typography>
+
+                          {profile.externalName && (
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: theme.palette.mode === "dark"
+                                  ? alpha(theme.palette.common.white, 0.78)
+                                  : alpha(PLAYER_NAVY, 0.78),
+                                fontWeight: 600
+                              }}
+                            >
+                              External Name: {profile.externalName}
+                            </Typography>
+                          )}
 
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                             {profile.roleTags
@@ -935,7 +963,7 @@ export default function PlayerProfilePage() {
                             variant="body2"
                             sx={{ color: theme.palette.mode === "dark" ? "text.secondary" : alpha(PLAYER_NAVY, 0.72) }}
                           >
-                            {profile.activeMatches} active matches
+                            {formatActiveUsageFooter(profile)}
                           </Typography>
                         </Stack>
                       </Box>

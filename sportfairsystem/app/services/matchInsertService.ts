@@ -25,6 +25,16 @@ type TeamPlayerRecord = {
   roleTags: string[];
 };
 
+type MemberLinkRow = {
+  member_id?: unknown;
+  player_id?: unknown;
+};
+
+type TeamMemberAliasRow = {
+  member_id?: unknown;
+  alias?: unknown;
+};
+
 type DuplicateCheckMatchRow = {
   id: string;
   match_code: string | null;
@@ -251,6 +261,57 @@ function cleanNameForStorage(name: string) {
   return normalizeNameKey(name);
 }
 
+function buildLinkedAliasPlayerIdMap(
+  memberLinks: MemberLinkRow[],
+  aliasRows: TeamMemberAliasRow[],
+  playerById: Map<string, TeamPlayerRecord>
+) {
+  const playerIdByMemberId = new Map<string, string>();
+
+  memberLinks.forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const playerId = typeof row.player_id === "string" ? row.player_id : null;
+
+    if (!memberId || !playerId || !playerById.has(playerId)) {
+      return;
+    }
+
+    playerIdByMemberId.set(memberId, playerId);
+  });
+
+  const aliasCandidates = new Map<string, Set<string>>();
+
+  aliasRows.forEach((row) => {
+    const memberId = typeof row.member_id === "string" ? row.member_id : null;
+    const alias = typeof row.alias === "string" ? cleanNameForStorage(row.alias) : "";
+    const playerId = memberId ? (playerIdByMemberId.get(memberId) ?? null) : null;
+
+    if (!alias || !playerId) {
+      return;
+    }
+
+    const currentPlayerIds = aliasCandidates.get(alias) ?? new Set<string>();
+    currentPlayerIds.add(playerId);
+    aliasCandidates.set(alias, currentPlayerIds);
+  });
+
+  const aliasPlayerIds = new Map<string, string>();
+
+  aliasCandidates.forEach((playerIds, alias) => {
+    if (playerIds.size !== 1) {
+      return;
+    }
+
+    const [playerId] = Array.from(playerIds);
+
+    if (playerId) {
+      aliasPlayerIds.set(alias, playerId);
+    }
+  });
+
+  return aliasPlayerIds;
+}
+
 export async function saveMatchToDatabase(
   parsed: ParsedMatch,
   options?: {
@@ -297,12 +358,28 @@ export async function saveMatchToDatabase(
   const parsedCurrentTeamPlayers = getCurrentTeamParsedPlayers(parsed, currentTeamName);
   const metadataColumnsSupported = await hasSquadMetadataColumns();
 
-  const { data: existingPlayers, error: existingPlayersError } = await supabase
-    .from("players")
-    .select("*")
-    .eq("team_id", teamId);
+  const [
+    { data: existingPlayers, error: existingPlayersError },
+    { data: memberLinksData, error: memberLinksError },
+    { data: aliasRowsData, error: aliasRowsError }
+  ] = await Promise.all([
+    supabase
+      .from("players")
+      .select("*")
+      .eq("team_id", teamId),
+    supabase
+      .from("member_links")
+      .select("member_id, player_id")
+      .not("player_id", "is", null),
+    supabase
+      .from("team_member_aliases")
+      .select("member_id, alias")
+      .eq("team_id", teamId)
+  ]);
 
   if (existingPlayersError) throw existingPlayersError;
+  if (memberLinksError) throw memberLinksError;
+  if (aliasRowsError) throw aliasRowsError;
 
   const existingPlayerMap = new Map(
     (existingPlayers ?? []).map((player) => [
@@ -310,9 +387,26 @@ export async function saveMatchToDatabase(
       mapSquadPlayerRecord(player as Record<string, unknown>)
     ])
   );
+  const existingPlayerById = new Map(
+    Array.from(existingPlayerMap.values()).map((player) => [player.id, player] as const)
+  );
+  const linkedAliasPlayerIds = buildLinkedAliasPlayerIdMap(
+    (memberLinksData ?? []) as MemberLinkRow[],
+    (aliasRowsData ?? []) as TeamMemberAliasRow[],
+    existingPlayerById
+  );
+  const currentTeamPlayerIds = new Map(
+    Array.from(existingPlayerMap.entries()).map(([name, player]) => [name, player.id] as const)
+  );
+
+  linkedAliasPlayerIds.forEach((playerId, alias) => {
+    if (!currentTeamPlayerIds.has(alias)) {
+      currentTeamPlayerIds.set(alias, playerId);
+    }
+  });
 
   const missingParsedPlayers = parsedCurrentTeamPlayers.filter(
-    (player) => !existingPlayerMap.has(player.name)
+    (player) => !currentTeamPlayerIds.has(player.name)
   );
 
   if (missingParsedPlayers.length > 0) {
@@ -345,6 +439,8 @@ export async function saveMatchToDatabase(
     (insertedPlayers ?? []).forEach((player) => {
       const mappedPlayer = mapSquadPlayerRecord(player as Record<string, unknown>);
       existingPlayerMap.set(normalizeNameKey(mappedPlayer.name), mappedPlayer);
+      existingPlayerById.set(mappedPlayer.id, mappedPlayer);
+      currentTeamPlayerIds.set(normalizeNameKey(mappedPlayer.name), mappedPlayer.id);
     });
   }
 
@@ -362,16 +458,19 @@ export async function saveMatchToDatabase(
     if (promotePlayersError) throw promotePlayersError;
 
     playersToPromote.forEach((player) => {
-      existingPlayerMap.set(normalizeNameKey(player.name), {
+      const promotedPlayer = {
         ...player,
         isGuest: false
-      });
+      };
+      existingPlayerMap.set(normalizeNameKey(player.name), promotedPlayer);
+      existingPlayerById.set(promotedPlayer.id, promotedPlayer);
     });
   }
 
   if (metadataColumnsSupported) {
     for (const parsedPlayer of parsedCurrentTeamPlayers) {
-      const existingPlayer = existingPlayerMap.get(parsedPlayer.name);
+      const existingPlayerId = currentTeamPlayerIds.get(parsedPlayer.name) ?? null;
+      const existingPlayer = existingPlayerId ? (existingPlayerById.get(existingPlayerId) ?? null) : null;
 
       if (!existingPlayer) {
         continue;
@@ -400,11 +499,13 @@ export async function saveMatchToDatabase(
 
       const mappedPlayer = mapSquadPlayerRecord(updatedPlayer as Record<string, unknown>);
       existingPlayerMap.set(normalizeNameKey(mappedPlayer.name), mappedPlayer);
+      existingPlayerById.set(mappedPlayer.id, mappedPlayer);
+      currentTeamPlayerIds.set(normalizeNameKey(mappedPlayer.name), mappedPlayer.id);
     }
   }
 
   const touchedPlayerIds = parsedCurrentTeamPlayers
-    .map((player) => existingPlayerMap.get(player.name)?.id ?? null)
+    .map((player) => currentTeamPlayerIds.get(player.name) ?? null)
     .filter((playerId): playerId is string => Boolean(playerId));
 
   if (touchedPlayerIds.length > 0) {
@@ -414,10 +515,6 @@ export async function saveMatchToDatabase(
       console.warn("Could not repair historical player identity links.", error);
     }
   }
-
-  const currentTeamPlayerIds = new Map(
-    Array.from(existingPlayerMap.entries()).map(([name, player]) => [name, player.id])
-  );
 
   // 3. Generate match code
   const { count: sameDayMatchCount, error: countError } = await supabase

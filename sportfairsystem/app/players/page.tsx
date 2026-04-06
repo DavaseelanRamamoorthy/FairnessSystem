@@ -44,32 +44,6 @@ const PLAYERS_SEASON_STORAGE_KEY = "sportfairsystem:season-filter:players";
 type PlayerSortOption = "a-z" | "z-a";
 type PlayerStatusFilter = "active" | "inactive" | "invited" | "archived" | "all";
 
-function buildMetadataChips(player: MemberRosterSummary, showMembershipSignals: boolean) {
-  const chips: Array<{ key: string; label: string; color?: "primary" | "success" | "default" }> = [];
-
-  if (player.isCaptain) {
-    chips.push({ key: "captain", label: "Captain", color: "primary" });
-  }
-
-  if (player.isWicketKeeper) {
-    chips.push({ key: "wicket-keeper", label: "Wicket Keeper", color: "success" });
-  }
-
-  if (showMembershipSignals && player.membershipStatus !== "active") {
-    chips.push({
-      key: `status-${player.membershipStatus}`,
-      label: formatName(player.membershipStatus),
-      color: "default"
-    });
-  }
-
-  if (showMembershipSignals && !player.hasLinkedPlayer) {
-    chips.push({ key: "profile-pending", label: "Profile Pending", color: "default" });
-  }
-
-  return chips;
-}
-
 function getPlayerGroup(player: MemberRosterSummary): "batters" | "bowlers" | "all-rounders" | null {
   const normalizedTags = player.roleTags.map((tag) => tag.trim().toLowerCase());
   const hasAllRounderTag = normalizedTags.includes("all-rounder") || normalizedTags.includes("all rounder");
@@ -432,103 +406,18 @@ export default function PlayersPage() {
                                       </Box>
 
                                       <Stack spacing={1} sx={{ minWidth: 0, flex: 1 }}>
-                                        <Stack
-                                          direction="row"
-                                          spacing={0.75}
-                                          useFlexGap
-                                          flexWrap="wrap"
-                                          alignItems="center"
-                                          sx={{ minWidth: 0 }}
+                                        <Typography
+                                          variant="h5"
+                                          sx={{
+                                            color: "text.primary",
+                                            fontWeight: 800,
+                                            lineHeight: 1.12,
+                                            fontSize: { xs: "1.15rem", sm: "1.45rem" },
+                                            wordBreak: "break-word"
+                                          }}
                                         >
-                                          <Typography
-                                            variant="h5"
-                                            sx={{
-                                              color: "text.primary",
-                                              fontWeight: 800,
-                                              lineHeight: 1.12,
-                                              fontSize: { xs: "1.15rem", sm: "1.45rem" },
-                                              wordBreak: "break-word"
-                                            }}
-                                          >
-                                            {formatName(player.name)}
-                                          </Typography>
-
-                                          {buildMetadataChips(player, false).map((chip) => (
-                                            <Chip
-                                              key={chip.key}
-                                              label={chip.label}
-                                              size="small"
-                                              variant={chip.color ? "filled" : "outlined"}
-                                              sx={(currentTheme) => ({
-                                                color: chip.color === "primary"
-                                                  ? "#FFFFFF"
-                                                  : "text.primary",
-                                                backgroundColor: chip.color === "primary"
-                                                  ? currentTheme.palette.error.main
-                                                  : alpha(currentTheme.palette.warning.main, 0.28),
-                                                borderColor:
-                                                  currentTheme.palette.mode === "dark"
-                                                    ? alpha("#FFFFFF", 0.12)
-                                                    : alpha(currentTheme.palette.primary.main, 0.14)
-                                              })}
-                                            />
-                                          ))}
-                                        </Stack>
-
-                                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                                          <Chip
-                                            size="small"
-                                            label={player.primaryRole ?? player.role}
-                                            variant="outlined"
-                                            sx={(currentTheme) => ({
-                                              color: "text.primary",
-                                              borderColor:
-                                                currentTheme.palette.mode === "dark"
-                                                  ? alpha("#FFFFFF", 0.12)
-                                                  : alpha(currentTheme.palette.primary.main, 0.14),
-                                              backgroundColor:
-                                                currentTheme.palette.mode === "dark"
-                                                  ? alpha("#FFFFFF", 0.04)
-                                                  : alpha("#DCE7FF", 0.42)
-                                            })}
-                                          />
-                                          {player.battingStyle && (
-                                            <Chip
-                                              size="small"
-                                              label={`${player.battingStyle} batting`}
-                                              variant="outlined"
-                                              sx={(currentTheme) => ({
-                                                color: "text.primary",
-                                                borderColor:
-                                                  currentTheme.palette.mode === "dark"
-                                                    ? alpha("#FFFFFF", 0.12)
-                                                    : alpha(currentTheme.palette.primary.main, 0.14),
-                                                backgroundColor:
-                                                  currentTheme.palette.mode === "dark"
-                                                    ? alpha("#FFFFFF", 0.04)
-                                                    : alpha("#DCE7FF", 0.32)
-                                              })}
-                                            />
-                                          )}
-                                          {player.bowlingStyle && (
-                                            <Chip
-                                              size="small"
-                                              label={`${player.bowlingStyle} bowling`}
-                                              variant="outlined"
-                                              sx={(currentTheme) => ({
-                                                color: "text.primary",
-                                                borderColor:
-                                                  currentTheme.palette.mode === "dark"
-                                                    ? alpha("#FFFFFF", 0.12)
-                                                    : alpha(currentTheme.palette.primary.main, 0.14),
-                                                backgroundColor:
-                                                  currentTheme.palette.mode === "dark"
-                                                    ? alpha("#FFFFFF", 0.04)
-                                                    : alpha("#DCE7FF", 0.32)
-                                              })}
-                                            />
-                                          )}
-                                        </Stack>
+                                          {formatName(player.name)}
+                                        </Typography>
                                       </Stack>
                                     </Stack>
 

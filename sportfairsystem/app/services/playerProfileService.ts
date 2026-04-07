@@ -1,4 +1,9 @@
 import { cleanName } from "@/app/services/cleanName";
+import { getCurrentTeamMembershipAccess } from "@/app/services/accessControlService";
+import {
+  getPlannerActualMatchLinkMap,
+  getPlannerActualParticipationByMatch
+} from "@/app/services/plannerActualService";
 import {
   buildSquadIdentityBridge,
   getPrimarySquadRoleTag,
@@ -172,6 +177,9 @@ export type PlayerProfile = {
   availableMatchSlots: number;
   selectedXiMatches: number;
   activeMatches: number;
+  linkedActualMatches: number;
+  captainExtraChances: number;
+  plannerDeviationMatches: number;
   benchMatches: number;
   battingMatches: number;
   bowlingMatches: number;
@@ -599,7 +607,7 @@ async function loadSharedPlayerData(teamId: string, teamName: string, season?: s
 
 function countCatchesFromDismissal(
   dismissal: string | null | undefined,
-  normalizedPlayerName: string
+  normalizedPlayerNames: string[]
 ) {
   const normalizedDismissal = (dismissal ?? "")
     .toUpperCase()
@@ -611,17 +619,23 @@ function countCatchesFromDismissal(
     return 0;
   }
 
-  const escapedPlayerName = normalizedPlayerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const flexiblePlayerName = `${escapedPlayerName}(?:\\s+[A-Z]+\\.?)*`;
+  for (const normalizedPlayerName of normalizedPlayerNames) {
+    if (!normalizedPlayerName) {
+      continue;
+    }
 
-  const catchPatterns = [
-    new RegExp(`\\bC\\s*&\\s*B\\s+${flexiblePlayerName}\\b`),
-    new RegExp(`\\b(?:C|CAUGHT|CT)\\s+${flexiblePlayerName}\\s+B\\b`),
-    new RegExp(`\\b(?:C|CAUGHT|CT)\\s+${flexiblePlayerName}\\b`)
-  ];
+    const escapedPlayerName = normalizedPlayerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const flexiblePlayerName = `${escapedPlayerName}(?:\\s+[A-Z]+\\.?)*`;
 
-  if (catchPatterns.some((pattern) => pattern.test(normalizedDismissal))) {
-    return 1;
+    const catchPatterns = [
+      new RegExp(`\\bC\\s*&\\s*B\\s+${flexiblePlayerName}\\b`),
+      new RegExp(`\\b(?:C|CAUGHT|CT)\\s+${flexiblePlayerName}\\s+B\\b`),
+      new RegExp(`\\b(?:C|CAUGHT|CT)\\s+${flexiblePlayerName}\\b`)
+    ];
+
+    if (catchPatterns.some((pattern) => pattern.test(normalizedDismissal))) {
+      return 1;
+    }
   }
 
   return 0;
@@ -895,7 +909,7 @@ export async function getPlannerPlayerSummaries(
       .in("member_id", memberIds),
     supabase
       .from("team_member_aliases")
-      .select("member_id, alias")
+      .select("member_id, player_id, alias")
       .eq("team_id", teamId)
       .in("member_id", memberIds)
   ]);
@@ -924,7 +938,7 @@ export async function getPlannerPlayerSummaries(
   });
 
   const aliasesByMemberId = new Map<string, string[]>();
-  ((aliasRows ?? []) as Array<{ member_id?: unknown; alias?: unknown }>).forEach((row) => {
+  ((aliasRows ?? []) as Array<{ member_id?: unknown; player_id?: unknown; alias?: unknown }>).forEach((row) => {
     const memberId = typeof row.member_id === "string" ? row.member_id : null;
     const alias = typeof row.alias === "string" ? row.alias.trim() : "";
 
@@ -1030,7 +1044,7 @@ export async function getMemberRosterSummaries(season?: string) {
       .eq("team_id", teamId),
     supabase
       .from("team_member_aliases")
-      .select("member_id, alias, is_primary")
+      .select("member_id, player_id, alias, is_primary")
       .eq("team_id", teamId)
   ]);
 
@@ -1105,7 +1119,7 @@ export async function getMemberRosterSummaries(season?: string) {
     linkedUserCricketById.set(userId, row as RawUserCricketProfileRow);
   });
 
-  ((aliasRows ?? []) as Array<{ member_id?: unknown; alias?: unknown; is_primary?: unknown }>).forEach((row) => {
+  ((aliasRows ?? []) as Array<{ member_id?: unknown; player_id?: unknown; alias?: unknown; is_primary?: unknown }>).forEach((row) => {
     const memberId = typeof row.member_id === "string" ? row.member_id : null;
     const alias = normalizeNullableText(row.alias);
 
@@ -1171,6 +1185,7 @@ export async function getMemberRosterSummaries(season?: string) {
 
 export async function getPlayerProfile(playerId: string, season?: string): Promise<PlayerProfile> {
   const { teamId, teamName } = await getActiveTeamContext();
+  const viewerAccess = await getCurrentTeamMembershipAccess();
   const {
     squadPlayers,
     matches,
@@ -1185,6 +1200,12 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
   if (!player) {
     throw new Error("Player not found.");
   }
+
+  const canViewAnyPlayer =
+    viewerAccess.teamRole === "organiser"
+    || viewerAccess.teamRole === "captain"
+    || viewerAccess.legacyMembershipRole === "captain"
+    || viewerAccess.permissions.includes("stats_manage");
 
   const { data: memberLinkData, error: memberLinkError } = await supabase
     .from("member_links")
@@ -1205,8 +1226,34 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
       ? ((memberLinkData as RawMemberLinkRow).member_id as string)
       : null;
 
+  if (!canViewAnyPlayer) {
+    if (!viewerAccess.memberId) {
+      throw new Error("Your player membership is not linked yet.");
+    }
+
+    const { data: viewerPlayerLinkData, error: viewerPlayerLinkError } = await supabase
+      .from("member_links")
+      .select("player_id")
+      .eq("member_id", viewerAccess.memberId)
+      .maybeSingle();
+
+    if (viewerPlayerLinkError) {
+      throw new Error("Could not verify your player profile access.");
+    }
+
+    const viewerPlayerId =
+      typeof (viewerPlayerLinkData as RawMemberLinkRow | null)?.player_id === "string"
+        ? ((viewerPlayerLinkData as RawMemberLinkRow).player_id as string)
+        : null;
+
+    if (!viewerPlayerId || viewerPlayerId !== player.id) {
+      throw new Error("You can only view your own player profile.");
+    }
+  }
+
   let linkedUserCricketProfile: RawUserCricketProfileRow | null = null;
   let externalName: string | null = null;
+  const normalizedIdentityNames = new Set<string>([cleanName(player.name)]);
 
   if (linkedUserId) {
     const { data: userProfileData, error: userProfileError } = await supabase
@@ -1224,26 +1271,45 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     linkedUserCricketProfile = (userProfileData ?? null) as RawUserCricketProfileRow | null;
   }
 
-  if (linkedMemberId) {
-    const { data: aliasData, error: aliasError } = await supabase
+  if (linkedMemberId || player.id) {
+    let aliasQuery = supabase
       .from("team_member_aliases")
-      .select("alias, is_primary")
-      .eq("member_id", linkedMemberId)
+      .select("alias, is_primary, member_id, player_id")
       .eq("team_id", teamId)
-      .eq("is_primary", false)
       .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order("is_primary", { ascending: true });
+
+    aliasQuery = linkedMemberId
+      ? aliasQuery.or(`player_id.eq.${player.id},member_id.eq.${linkedMemberId}`)
+      : aliasQuery.eq("player_id", player.id);
+
+    const { data: aliasData, error: aliasError } = await aliasQuery;
 
     if (aliasError) {
       throw new Error("Could not load the linked external name.");
     }
 
-    externalName = normalizeNullableText((aliasData as { alias?: unknown } | null)?.alias);
+    ((aliasData ?? []) as Array<{ alias?: unknown; is_primary?: unknown; member_id?: unknown; player_id?: unknown }>).forEach((row) => {
+      const alias = normalizeNullableText(row.alias);
+
+      if (!alias) {
+        return;
+      }
+
+      normalizedIdentityNames.add(cleanName(alias));
+
+      if (row.is_primary !== true && !externalName) {
+        externalName = alias;
+      }
+    });
   }
 
   let availableMatchSlots = 0;
   let selectedXiMatches = 0;
+  let activeMatches = 0;
+  let linkedActualMatches = 0;
+  let captainExtraChances = 0;
+  let plannerDeviationMatches = 0;
 
   const plannerBatchQuery = supabase
     .from("planner_matchday_batches")
@@ -1262,6 +1328,11 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
   const plannerBatchIds = getLatestPlannerBatchIds((plannerBatchData ?? []) as PlannerUsageBatchRow[]);
 
   if (plannerBatchIds.length > 0) {
+    const linkedActualMatchMap = await getPlannerActualMatchLinkMap(teamId, plannerBatchIds);
+    const linkedActualMatchIds = Array.from(
+      new Set(Array.from(linkedActualMatchMap.values()).map((link) => link.matchId))
+    );
+    const actualParticipationByMatchId = await getPlannerActualParticipationByMatch(teamId, linkedActualMatchIds);
     let assignmentQuery = supabase
       .from("planner_matchday_assignments")
       .select("batch_id, match_number, assignment, is_available, player_id, member_id")
@@ -1282,6 +1353,10 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
 
     const uniqueAvailableSlots = new Set<string>();
     const uniqueSelectedSlots = new Set<string>();
+    const uniqueActiveSlots = new Set<string>();
+    const uniqueLinkedActualSlots = new Set<string>();
+    const uniqueCaptainExtraSlots = new Set<string>();
+    const uniquePlannerDeviationSlots = new Set<string>();
 
     ((plannerAssignmentData ?? []) as PlannerUsageAssignmentRow[]).forEach((row) => {
       if (typeof row.batch_id !== "string" || typeof row.match_number !== "number") {
@@ -1300,10 +1375,44 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
       if (row.assignment === "xi") {
         uniqueSelectedSlots.add(slotKey);
       }
+
+      const linkedActualMatch = linkedActualMatchMap.get(slotKey);
+
+      if (!linkedActualMatch) {
+        return;
+      }
+
+      uniqueLinkedActualSlots.add(slotKey);
+      const participation = actualParticipationByMatchId.get(linkedActualMatch.matchId);
+      const didAppear = Boolean(
+        participation
+        && (
+          participation.listedPlayerIds.has(player.id)
+          || normalizedIdentityNames.size > 0
+            && Array.from(normalizedIdentityNames).some((normalizedName) => participation.listedNameKeys.has(normalizedName))
+        )
+      );
+
+      if (didAppear) {
+        uniqueActiveSlots.add(slotKey);
+      }
+
+      if (didAppear && row.assignment !== "xi") {
+        uniqueCaptainExtraSlots.add(slotKey);
+        uniquePlannerDeviationSlots.add(slotKey);
+      }
+
+      if (!didAppear && row.assignment === "xi") {
+        uniquePlannerDeviationSlots.add(slotKey);
+      }
     });
 
     availableMatchSlots = uniqueAvailableSlots.size;
     selectedXiMatches = uniqueSelectedSlots.size;
+    activeMatches = uniqueActiveSlots.size;
+    linkedActualMatches = uniqueLinkedActualSlots.size;
+    captainExtraChances = uniqueCaptainExtraSlots.size;
+    plannerDeviationMatches = uniquePlannerDeviationSlots.size;
   }
 
   const statsByPlayer = aggregatePlayerStats(
@@ -1329,6 +1438,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     inningsRows.map((innings) => [innings.id, innings])
   );
   const normalizedPlayerName = cleanName(player.name);
+  const normalizedCatcherNames = Array.from(normalizedIdentityNames);
 
   const runsByMatch = new Map<string, number>();
   const catchesByMatch = new Map<string, number>();
@@ -1358,7 +1468,7 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
       return;
     }
 
-    const catchCount = countCatchesFromDismissal(row.dismissal, normalizedPlayerName);
+    const catchCount = countCatchesFromDismissal(row.dismissal, normalizedCatcherNames);
 
     if (catchCount === 0) {
       return;
@@ -1473,7 +1583,10 @@ export async function getPlayerProfile(playerId: string, season?: string): Promi
     totalTeamMatches: matches.length,
     availableMatchSlots,
     selectedXiMatches,
-    activeMatches: activeMatchIds.size,
+    activeMatches,
+    linkedActualMatches,
+    captainExtraChances,
+    plannerDeviationMatches,
     benchMatches: Math.max(0, stats.matchIds.size - activeMatchIds.size),
     battingMatches: stats.battingMatchIds.size,
     bowlingMatches: stats.bowlingMatchIds.size,

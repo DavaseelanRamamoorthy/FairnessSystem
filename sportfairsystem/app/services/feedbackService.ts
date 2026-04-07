@@ -22,7 +22,7 @@ export const FEEDBACK_MODULES = [
 ] as const;
 export const FEEDBACK_PRIORITIES = ["Low", "Medium", "High"] as const;
 export const FEEDBACK_STATUSES = ["New", "Reviewed", "In Progress", "Closed"] as const;
-export const FEEDBACK_MIN_DESCRIPTION_LENGTH = 1000;
+export const FEEDBACK_MIN_DESCRIPTION_LENGTH = 100;
 
 export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
 export type FeedbackModule = (typeof FEEDBACK_MODULES)[number];

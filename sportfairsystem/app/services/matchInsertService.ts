@@ -32,6 +32,7 @@ type MemberLinkRow = {
 
 type TeamMemberAliasRow = {
   member_id?: unknown;
+  player_id?: unknown;
   alias?: unknown;
 };
 
@@ -284,7 +285,12 @@ function buildLinkedAliasPlayerIdMap(
   aliasRows.forEach((row) => {
     const memberId = typeof row.member_id === "string" ? row.member_id : null;
     const alias = typeof row.alias === "string" ? cleanNameForStorage(row.alias) : "";
-    const playerId = memberId ? (playerIdByMemberId.get(memberId) ?? null) : null;
+    const directPlayerId = typeof row.player_id === "string" ? row.player_id : null;
+    const playerId = directPlayerId && playerById.has(directPlayerId)
+      ? directPlayerId
+      : memberId
+        ? (playerIdByMemberId.get(memberId) ?? null)
+        : null;
 
     if (!alias || !playerId) {
       return;
@@ -373,7 +379,7 @@ export async function saveMatchToDatabase(
       .not("player_id", "is", null),
     supabase
       .from("team_member_aliases")
-      .select("member_id, alias")
+      .select("member_id, player_id, alias")
       .eq("team_id", teamId)
   ]);
 

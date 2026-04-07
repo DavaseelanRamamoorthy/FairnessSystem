@@ -1638,6 +1638,7 @@ export default function MembershipsPage() {
                       const hasPendingChanges = hasMembershipPendingChanges(membership);
                       const pendingChangeLabels = getMembershipPendingChangeLabels(membership);
                       const isEditingMember = editingMemberId === membership.memberId;
+                      const effectiveLinkedPlayerId = draftPlayerIds[membership.memberId] ?? membership.playerId ?? "";
                       const resolvedUserLabel = membership.userDisplayName ?? membership.userEmail ?? "Not Linked";
                       const resolvedPlayerLabel = membership.playerName ? formatName(membership.playerName) : "Not Linked";
                       const linkedCricketProfileChips = [
@@ -1982,11 +1983,13 @@ export default function MembershipsPage() {
                                         value={externalNameInputValue}
                                         onChange={(event) => handleAliasInputChange(membership.memberId, event.target.value)}
                                         placeholder="Spond Name"
-                                        disabled={!isEditingMember}
+                                        disabled={!isEditingMember || !effectiveLinkedPlayerId}
                                         helperText={
-                                          isEditingMember
-                                            ? "Update the Spond or external display name, or leave it blank to use the member name."
-                                            : "Click Edit to update the external name."
+                                          !effectiveLinkedPlayerId
+                                            ? "Link a player first. External names now belong to the linked player identity for scorecards and stats."
+                                            : isEditingMember
+                                              ? "Update the Spond or external display name, or leave it blank to use the member name."
+                                              : "Click Edit to update the external name."
                                         }
                                       />
                                     ) : visibleExternalNames.length > 0 ? (

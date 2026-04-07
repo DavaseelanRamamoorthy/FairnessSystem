@@ -29,6 +29,7 @@ export type TeamMemberAliasType = "primary" | "scorecard" | "short" | "legacy";
 
 export type TeamMemberAliasRecord = {
   aliasId: string;
+  playerId: string | null;
   alias: string;
   aliasType: TeamMemberAliasType;
   isPrimary: boolean;
@@ -134,6 +135,7 @@ type RawPlayerRow = {
 type RawAliasRow = {
   id?: unknown;
   member_id?: unknown;
+  player_id?: unknown;
   alias?: unknown;
   alias_type?: unknown;
   is_primary?: unknown;
@@ -188,6 +190,37 @@ function mapAliasType(value: unknown): TeamMemberAliasType {
   }
 
   return "scorecard";
+}
+
+async function getResolvedLinkedPlayerId(teamId: string, memberId: string) {
+  const { data: linkRow, error: linkError } = await supabase
+    .from("member_links")
+    .select("player_id")
+    .eq("member_id", memberId)
+    .maybeSingle();
+
+  if (linkError) {
+    throw new Error("Could not load the linked player for this member.");
+  }
+
+  const linkedPlayerId = typeof linkRow?.player_id === "string" ? linkRow.player_id : null;
+
+  if (!linkedPlayerId) {
+    return null;
+  }
+
+  const { data: playerRow, error: playerError } = await supabase
+    .from("players")
+    .select("id")
+    .eq("id", linkedPlayerId)
+    .eq("team_id", teamId)
+    .maybeSingle();
+
+  if (playerError) {
+    throw new Error("Could not validate the linked player for this member.");
+  }
+
+  return playerRow?.id && typeof playerRow.id === "string" ? playerRow.id : null;
 }
 
 function mapSeasonRow(row: RawSeasonRow): MembershipSeasonRecord {
@@ -318,7 +351,7 @@ export async function getTeamMembershipRecords() {
       .order("name", { ascending: true }),
     supabase
       .from("team_member_aliases")
-      .select("id, member_id, alias, alias_type, is_primary")
+      .select("id, member_id, player_id, alias, alias_type, is_primary")
       .eq("team_id", access.teamId)
       .order("created_at", { ascending: true }),
     supabase
@@ -464,6 +497,7 @@ export async function getTeamMembershipRecords() {
 
     const nextAlias: TeamMemberAliasRecord = {
       aliasId,
+      playerId: typeof row.player_id === "string" ? row.player_id : null,
       alias,
       aliasType: mapAliasType(row.alias_type),
       isPrimary: row.is_primary === true
@@ -1046,6 +1080,16 @@ export async function updateTeamMembershipLinkedPlayer(
     }
   }
 
+  const { error: aliasPlayerSyncError } = await supabase
+    .from("team_member_aliases")
+    .update({ player_id: playerId })
+    .eq("team_id", access.teamId)
+    .eq("member_id", memberId);
+
+  if (aliasPlayerSyncError) {
+    throw new Error("Could not sync the external names with the linked player.");
+  }
+
   if (typeof memberRow.user_id === "string") {
     const { error: userUpdateError } = await supabase
       .from("users")
@@ -1157,16 +1201,21 @@ export async function createTeamMemberAlias(
   }
 
   const primaryMemberName = normalizeNullableText(memberRow.name);
+  const resolvedPlayerId = await getResolvedLinkedPlayerId(access.teamId, memberId);
 
   if (primaryMemberName && normalizeAliasKey(primaryMemberName) === normalizeAliasKey(normalizedAlias)) {
     throw new Error("That name is already the member's primary name. Add only a different external name.");
+  }
+
+  if (!resolvedPlayerId) {
+    throw new Error("Link a player before setting an external name.");
   }
 
   const { count: existingExternalNameCount, error: existingAliasError } = await supabase
     .from("team_member_aliases")
     .select("id", { count: "exact", head: true })
     .eq("team_id", access.teamId)
-    .eq("member_id", memberId)
+    .eq("player_id", resolvedPlayerId)
     .eq("is_primary", false);
 
   if (existingAliasError) {
@@ -1182,12 +1231,13 @@ export async function createTeamMemberAlias(
     .insert({
       team_id: access.teamId,
       member_id: memberId,
+      player_id: resolvedPlayerId,
       alias: normalizedAlias,
       normalized_alias: normalizeAliasKey(normalizedAlias),
       alias_type: aliasType,
       is_primary: false
     })
-    .select("id, member_id, alias, alias_type, is_primary")
+    .select("id, member_id, player_id, alias, alias_type, is_primary")
     .single();
 
   if (error || !data) {
@@ -1202,6 +1252,7 @@ export async function createTeamMemberAlias(
     memberId: typeof data.member_id === "string" ? data.member_id : memberId,
     alias: {
       aliasId: typeof data.id === "string" ? data.id : "",
+      playerId: typeof data.player_id === "string" ? data.player_id : resolvedPlayerId,
       alias: typeof data.alias === "string" ? data.alias : normalizedAlias,
       aliasType: mapAliasType(data.alias_type),
       isPrimary: data.is_primary === true
@@ -1227,7 +1278,7 @@ export async function updateTeamMemberAlias(
 
   const { data: aliasRow, error: aliasError } = await supabase
     .from("team_member_aliases")
-    .select("id, member_id, alias_type, is_primary")
+    .select("id, member_id, player_id, alias_type, is_primary")
     .eq("id", aliasId)
     .eq("team_id", access.teamId)
     .maybeSingle();
@@ -1252,20 +1303,29 @@ export async function updateTeamMemberAlias(
   }
 
   const primaryMemberName = normalizeNullableText(memberRow.name);
+  const resolvedPlayerId =
+    typeof aliasRow.player_id === "string"
+      ? aliasRow.player_id
+      : await getResolvedLinkedPlayerId(access.teamId, aliasRow.member_id);
 
   if (primaryMemberName && normalizeAliasKey(primaryMemberName) === normalizeAliasKey(normalizedAlias)) {
     throw new Error("That name is already the member's primary name. Reset the external name instead.");
   }
 
+  if (!resolvedPlayerId) {
+    throw new Error("Link a player before setting an external name.");
+  }
+
   const { data, error } = await supabase
     .from("team_member_aliases")
     .update({
+      player_id: resolvedPlayerId,
       alias: normalizedAlias,
       normalized_alias: normalizeAliasKey(normalizedAlias)
     })
     .eq("id", aliasId)
     .eq("team_id", access.teamId)
-    .select("id, member_id, alias, alias_type, is_primary")
+    .select("id, member_id, player_id, alias, alias_type, is_primary")
     .single();
 
   if (error || !data) {
@@ -1280,6 +1340,7 @@ export async function updateTeamMemberAlias(
     memberId: typeof data.member_id === "string" ? data.member_id : aliasRow.member_id,
     alias: {
       aliasId: typeof data.id === "string" ? data.id : aliasId,
+      playerId: typeof data.player_id === "string" ? data.player_id : resolvedPlayerId,
       alias: typeof data.alias === "string" ? data.alias : normalizedAlias,
       aliasType: mapAliasType(data.alias_type),
       isPrimary: data.is_primary === true
@@ -1296,7 +1357,7 @@ export async function deleteTeamMemberAlias(aliasId: string) {
 
   const { data: aliasRow, error: aliasError } = await supabase
     .from("team_member_aliases")
-    .select("id, member_id, is_primary")
+    .select("id, member_id, player_id, is_primary")
     .eq("id", aliasId)
     .eq("team_id", access.teamId)
     .maybeSingle();
@@ -1321,6 +1382,7 @@ export async function deleteTeamMemberAlias(aliasId: string) {
 
   return {
     aliasId,
-    memberId: typeof aliasRow.member_id === "string" ? aliasRow.member_id : null
+    memberId: typeof aliasRow.member_id === "string" ? aliasRow.member_id : null,
+    playerId: typeof aliasRow.player_id === "string" ? aliasRow.player_id : null
   } as const;
 }

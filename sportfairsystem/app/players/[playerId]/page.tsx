@@ -37,6 +37,7 @@ import PaginationFooter from "@/app/components/common/PaginationFooter";
 import { usePagination } from "@/app/hooks/usePagination";
 import { useActiveTeamBranding } from "@/app/layout/useActiveTeamBranding";
 import {
+  getCurrentTeamMembershipAccess,
   getCurrentWorkspaceAccessSnapshot
 } from "@/app/services/accessControlService";
 import { formatName } from "@/app/services/formatname";
@@ -209,7 +210,11 @@ function formatActiveUsageFooter(profile: PlayerProfile) {
     return "No saved availability in scope";
   }
 
-  return `${profile.activeMatches} active matches from ${profile.availableMatchSlots} available slots`;
+  if (profile.linkedActualMatches === 0) {
+    return `No linked actual scorecards yet across ${profile.availableMatchSlots} available slots`;
+  }
+
+  return `${profile.activeMatches} linked actual matches from ${profile.availableMatchSlots} available slots`;
 }
 
 function buildPlayerSummaryText(
@@ -519,6 +524,7 @@ export default function PlayerProfilePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedMatchId, setExpandedMatchId] = useState<string | false>(false);
   const [canSeeSelectionUsage, setCanSeeSelectionUsage] = useState(false);
+  const [canSeeCaptainDecisionImpact, setCanSeeCaptainDecisionImpact] = useState(false);
   const recentMatchesPagination = usePagination({
     items: profile?.recentMatches ?? [],
     pageSize: RECENT_MATCHES_PAGE_SIZE,
@@ -560,13 +566,16 @@ export default function PlayerProfilePage() {
     const loadPlayerWorkspaceAccess = async () => {
       try {
         const workspaceAccess = await getCurrentWorkspaceAccessSnapshot();
+        const teamAccess = await getCurrentTeamMembershipAccess();
 
         if (isActive) {
           setCanSeeSelectionUsage(workspaceAccess.canAccessAnalytics);
+          setCanSeeCaptainDecisionImpact(teamAccess.teamRole === "organiser");
         }
       } catch {
         if (isActive) {
           setCanSeeSelectionUsage(false);
+          setCanSeeCaptainDecisionImpact(false);
         }
       }
     };
@@ -649,6 +658,15 @@ export default function PlayerProfilePage() {
     : 0;
   const playerSummaryText = profile
     ? buildPlayerSummaryText(profile, usagePercent, activeUsagePercent, canSeeSelectionUsage, activeTeamName)
+    : "";
+  const captainDecisionSummary = profile
+    ? [
+      `${profile.availableMatchSlots} available slots`,
+      `${profile.selectedXiMatches} planned XI selections`,
+      `${profile.activeMatches} linked actual appearances`,
+      `${profile.captainExtraChances} extra captain chances`,
+      `${profile.plannerDeviationMatches} planner deviations`
+    ].join(" • ")
     : "";
   const bestFitLabel = profile ? getBestFitLabel(profile) : "";
   const displayRoleLabel = profile ? profile.primaryRole ?? profile.role : "";
@@ -887,7 +905,7 @@ export default function PlayerProfilePage() {
                   </Stack>
 
                   <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid size={{ xs: 12, sm: canSeeCaptainDecisionImpact ? 6 : 4, lg: canSeeCaptainDecisionImpact ? 3 : 4 }}>
                       <Box
                         sx={{
                           p: 1.75,
@@ -928,7 +946,7 @@ export default function PlayerProfilePage() {
                       </Box>
                     </Grid>
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid size={{ xs: 12, sm: canSeeCaptainDecisionImpact ? 6 : 4, lg: canSeeCaptainDecisionImpact ? 3 : 4 }}>
                       <Box
                         sx={{
                           p: 1.75,
@@ -969,7 +987,7 @@ export default function PlayerProfilePage() {
                       </Box>
                     </Grid>
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid size={{ xs: 12, sm: canSeeCaptainDecisionImpact ? 6 : 4, lg: canSeeCaptainDecisionImpact ? 3 : 4 }}>
                       <Box
                         sx={{
                           p: 1.75,
@@ -1009,6 +1027,51 @@ export default function PlayerProfilePage() {
                         </Stack>
                       </Box>
                     </Grid>
+
+                    {canSeeCaptainDecisionImpact && (
+                      <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                        <Box
+                          sx={{
+                            p: 1.75,
+                            borderRadius: 2.5,
+                            border: "1px solid",
+                            borderColor: (currentTheme) =>
+                              currentTheme.palette.mode === "dark"
+                                ? alpha("#FFFFFF", 0.08)
+                                : alpha(PLAYER_NAVY, 0.08),
+                            backgroundColor: (currentTheme) =>
+                              currentTheme.palette.mode === "dark"
+                                ? alpha("#FFFFFF", 0.04)
+                                : "#FFFFFF"
+                          }}
+                        >
+                          <Stack spacing={0.65}>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                letterSpacing: 0.8,
+                                color: theme.palette.mode === "dark"
+                                  ? "text.secondary"
+                                  : alpha(PLAYER_NAVY, 0.64)
+                              }}
+                            >
+                              Captain Decision Impact
+                            </Typography>
+                            <Typography variant="h4" sx={{ fontWeight: 800, color: "text.primary", lineHeight: 1 }}>
+                              {profile.captainExtraChances}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{ color: theme.palette.mode === "dark" ? "text.secondary" : alpha(PLAYER_NAVY, 0.72) }}
+                            >
+                              {profile.captainExtraChances === 1
+                                ? "1 linked actual chance beyond the planned XI."
+                                : `${profile.captainExtraChances} linked actual chances beyond the planned XI.`}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      </Grid>
+                    )}
                   </Grid>
 
                   <Box
@@ -1044,6 +1107,18 @@ export default function PlayerProfilePage() {
                       >
                         {playerSummaryText}
                       </Typography>
+                      {canSeeCaptainDecisionImpact && profile.availableMatchSlots > 0 && (
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: theme.palette.mode === "dark"
+                              ? alpha(theme.palette.common.white, 0.68)
+                              : alpha(PLAYER_NAVY, 0.68)
+                          }}
+                        >
+                          Organiser view: {captainDecisionSummary}
+                        </Typography>
+                      )}
                     </Stack>
                   </Box>
                 </Stack>

@@ -24,6 +24,10 @@ export default function PaginationFooter({
   onNext,
   sx
 }: PaginationFooterProps) {
+  const pageSummary = pageStart === pageEnd
+    ? `${pageStart} of ${totalCount}`
+    : `${pageStart}-${pageEnd} of ${totalCount}`;
+
   return (
     <Stack
       direction={{ xs: "column", sm: "row" }}
@@ -36,7 +40,7 @@ export default function PaginationFooter({
       }}
     >
       <Typography variant="body2" color="text.secondary" textAlign={{ xs: "center", sm: "left" }}>
-        {pageStart}-{pageEnd} of {totalCount}
+        {pageSummary}
       </Typography>
 
       <Stack

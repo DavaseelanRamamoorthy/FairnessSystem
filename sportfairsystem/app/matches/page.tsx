@@ -7,6 +7,7 @@ import {
   Box,
   Typography,
   Paper,
+  Divider,
   Fab,
   Snackbar,
   CircularProgress,
@@ -88,6 +89,43 @@ type TeamPlayerRow = {
   is_guest: boolean | null;
 };
 
+function parseMatchCodeSequence(matchCode: string | null | undefined) {
+  if (!matchCode) {
+    return { base: "", sequence: Number.MAX_SAFE_INTEGER };
+  }
+
+  const normalized = matchCode.trim();
+  const [base, suffix] = normalized.split("+");
+  const parsedSequence = suffix ? Number.parseInt(suffix, 10) : 0;
+
+  return {
+    base,
+    sequence: Number.isFinite(parsedSequence) ? parsedSequence : 0
+  };
+}
+
+function compareMatchesForList(left: Match, right: Match) {
+  const leftDate = left.match_date ?? "";
+  const rightDate = right.match_date ?? "";
+
+  if (leftDate !== rightDate) {
+    return rightDate.localeCompare(leftDate);
+  }
+
+  const leftCode = parseMatchCodeSequence(left.match_code);
+  const rightCode = parseMatchCodeSequence(right.match_code);
+
+  if (leftCode.base !== rightCode.base) {
+    return leftCode.base.localeCompare(rightCode.base);
+  }
+
+  if (leftCode.sequence !== rightCode.sequence) {
+    return leftCode.sequence - rightCode.sequence;
+  }
+
+  return (left.opponent_name ?? "").localeCompare(right.opponent_name ?? "");
+}
+
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
@@ -139,7 +177,7 @@ export default function MatchesPage() {
       const nextMatches = ((data ?? []) as Match[]).map((match) => ({
         ...match,
         opponent_name: getOpponentName(match.team_a, match.team_b, activeTeamName)
-      }));
+      })).sort(compareMatchesForList);
 
       setMatches(nextMatches);
       setSelectedMatch((currentMatch) =>
@@ -536,59 +574,47 @@ export default function MatchesPage() {
 
       <Box
         sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "minmax(320px, 30%) minmax(0, 1fr)" },
-          gap: 3,
-          alignItems: "start",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
           flex: 1,
           minHeight: 0
         }}
       >
-
-        {/* MATCH LIST */}
-
-        <Box
+        <Paper
+          variant="outlined"
           sx={{
-            minWidth: 0,
-            position: { md: "sticky" },
-            top: { md: 24 },
-            height: { md: "100%" },
+            width: "100%",
+            overflow: "hidden",
+            borderRadius: 3,
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
             minHeight: 0
           }}
         >
-
           <MatchesTable
             rows={matches}
             selectedMatchId={selectedMatch?.id}
             onSelectMatch={(match) => setSelectedMatch(match)}
+            embedded
           />
 
-        </Box>
+          <Divider />
 
-        {/* SCORECARD VIEW */}
-
-        <Box
-          sx={{
-            minWidth: 0,
-            minHeight: 0,
-            height: { md: "100%" }
-          }}
-        >
-
-          <Paper
+          <Box
             sx={{
-              p: 0,
-              minHeight: { xs: 500, md: 0 },
-              height: { md: "100%" },
-              overflowY: { md: "auto" },
-              backgroundColor: "transparent",
-              boxShadow: "none",
-              border: "none"
+              p: { xs: 1.5, md: 2 },
+              minWidth: 0,
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+              overflow: "hidden"
             }}
           >
-
             {isLoadingMatches ? (
-
               <Box
                 sx={{
                   minHeight: 320,
@@ -599,35 +625,37 @@ export default function MatchesPage() {
               >
                 <CircularProgress />
               </Box>
-
             ) : !selectedMatch ? (
-
               loadErrorMessage ? (
-                <Typography color="text.secondary" sx={{ p: 4 }}>
+                <Typography color="text.secondary" sx={{ p: 2 }}>
                   Match list is unavailable right now.
                 </Typography>
               ) : matches.length === 0 ? (
-                <Typography color="text.secondary" sx={{ p: 4 }}>
+                <Typography color="text.secondary" sx={{ p: 2 }}>
                   No matches found yet. Upload scorecards to get started.
                 </Typography>
               ) : (
-                <Typography color="text.secondary" sx={{ p: 4 }}>
+                <Typography color="text.secondary" sx={{ p: 2 }}>
                   Click a match to view full scorecard.
                 </Typography>
               )
-
-            ) : (
-
-              <MatchDetailPanel
-                match={selectedMatch}
-                onDelete={canManageWorkspace ? openDeleteDialog : undefined}
-              />
-
-            )}
-
-          </Paper>
-
-        </Box>
+              ) : (
+                <Box
+                  sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: { xs: "visible", md: "auto" },
+                    pr: { xs: 0, md: 0.5 }
+                  }}
+                >
+                  <MatchDetailPanel
+                    match={selectedMatch}
+                    onDelete={canManageWorkspace ? openDeleteDialog : undefined}
+                  />
+                </Box>
+              )}
+          </Box>
+        </Paper>
 
       </Box>
 

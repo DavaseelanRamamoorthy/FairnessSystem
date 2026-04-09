@@ -1,0 +1,56 @@
+<svg width="1600" height="760" viewBox="0 0 1600 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="760" fill="#0B1220"/>
+  <rect x="24" y="24" width="1552" height="712" rx="24" fill="#121A2B" stroke="#2A3550"/>
+  <rect x="24" y="24" width="320" height="712" rx="24" fill="#182235"/>
+  <path d="M344 24V736" stroke="#2A3550"/>
+
+  <text x="48" y="64" fill="#98A7C7" font-family="Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1">FILTERS</text>
+
+  <rect x="44" y="84" width="280" height="48" rx="12" fill="#1B2436" stroke="#34405D"/>
+  <text x="60" y="102" fill="#9BA8C7" font-family="Arial, sans-serif" font-size="12">Result</text>
+  <text x="60" y="122" fill="#F4F7FF" font-family="Arial, sans-serif" font-size="16" font-weight="700">All</text>
+  <path d="M300 105L310 115L320 105" stroke="#AEB9D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="44" y="144" width="280" height="48" rx="12" fill="#1B2436" stroke="#34405D"/>
+  <text x="60" y="162" fill="#9BA8C7" font-family="Arial, sans-serif" font-size="12">Season</text>
+  <text x="60" y="182" fill="#F4F7FF" font-family="Arial, sans-serif" font-size="16" font-weight="700">2026</text>
+  <path d="M300 165L310 175L320 165" stroke="#AEB9D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="44" y="204" width="280" height="48" rx="12" fill="#1B2436" stroke="#34405D"/>
+  <text x="60" y="222" fill="#9BA8C7" font-family="Arial, sans-serif" font-size="12">Group By</text>
+  <text x="60" y="242" fill="#F4F7FF" font-family="Arial, sans-serif" font-size="16" font-weight="700">None</text>
+  <path d="M300 225L310 235L320 225" stroke="#AEB9D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="376" y="64" fill="#98A7C7" font-family="Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1">MATCH LIST</text>
+  <text x="376" y="88" fill="#AEB9D4" font-family="Arial, sans-serif" font-size="14">Recent scorecards with clearer match-by-match scanning</text>
+
+  <rect x="376" y="116" width="1168" height="96" rx="20" fill="#223048" stroke="#3B82F6"/>
+  <text x="400" y="152" fill="#F7F9FF" font-family="Arial, sans-serif" font-size="18" font-weight="800">BISKUT</text>
+  <text x="400" y="184" fill="#B4BED7" font-family="Arial, sans-serif" font-size="14">05 Apr 2026</text>
+  <text x="1400" y="184" text-anchor="end" fill="#8F9CBA" font-family="Arial, sans-serif" font-size="13">AE050426+1</text>
+  <rect x="1452" y="138" width="68" height="28" rx="14" fill="#EF4444"/>
+  <text x="1486" y="156" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="13" font-weight="700">Lost</text>
+
+  <rect x="376" y="224" width="1168" height="96" rx="20" fill="#172133" stroke="#2C3750"/>
+  <text x="400" y="260" fill="#F7F9FF" font-family="Arial, sans-serif" font-size="18" font-weight="800">BISKUT</text>
+  <text x="400" y="292" fill="#B4BED7" font-family="Arial, sans-serif" font-size="14">05 Apr 2026</text>
+  <text x="1400" y="292" text-anchor="end" fill="#8F9CBA" font-family="Arial, sans-serif" font-size="13">AE050426+2</text>
+  <rect x="1458" y="246" width="62" height="28" rx="14" fill="#22C55E"/>
+  <text x="1489" y="264" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="13" font-weight="700">Won</text>
+
+  <rect x="376" y="332" width="1168" height="96" rx="20" fill="#172133" stroke="#2C3750"/>
+  <text x="400" y="368" fill="#F7F9FF" font-family="Arial, sans-serif" font-size="18" font-weight="800">BISKUT</text>
+  <text x="400" y="400" fill="#B4BED7" font-family="Arial, sans-serif" font-size="14">05 Apr 2026</text>
+  <text x="1400" y="400" text-anchor="end" fill="#8F9CBA" font-family="Arial, sans-serif" font-size="13">AE050426</text>
+  <rect x="1452" y="354" width="68" height="28" rx="14" fill="#EF4444"/>
+  <text x="1486" y="372" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="13" font-weight="700">Lost</text>
+
+  <path d="M376 672H1544" stroke="#2A3550"/>
+  <text x="376" y="704" fill="#AEB9D4" font-family="Arial, sans-serif" font-size="14" font-weight="700">1 of 12</text>
+
+  <rect x="1360" y="680" width="84" height="40" rx="12" fill="#121A2B" stroke="#34405D"/>
+  <text x="1402" y="705" text-anchor="middle" fill="#7F8FB3" font-family="Arial, sans-serif" font-size="14" font-weight="700">Previous</text>
+
+  <rect x="1456" y="680" width="88" height="40" rx="12" fill="#121A2B" stroke="#2563EB"/>
+  <text x="1500" y="705" text-anchor="middle" fill="#3B82F6" font-family="Arial, sans-serif" font-size="14" font-weight="700">Next</text>
+</svg>

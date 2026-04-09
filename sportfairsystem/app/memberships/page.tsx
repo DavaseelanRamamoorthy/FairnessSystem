@@ -1170,6 +1170,14 @@ export default function MembershipsPage() {
       Boolean(currentMembership)
       && canEditExternalNames
       && normalizedNextExternalName !== normalizedCurrentExternalName;
+    const shouldUpdateLinkedUser =
+      canEditExternalNames && nextUserId !== currentMembership?.userId;
+    const shouldUpdateLinkedPlayer =
+      canEditExternalNames && nextPlayerId !== currentMembership?.playerId;
+    const nextEffectiveLinkedPlayerId =
+      shouldUpdateLinkedPlayer
+        ? nextPlayerId
+        : currentMembership?.playerId ?? null;
 
     if (
       !currentMembership
@@ -1188,6 +1196,19 @@ export default function MembershipsPage() {
         && !shouldUpdateExternalName
       )
     ) {
+      return;
+    }
+
+    if (
+      shouldUpdateExternalName
+      && normalizedNextExternalName
+      && !nextEffectiveLinkedPlayerId
+    ) {
+      setErrorMessage(
+        currentExternalAlias
+          ? "Relink a player before changing the external name. You can still clear the current external name while the member is unlinked."
+          : "Link a player before setting an external name."
+      );
       return;
     }
 
@@ -1210,14 +1231,6 @@ export default function MembershipsPage() {
         canManageMembershipDetails && nextSeasonId !== currentMembership.seasonId
           ? updateTeamMembershipSeason(memberId, nextSeasonId)
           : Promise.resolve(null);
-
-      const shouldUpdateLinkedUser =
-        canEditExternalNames && nextUserId !== currentMembership.userId
-          ;
-
-      const shouldUpdateLinkedPlayer =
-        canEditExternalNames && nextPlayerId !== currentMembership.playerId
-          ;
 
       const [roleResult] = await Promise.all([
         roleUpdate,
@@ -1639,6 +1652,8 @@ export default function MembershipsPage() {
                       const pendingChangeLabels = getMembershipPendingChangeLabels(membership);
                       const isEditingMember = editingMemberId === membership.memberId;
                       const effectiveLinkedPlayerId = draftPlayerIds[membership.memberId] ?? membership.playerId ?? "";
+                      const canEditExternalNameField =
+                        isEditingMember && (Boolean(effectiveLinkedPlayerId) || Boolean(editingExternalAlias));
                       const resolvedUserLabel = membership.userDisplayName ?? membership.userEmail ?? "Not Linked";
                       const resolvedPlayerLabel = membership.playerName ? formatName(membership.playerName) : "Not Linked";
                       const linkedCricketProfileChips = [
@@ -1983,13 +1998,15 @@ export default function MembershipsPage() {
                                         value={externalNameInputValue}
                                         onChange={(event) => handleAliasInputChange(membership.memberId, event.target.value)}
                                         placeholder="Spond Name"
-                                        disabled={!isEditingMember || !effectiveLinkedPlayerId}
+                                        disabled={!canEditExternalNameField}
                                         helperText={
-                                          !effectiveLinkedPlayerId
-                                            ? "Link a player first. External names now belong to the linked player identity for scorecards and stats."
-                                            : isEditingMember
+                                          !isEditingMember
+                                            ? "Click Edit to update the external name."
+                                            : effectiveLinkedPlayerId
                                               ? "Update the Spond or external display name, or leave it blank to use the member name."
-                                              : "Click Edit to update the external name."
+                                              : editingExternalAlias
+                                                ? "This member is currently unlinked. You can clear the existing external name here, or relink a player to replace it."
+                                                : "Link a player first. External names now belong to the linked player identity for scorecards and stats."
                                         }
                                       />
                                     ) : visibleExternalNames.length > 0 ? (

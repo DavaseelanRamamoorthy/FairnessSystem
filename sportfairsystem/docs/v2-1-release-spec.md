@@ -136,6 +136,33 @@ Recommended order for repository work:
 
 ## Deferred Future Scope
 
+### Per-Match Fair Chances Percentage
+
+Status:
+
+- deferred from current implementation
+
+Reason for deferral:
+
+- the current app does not yet persist a true per-match fairness score in the matches workspace
+- fairness logic today is strongest at player-level and saved friendly planner batch reconciliation level
+- standalone scorecards and non-linked matches do not yet have enough trusted planner-context data to show a truthful match fairness score
+
+Future direction:
+
+- add a match-level `Fair Chances %` metric for friendly matches that are linked to saved planner batches
+- show the score in the match header on the Matches page
+- calculate the score from fairness opportunity distribution, not from performance or match result
+- treat `XI` and `12th man` as positive opportunity outcomes
+- compare actual opportunities given against the players who were most due for a fair chance
+- show `N/A` for matches that do not have the required planner linkage or fairness context
+
+Suggested interpretation:
+
+- `85-100%` = fair rotation
+- `65-84%` = review needed
+- `<65%` = poor fairness distribution
+
 ### SMTP (Mailjet) Integration
 
 Status:

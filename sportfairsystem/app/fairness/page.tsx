@@ -606,10 +606,6 @@ export default function FairnessPage() {
           })
           .filter((group): group is { playerId: string; playerName: string; severity: "info" | "warning"; alerts: PlannerFairnessAlert[] } => Boolean(group));
 
-        if (week.entries.length === 0 && weeklyAlertGroups.length === 0) {
-          return null;
-        }
-
         return {
           batchId: week.batchId,
           weekendLabel: week.weekendLabel,
@@ -617,14 +613,7 @@ export default function FairnessPage() {
           entries: week.entries,
           alertGroups: weeklyAlertGroups
         };
-      })
-      .filter((week): week is {
-        batchId: string;
-        weekendLabel: string;
-        weekendDate: string | null;
-        entries: Array<{ id: string; matchNumber: number; insights: string[] }>;
-        alertGroups: Array<{ playerId: string; playerName: string; severity: "info" | "warning"; alerts: PlannerFairnessAlert[] }>;
-      } => Boolean(week));
+      });
   }, [groupedFairnessAlerts, recentComparisonInsights]);
 
   const weeklyInsightPageCount = Math.max(1, weeklyFairnessStatusPages.length);
@@ -1209,11 +1198,15 @@ export default function FairnessPage() {
                             </Stack>
                           ) : null}
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                            <Chip label={selectedBatchDetail.weekendLabel} color="primary" variant="outlined" />
-                            <Chip label={`Saved ${formatTimestamp(selectedBatchDetail.createdAt)}`} variant="outlined" />
-                            {selectedBatchDetail.weekendDate ? (
-                              <Chip label={selectedBatchDetail.weekendDate} variant="outlined" />
-                            ) : null}
+                            <Chip
+                              label={`Matchday Date ${selectedBatchDetail.weekendLabel}`}
+                              color="primary"
+                              variant="outlined"
+                            />
+                            <Chip
+                              label={`Saved ${formatTimestamp(selectedBatchDetail.createdAt)}`}
+                              variant="outlined"
+                            />
                           </Stack>
 
                           <Grid container spacing={2}>

@@ -60,6 +60,21 @@ interface MatchDetailPanelProps {
   onDelete?: () => void;
 }
 
+function sortBattingStatsByScorecardOrder(
+  battingStats: NonNullable<Innings["battingStats"]>
+) {
+  return [...battingStats].sort((left, right) => {
+    const leftPosition = typeof left.batting_position === "number" ? left.batting_position : Number.MAX_SAFE_INTEGER;
+    const rightPosition = typeof right.batting_position === "number" ? right.batting_position : Number.MAX_SAFE_INTEGER;
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition;
+    }
+
+    return formatName(left.player_name).localeCompare(formatName(right.player_name));
+  });
+}
+
 function getResultTone(result: string | null) {
   if (result === "Won") return "success";
   if (result === "Lost") return "error";
@@ -331,7 +346,7 @@ export default function MatchDetailPanel({ match, onDelete }: MatchDetailPanelPr
 
       {innings.map((inn, index) => {
 
-        const battingStats = inn.batting_stats || [];
+        const battingStats = sortBattingStatsByScorecardOrder(inn.batting_stats || []);
         const bowlingStats = inn.bowling_stats || [];
         const fallOfWickets = inn.fall_of_wickets || [];
 

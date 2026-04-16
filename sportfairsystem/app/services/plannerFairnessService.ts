@@ -13,6 +13,7 @@ import { supabase } from "@/app/services/supabaseClient";
 
 type PlannerBatchRow = {
   id?: unknown;
+  season?: unknown;
   weekend_date?: unknown;
   weekend_label?: unknown;
   created_at?: unknown;
@@ -117,9 +118,22 @@ function mapBatchDate(row: PlannerBatchRow) {
       : "";
 }
 
+function matchesPlannerSeasonFilter(seasonFilter: string | undefined, row: PlannerBatchRow) {
+  if (!seasonFilter) {
+    return true;
+  }
+
+  if (typeof row.season === "string" && row.season === seasonFilter) {
+    return true;
+  }
+
+  return typeof row.weekend_date === "string" && row.weekend_date.startsWith(`${seasonFilter}-`);
+}
+
 function didPlayerActuallyParticipate(
   row: PlannerAssignmentRow,
-  actualParticipation: PlannerActualParticipation | null
+  actualParticipation: PlannerActualParticipation | null,
+  identityNames: string[] = []
 ) {
   if (!actualParticipation) {
     return false;
@@ -129,6 +143,9 @@ function didPlayerActuallyParticipate(
     ? cleanName(row.player_name)
     : "";
   const playerId = typeof row.player_id === "string" ? row.player_id : null;
+  const normalizedIdentityNames = identityNames
+    .map((value) => cleanName(value))
+    .filter(Boolean);
 
   return Boolean(
     (playerId && (
@@ -141,12 +158,18 @@ function didPlayerActuallyParticipate(
       || actualParticipation.battedNameKeys.has(normalizedPlayerName)
       || actualParticipation.bowledNameKeys.has(normalizedPlayerName)
     ))
+    || normalizedIdentityNames.some((normalizedIdentityName) =>
+      actualParticipation.listedNameKeys.has(normalizedIdentityName)
+      || actualParticipation.battedNameKeys.has(normalizedIdentityName)
+      || actualParticipation.bowledNameKeys.has(normalizedIdentityName)
+    )
   );
 }
 
 function getPlayerActualParticipationFlags(
   row: PlannerAssignmentRow,
-  actualParticipation: PlannerActualParticipation | null
+  actualParticipation: PlannerActualParticipation | null,
+  identityNames: string[] = []
 ) {
   if (!actualParticipation) {
     return {
@@ -160,18 +183,26 @@ function getPlayerActualParticipationFlags(
     ? cleanName(row.player_name)
     : "";
   const playerId = typeof row.player_id === "string" ? row.player_id : null;
+  const normalizedIdentityNames = identityNames
+    .map((value) => cleanName(value))
+    .filter(Boolean);
+  const matchesIdentityName = (target: Set<string>) =>
+    normalizedIdentityNames.some((normalizedIdentityName) => target.has(normalizedIdentityName));
 
   const listed = Boolean(
     (playerId && actualParticipation.listedPlayerIds.has(playerId))
     || (normalizedPlayerName && actualParticipation.listedNameKeys.has(normalizedPlayerName))
+    || matchesIdentityName(actualParticipation.listedNameKeys)
   );
   const batted = Boolean(
     (playerId && actualParticipation.battedPlayerIds.has(playerId))
     || (normalizedPlayerName && actualParticipation.battedNameKeys.has(normalizedPlayerName))
+    || matchesIdentityName(actualParticipation.battedNameKeys)
   );
   const bowled = Boolean(
     (playerId && actualParticipation.bowledPlayerIds.has(playerId))
     || (normalizedPlayerName && actualParticipation.bowledNameKeys.has(normalizedPlayerName))
+    || matchesIdentityName(actualParticipation.bowledNameKeys)
   );
 
   return {
@@ -199,17 +230,13 @@ async function buildPlannerFairnessDashboard(
     } satisfies PlannerFairnessDashboard;
   }
 
-  const batchesQuery = supabase
+  const { data: batchesData, error: batchesError } = await supabase
     .from("planner_matchday_batches")
     .select("id, weekend_date, weekend_label, created_at")
     .eq("team_id", teamId)
     .eq("planner_mode", "friendly")
     .order("weekend_date", { ascending: false })
     .order("created_at", { ascending: false });
-
-  const { data: batchesData, error: batchesError } = season
-    ? await batchesQuery.eq("season", season)
-    : await batchesQuery;
 
   if (batchesError) {
     if (isPlannerPersistenceMissingError(batchesError)) {
@@ -219,7 +246,8 @@ async function buildPlannerFairnessDashboard(
     throw new Error("Could not load saved planner batches.");
   }
 
-  const batchRows = (batchesData ?? []) as PlannerBatchRow[];
+  const batchRows = ((batchesData ?? []) as PlannerBatchRow[])
+    .filter((row) => matchesPlannerSeasonFilter(season, row));
   const batchIds = batchRows.flatMap((row) => (typeof row.id === "string" ? [row.id] : []));
 
   if (batchIds.length === 0) {
@@ -240,7 +268,7 @@ async function buildPlannerFairnessDashboard(
   const { data: assignmentsData, error: assignmentsError } = batchIds.length > 0
     ? await supabase
       .from("planner_matchday_assignments")
-      .select("batch_id, match_number, player_id, member_id, assignment, is_available")
+      .select("batch_id, match_number, player_id, member_id, player_name, assignment, is_available")
       .eq("team_id", teamId)
       .in("batch_id", batchIds)
       
@@ -282,19 +310,22 @@ async function buildPlannerFairnessDashboard(
     {
       playerId: string;
       name: string;
+      identityNames: string[];
     }
   >();
 
   roster.forEach((player) => {
     playerByIdentityId.set(player.memberId, {
       playerId: player.playerId ?? player.memberId,
-      name: player.name
+      name: player.name,
+      identityNames: player.identityNames
     });
 
     if (player.playerId) {
       playerByIdentityId.set(player.playerId, {
         playerId: player.playerId,
-        name: player.name
+        name: player.name,
+        identityNames: player.identityNames
       });
     }
   });
@@ -341,7 +372,7 @@ async function buildPlannerFairnessDashboard(
           : null;
 
         if (actualParticipation) {
-          return didPlayerActuallyParticipate(row, actualParticipation);
+          return didPlayerActuallyParticipate(row, actualParticipation, player.identityNames);
         }
 
         return row.assignment === "xi";
@@ -356,7 +387,7 @@ async function buildPlannerFairnessDashboard(
           ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
           : null;
 
-        if (actualParticipation && didPlayerActuallyParticipate(row, actualParticipation)) {
+        if (actualParticipation && didPlayerActuallyParticipate(row, actualParticipation, player.identityNames)) {
           return false;
         }
 
@@ -372,7 +403,7 @@ async function buildPlannerFairnessDashboard(
           ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
           : null;
 
-        if (actualParticipation && didPlayerActuallyParticipate(row, actualParticipation)) {
+        if (actualParticipation && didPlayerActuallyParticipate(row, actualParticipation, player.identityNames)) {
           return false;
         }
 
@@ -387,7 +418,7 @@ async function buildPlannerFairnessDashboard(
         const actualParticipation = actualLink
           ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
           : null;
-        const flags = getPlayerActualParticipationFlags(row, actualParticipation);
+        const flags = getPlayerActualParticipationFlags(row, actualParticipation, player.identityNames);
 
         return flags.listed && !flags.batted && !flags.bowled;
       }).length;
@@ -401,7 +432,7 @@ async function buildPlannerFairnessDashboard(
           ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
           : null;
 
-        return getPlayerActualParticipationFlags(row, actualParticipation).batted;
+        return getPlayerActualParticipationFlags(row, actualParticipation, player.identityNames).batted;
       }).length;
       const bowlCount = playerAssignments.filter((row) => {
         const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
@@ -413,7 +444,7 @@ async function buildPlannerFairnessDashboard(
           ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
           : null;
 
-        return getPlayerActualParticipationFlags(row, actualParticipation).bowled;
+        return getPlayerActualParticipationFlags(row, actualParticipation, player.identityNames).bowled;
       }).length;
       const unavailableCount = playerAssignments.filter((row) => row.assignment === "unavailable" || row.is_available === false).length;
       const trackedBatchIds = new Set(
@@ -466,7 +497,7 @@ async function buildPlannerFairnessDashboard(
             : null;
 
           if (actualParticipation) {
-            return didPlayerActuallyParticipate(row, actualParticipation);
+            return didPlayerActuallyParticipate(row, actualParticipation, player.identityNames);
           }
 
           return row.assignment === "xi";
@@ -507,7 +538,7 @@ async function buildPlannerFairnessDashboard(
               : null;
 
             if (actualParticipation) {
-              return didPlayerActuallyParticipate(row, actualParticipation);
+              return didPlayerActuallyParticipate(row, actualParticipation, player.identityNames);
             }
 
             return false;
@@ -519,7 +550,7 @@ async function buildPlannerFairnessDashboard(
               ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
               : null;
 
-            if (actualParticipation && didPlayerActuallyParticipate(row, actualParticipation)) {
+            if (actualParticipation && didPlayerActuallyParticipate(row, actualParticipation, player.identityNames)) {
               return false;
             }
 
@@ -532,7 +563,7 @@ async function buildPlannerFairnessDashboard(
               ? (actualParticipationByMatchId.get(actualLink.matchId) ?? null)
               : null;
 
-            if (actualParticipation && didPlayerActuallyParticipate(row, actualParticipation)) {
+            if (actualParticipation && didPlayerActuallyParticipate(row, actualParticipation, player.identityNames)) {
               return false;
             }
 
@@ -688,7 +719,11 @@ async function buildPlannerFairnessDashboard(
 
       const metadata = batchMetadataById.get(batchId);
       const weekendLabel = metadata?.weekendLabel ?? metadata?.weekendDate ?? "the saved matchday";
-      const actuallyParticipated = didPlayerActuallyParticipate(row, actualParticipation);
+      const actuallyParticipated = didPlayerActuallyParticipate(
+        row,
+        actualParticipation,
+        player.identityNames
+      );
       const batchMatchLabel = `${weekendLabel} Match ${matchNumber}`;
 
       if (assignment === "xi" && !actuallyParticipated) {

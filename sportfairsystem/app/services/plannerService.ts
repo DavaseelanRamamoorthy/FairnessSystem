@@ -617,12 +617,12 @@ function classifyFriendlyPlannedOpportunity(
     return "unavailable";
   }
 
-  if (rows.some((row) => row.assignment === "xi")) {
-    return "fully_utilized";
-  }
-
   if (rows.some((row) => row.assignment === "twelfth" || row.assignment === "bench")) {
     return "bench_or_12th";
+  }
+
+  if (rows.some((row) => row.assignment === "xi")) {
+    return "fully_utilized";
   }
 
   if (hasAvailableAssignment) {
@@ -658,10 +658,6 @@ function classifyFriendlyActualOpportunity(
     return didPlayerActuallyUtilizeOpportunity(row, actualParticipation);
   });
 
-  if (utilizedActualRows.length > 0) {
-    return "fully_utilized";
-  }
-
   const listedActualRows = availableRows.filter((row) => {
     const batchId = typeof row.batch_id === "string" ? row.batch_id : null;
     const matchNumber = typeof row.match_number === "number" ? row.match_number : null;
@@ -673,12 +669,16 @@ function classifyFriendlyActualOpportunity(
     return didPlayerActuallyAppearInXi(row, actualParticipation);
   });
 
-  if (listedActualRows.length > 0) {
-    return "unused_in_xi";
-  }
-
   if (availableRows.some((row) => row.assignment === "twelfth" || row.assignment === "bench")) {
     return "bench_or_12th";
+  }
+
+  if (utilizedActualRows.length > 0) {
+    return "fully_utilized";
+  }
+
+  if (listedActualRows.length > 0) {
+    return "unused_in_xi";
   }
 
   if (availableRows.length > 0) {
@@ -729,11 +729,16 @@ async function getFriendlyOpportunityCorrectionContext(
   }
 
   const actualLinkMap = await getPlannerActualMatchLinkMap(teamId, orderedBatchIds);
-  const firstBatchWithActual = orderedBatchIds.find((batchId) =>
-    Array.from(actualLinkMap.keys()).some((key) => key.startsWith(`${batchId}:`))
-  ) ?? null;
-  const targetBatchId = firstBatchWithActual ?? orderedBatchIds[0];
-  const source = firstBatchWithActual ? "actual" as const : "planned" as const;
+  const targetBatchId = orderedBatchIds[0];
+
+  if (!targetBatchId) {
+    return null;
+  }
+
+  const targetBatchHasActual = Array.from(actualLinkMap.keys()).some((key) =>
+    key.startsWith(`${targetBatchId}:`)
+  );
+  const source = targetBatchHasActual ? "actual" as const : "planned" as const;
 
   const { data: assignmentData, error: assignmentError } = await supabase
     .from("planner_matchday_assignments")
@@ -1037,12 +1042,6 @@ function sortFriendlyBenchCandidates(
   statsByPlayerId: Map<string, FriendlyRotationStats>
 ) {
   return [...candidates].sort((left, right) => {
-    const opportunityDelta = compareOpportunityForBenching(left, right);
-
-    if (opportunityDelta !== 0) {
-      return opportunityDelta;
-    }
-
     const leftStats = statsByPlayerId.get(left.id);
     const rightStats = statsByPlayerId.get(right.id);
     const leftBenchCount = leftStats?.benchCount ?? 0;
@@ -1050,6 +1049,12 @@ function sortFriendlyBenchCandidates(
 
     if (leftBenchCount !== rightBenchCount) {
       return leftBenchCount - rightBenchCount;
+    }
+
+    const opportunityDelta = compareOpportunityForBenching(left, right);
+
+    if (opportunityDelta !== 0) {
+      return opportunityDelta;
     }
 
     const leftXiCount = leftStats?.xiCount ?? 0;

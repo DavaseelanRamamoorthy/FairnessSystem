@@ -153,7 +153,6 @@ export default function PlannerPage() {
   const [isLoadingNativeAttendanceSessions, setIsLoadingNativeAttendanceSessions] = useState(false);
   const [isLoadingNativeAttendanceDetail, setIsLoadingNativeAttendanceDetail] = useState(false);
   const [isCreatingNativeAttendanceSession, setIsCreatingNativeAttendanceSession] = useState(false);
-  const [isSavingNativeAttendance, setIsSavingNativeAttendance] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedFriendlyWicketKeeperId, setSelectedFriendlyWicketKeeperId] = useState("");
   const [manualFriendlyMatchAvailability, setManualFriendlyMatchAvailability] = useState<Record<string, boolean[]>>({});
@@ -165,6 +164,7 @@ export default function PlannerPage() {
   const selectedSeasonValue = selectedSeason && (selectedSeason === "all" || seasons.some((season) => season.value === selectedSeason))
     ? selectedSeason
     : "all";
+  const normalizedSelectedSeason = selectedSeasonValue === "all" ? null : selectedSeasonValue;
 
   const resetPlannerWorkspace = (nextMode?: PlannerMode) => {
     const resolvedMode = nextMode ?? plannerMode;
@@ -354,7 +354,7 @@ export default function PlannerPage() {
 
       try {
         const nextPlayers = await getPlannerPlayerSummaries(
-          !selectedSeason || selectedSeason === "all" ? undefined : selectedSeason
+          normalizedSelectedSeason ?? undefined
         );
         if (!isActive) {
           return;
@@ -382,7 +382,7 @@ export default function PlannerPage() {
     return () => {
       isActive = false;
     };
-  }, [canAccessWorkspace, hasResolvedSeason, selectedSeason]);
+  }, [canAccessWorkspace, hasResolvedSeason, normalizedSelectedSeason, selectedSeason]);
 
   useEffect(() => {
     if (players.length === 0) {
@@ -422,7 +422,7 @@ export default function PlannerPage() {
     const loadNativeAttendanceSessions = async () => {
       try {
         setIsLoadingNativeAttendanceSessions(true);
-        const nextSessions = await getPlannerAttendanceSessions(selectedSeason || null);
+        const nextSessions = await getPlannerAttendanceSessions(normalizedSelectedSeason);
 
         if (!isActive) {
           return;
@@ -460,7 +460,7 @@ export default function PlannerPage() {
     return () => {
       isActive = false;
     };
-  }, [canAccessWorkspace, plannerMode, selectedSeason]);
+  }, [canAccessWorkspace, normalizedSelectedSeason, plannerMode, selectedSeason]);
 
   useEffect(() => {
     if (!selectedNativeAttendanceSessionId || plannerMode !== "friendly") {
@@ -658,12 +658,12 @@ export default function PlannerPage() {
       setErrorMessage(null);
 
       const createdSession = await createPlannerAttendanceSession({
-        season: selectedSeason || null,
+        season: normalizedSelectedSeason,
         weekendDate: pendingNativeAttendanceDate,
         matchCount: selectedMatchCount
       });
 
-      const nextSessions = await getPlannerAttendanceSessions(selectedSeason || null);
+      const nextSessions = await getPlannerAttendanceSessions(normalizedSelectedSeason);
 
       setNativeAttendanceSessions(nextSessions);
       setSelectedNativeAttendanceSessionId(createdSession.session.sessionId);
@@ -695,47 +695,37 @@ export default function PlannerPage() {
     setGeneratedMode(null);
   };
 
-  const handleSaveNativeAttendance = async () => {
+  const saveCurrentNativeAttendance = async () => {
     if (!nativeAttendanceDetail) {
       setErrorMessage("Choose a native attendance session before saving availability.");
-      return;
+      return null;
     }
 
     if (nativeAttendanceSummary.available < 8) {
       setErrorMessage("Mark at least 8 players as available before saving attendance.");
-      return;
+      return null;
     }
 
-    try {
-      setIsSavingNativeAttendance(true);
-      setErrorMessage(null);
+    const savedDetail = await savePlannerAttendanceAvailability({
+      sessionId: nativeAttendanceDetail.session.sessionId,
+      updates: nativeAttendanceDetail.members.map((member) => ({
+        memberId: member.memberId,
+        availability: nativeAttendanceDraft[member.memberId] ?? member.availability
+      }))
+    });
 
-      const savedDetail = await savePlannerAttendanceAvailability({
-        sessionId: nativeAttendanceDetail.session.sessionId,
-        updates: nativeAttendanceDetail.members.map((member) => ({
-          memberId: member.memberId,
-          availability: nativeAttendanceDraft[member.memberId] ?? member.availability
-        }))
-      });
+    setNativeAttendanceDetail(savedDetail);
+    setNativeAttendanceDraft(
+      savedDetail.members.reduce<Record<string, AttendanceAvailabilityState>>((result, member) => {
+        result[member.memberId] = member.availability;
+        return result;
+      }, {})
+    );
 
-      setNativeAttendanceDetail(savedDetail);
-      setNativeAttendanceDraft(
-        savedDetail.members.reduce<Record<string, AttendanceAvailabilityState>>((result, member) => {
-          result[member.memberId] = member.availability;
-          return result;
-        }, {})
-      );
+    const nextSessions = await getPlannerAttendanceSessions(normalizedSelectedSeason);
+    setNativeAttendanceSessions(nextSessions);
 
-      const nextSessions = await getPlannerAttendanceSessions(selectedSeason || null);
-      setNativeAttendanceSessions(nextSessions);
-      setSaveSuccessMessage(`Saved native attendance for ${savedDetail.session.weekendLabel}.`);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Could not save native attendance."
-      );
-    } finally {
-      setIsSavingNativeAttendance(false);
-    }
+    return savedDetail;
   };
 
   const toggleTournamentAvailability = (playerId: string) => {
@@ -790,7 +780,7 @@ export default function PlannerPage() {
           manualFriendlyMatchAvailability,
           nativeAttendanceDetail.session.matchCount
         ),
-        selectedSeason || undefined
+        normalizedSelectedSeason ?? undefined
       );
 
       setGeneratedSuggestion(nextSuggestion);
@@ -814,8 +804,16 @@ export default function PlannerPage() {
     setErrorMessage(null);
 
     try {
+      if (hasUnsavedNativeAttendanceChanges) {
+        const savedAttendanceDetail = await saveCurrentNativeAttendance();
+
+        if (!savedAttendanceDetail) {
+          return;
+        }
+      }
+
       const savedBatch = await saveFriendlyPlannerBatch({
-        season: selectedSeason || null,
+        season: normalizedSelectedSeason,
         attendanceWorkbookName: null,
         attendanceSessionId: selectedNativeAttendanceSessionId || null,
         weekend: selectedFriendlyWeekend,
@@ -1579,21 +1577,6 @@ export default function PlannerPage() {
 
                           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
                             <Button
-                              variant="outlined"
-                              color="secondary"
-                              onClick={handleSaveNativeAttendance}
-                              disabled={
-                                !nativeAttendanceDetail
-                                || nativeAttendanceSummary.available < 8
-                                || !hasUnsavedNativeAttendanceChanges
-                                || isSavingNativeAttendance
-                              }
-                              startIcon={isSavingNativeAttendance ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
-                              sx={{ width: { xs: "100%", sm: "fit-content" } }}
-                            >
-                              Save Attendance
-                            </Button>
-                            <Button
                               variant="contained"
                               onClick={handleFriendlyGenerate}
                               disabled={!nativeAttendanceDetail}
@@ -1606,8 +1589,16 @@ export default function PlannerPage() {
                               variant="outlined"
                               color="secondary"
                               onClick={handleFriendlySave}
-                              disabled={!selectedFriendlyWeekend || !activeSuggestion || isSavingFriendlyPlan}
-                              startIcon={isSavingFriendlyPlan ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
+                              disabled={
+                                !selectedFriendlyWeekend
+                                || !activeSuggestion
+                                || isSavingFriendlyPlan
+                              }
+                              startIcon={
+                                isSavingFriendlyPlan
+                                  ? <CircularProgress size={16} color="inherit" />
+                                  : <SaveRoundedIcon />
+                              }
                               sx={{ width: { xs: "100%", sm: "fit-content" } }}
                             >
                               Save Matchday Plan

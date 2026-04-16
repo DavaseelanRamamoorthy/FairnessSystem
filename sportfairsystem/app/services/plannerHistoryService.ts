@@ -123,6 +123,21 @@ function isPlannerPersistenceMissingError(error: { code?: string | null } | null
   return error?.code === "42P01" || error?.code === "42703";
 }
 
+function matchesPlannerSeasonFilter(
+  seasonFilter: string | undefined,
+  row: Pick<PlannerBatchListRow, "season" | "weekend_date">
+) {
+  if (!seasonFilter) {
+    return true;
+  }
+
+  if (typeof row.season === "string" && row.season === seasonFilter) {
+    return true;
+  }
+
+  return typeof row.weekend_date === "string" && row.weekend_date.startsWith(`${seasonFilter}-`);
+}
+
 function mapPlannerBatchListItem(row: PlannerBatchListRow): PlannerBatchListItem | null {
   if (typeof row.id !== "string" || typeof row.weekend_label !== "string" || typeof row.created_at !== "string") {
     return null;
@@ -359,17 +374,13 @@ export async function saveFriendlyPlannerBatch({
 export async function listFriendlyPlannerBatches(season?: string) {
   const access = await requireFairnessWorkspaceAccess();
 
-  const batchesQuery = supabase
+  const { data, error } = await supabase
     .from("planner_matchday_batches")
     .select("id, season, weekend_date, weekend_label, attendance_workbook_name, match_count, unmatched_availability_names, notes, created_at")
     .eq("team_id", access.teamId)
     .eq("planner_mode", "friendly")
     .order("weekend_date", { ascending: false })
     .order("created_at", { ascending: false });
-
-  const { data, error } = season
-    ? await batchesQuery.eq("season", season)
-    : await batchesQuery;
 
   if (error) {
     if (isPlannerPersistenceMissingError(error)) {
@@ -380,6 +391,7 @@ export async function listFriendlyPlannerBatches(season?: string) {
   }
 
   return ((data ?? []) as PlannerBatchListRow[])
+    .filter((row) => matchesPlannerSeasonFilter(season, row))
     .map(mapPlannerBatchListItem)
     .filter((value): value is PlannerBatchListItem => Boolean(value));
 }
@@ -391,20 +403,14 @@ export async function getCurrentMemberFriendlyPlannerWeekSnapshot(season?: strin
     return null;
   }
 
-  let batchQuery = supabase
+  const { data: batchData, error: batchError } = await supabase
     .from("planner_matchday_batches")
     .select("id, season, weekend_date, weekend_label, match_count, notes, created_at")
     .eq("team_id", access.teamId)
     .eq("planner_mode", "friendly")
     .order("weekend_date", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (season) {
-    batchQuery = batchQuery.eq("season", season);
-  }
-
-  const { data: batchData, error: batchError } = await batchQuery;
+    .limit(25);
 
   if (batchError) {
     if (isPlannerPersistenceMissingError(batchError)) {
@@ -415,6 +421,7 @@ export async function getCurrentMemberFriendlyPlannerWeekSnapshot(season?: strin
   }
 
   const latestBatch = ((batchData ?? []) as PlannerBatchListRow[])
+    .filter((row) => matchesPlannerSeasonFilter(season, row))
     .map(mapPlannerBatchListItem)
     .find((value): value is PlannerBatchListItem => Boolean(value));
 

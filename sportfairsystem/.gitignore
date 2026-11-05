@@ -44,3 +44,8 @@ tmpclaude-*
 # local browser automation artifacts
 .playwright-cli/
 output/playwright/
+
+# v3: local import files (player names) and Supabase CLI temp
+/imports/
+/supabase/.temp/
+

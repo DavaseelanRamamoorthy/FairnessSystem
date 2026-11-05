@@ -1,105 +1,64 @@
-# SportFairSystem
+# Moonwalkers club app (SportFairSystem v3)
 
-SportFairSystem is a cricket scorecard ingestion, squad management, planner, validation, and analytics platform for an internal team workflow. The product is in late V1 hardening, with the focus on release readiness, stability, identity linkage, and QA rather than new feature expansion.
+One rule drives the app: **every fixture records the chances each eligible
+player was owed versus given, and the planner pays back what is owed.** The
+club's admin (membership, money, tournaments, kit) lives in the same place so
+eligibility and history agree.
 
-## Core Principle
+> v3 is a rebuild. The old app is tagged `v2-final`. The full plan is in the
+> PR description / `docs` to come.
 
-Parsing logic must remain independent of React state and UI concerns.
+## How fairness is counted
 
-## Tech Stack
+| Chance | Owed to each eligible player | Given |
+|---|---|---|
+| Selection (XI) | `weight × min(1, 11 / on-time pool)` | `weight` if they played |
+| Batting | share of the batting weight the team used (positions 1–4 = 3, 5–7 = 2, 8–11 = 1), capped at the band the player asked for | weight of the slot they batted |
+| Bowling | share of the team's overs among players who bowl | overs bowled |
 
-- Next.js App Router
-- React
-- TypeScript
-- Material UI
-- Supabase
-- PDF.js / pdfjs-dist
-- Recharts
+*Eligible* = membership paid, not on leave, answered **yes in Spond before the
+deadline snapshot**. Late answers only fill gaps and earn no owed credit.
+Balances reset each season (`carryOver` rule). Rules are editable per season
+in `seasons.rules` (see `src/engine/rules.ts`).
 
-## Current Product Workflow
+## Layout
 
-1. Upload a cricket scorecard PDF.
-2. Extract structured match data from the document.
-3. Preview and save the parsed match to Supabase.
-4. Manage squad identity, player-user mapping, and planner attendance.
-5. Review validation findings for historical cleanup and release safety.
-6. Surface match, player, dashboard, and analytics insights for the current team.
+```
+supabase/migrations   schema, row-level security, RPCs, views (Supabase CLI)
+supabase/tests        pgTAP security tests
+src/engine            pure TypeScript fairness engine + tests (eligibility, ledger, planner)
+src/finance           dues, balance sheet, tournament split + tests
+src/import            scorecard / Spond formats, name matching, PDF adapter
+scripts               validate-scorecard, validate-spond
+../.claude/skills     Claude runbooks: import-cricheroes-match, import-spond-availability
+```
 
-## Current Capabilities
+## Develop
 
-- Parse cricket scorecard PDFs into structured match data
-- Extract match metadata, innings summaries, batting stats, bowling stats, extras, and fall of wickets
-- Preview parsed scorecards before saving
-- Detect known vs new players during match import
-- Bridge player identity into historical match data with player_id-first logic
-- Manage planner attendance and squad identity matching
-- Map auth users to squad players through an admin-only configure workspace
-- Validate missing links, duplicate-name risks, guest candidates, and rulebook findings
-- Show dashboard KPIs, recent matches, leaderboards, trend charts, and season analytics
-- Display match detail views, player profiles, and profile assignment states
+```bash
+npm install
+npm test            # engine, finance, import unit tests
+npm run db:start    # local Supabase in Docker, applies migrations
+npm run db:test     # pgTAP security tests
+npm run dev
+```
 
-## Architecture Overview
+Create `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (printed by `npm run db:start`).
 
-The project is built with a separation between UI, services, and data access so the parsing and business logic can evolve without being tightly coupled to the frontend.
+## Security model
 
-### Main Layers
+- No table or function is reachable without signing in.
+- Access helpers live in the unexposed `app_private` schema.
+- Every multi-row write is one RPC (one transaction) that checks the caller's
+  season role: organiser, captain/vice-captain, or a responsibility
+  (treasurer, kit manager).
+- Contact details sit in `member_private` (self, captains, organiser only).
+- Members are never hard-deleted; merges move history and are audited.
 
-- UI layer: Next.js pages, layout, tables, charts, scorecard views, and admin workspaces
-- Service layer: PDF parsing, match insertion, identity repair, querying, formatting, validation, and stats aggregation
-- Data layer: Supabase tables for matches, innings, batting stats, bowling stats, fall of wickets, match players, users, and players
+## Matchday with Claude
 
-## V1 Status
-
-SportFairSystem is feature-rich and already functional. V1 scope is now locked, and current work should stay inside release hardening:
-
-- squad identity bridge
-- planner identity matching
-- admin player-user mapping
-- pending assignment UX
-- auth and profile hardening
-- player profile polish
-- dashboard and analytics QA
-- matches and player views consistency pass
-- historical data cleanup strategy
-- validation workspace final pass
-- release QA sweep
-- V1.0 release lock
-
-## Required V1 Database Migrations
-
-Run these in Supabase before final release verification:
-
-- `database/v1_team_rls.sql`
-- `database/v1_auth_access_control.sql`
-- `database/v1_user_profile_fields.sql`
-- `database/v1_admin_player_mapping.sql`
-
-## Release Lock Rules
-
-- Prefer existing architecture over introducing new patterns
-- Do not hardcode team-specific values into reusable theme or preset logic
-- Use player_id-first logic where identity matters
-- Keep UI changes consistent across light and dark mode
-- Focus on production-safe behavior, not UI-only fixes
-- If a change supports the V1 checklist, do it now
-- If a change is a true release blocker, do it now
-- Otherwise mark it as Post-V1.0 / Future Scope
-
-## Post-V1 / Future Scope
-
-These items are intentionally out of scope during V1 hardening unless one becomes a true blocker:
-
-- team creation flow
-- invite flow
-- join request flow
-- full membership model refactor
-- multi-team support
-- expanded ownership hierarchy
-- major auth product redesign
-- new major modules
-- non-blocking feature ideas
-- nice-to-have UI experiments
-
-## Summary
-
-SportFairSystem now targets a production-safe V1 release for a single internal team workflow: ingest scorecards, manage squad identity, validate data quality, and surface team/player analytics. The longer-term platform vision remains broader, but the release branch is now locked to V1 hardening and blocker-level fixes only.
+Sign in to Spond / CricHeroes yourself in the Claude built-in browser, then ask
+Claude to "snapshot Spond availability for Sunday" or "import Sunday's
+CricHeroes match". Claude writes a JSON file under `imports/` (gitignored),
+validates it, and you upload and confirm it in the app.

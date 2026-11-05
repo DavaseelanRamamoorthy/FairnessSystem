@@ -456,7 +456,7 @@ export async function createSquadPlayer(input: CreateSquadPlayerInput) {
 
   const { data: existingPlayers, error: existingPlayersError } = await supabase
     .from("players")
-    .select("id, name")
+    .select("id, name, member_id")
     .eq("team_id", access.teamId)
     .eq("is_guest", false);
 
@@ -464,12 +464,40 @@ export async function createSquadPlayer(input: CreateSquadPlayerInput) {
     throw new Error("Could not validate existing players.");
   }
 
-  const hasDuplicatePlayerName = (existingPlayers ?? []).some((row) =>
+  const duplicatePlayerRow = (existingPlayers ?? []).find((row) =>
     cleanName(typeof row.name === "string" ? row.name : "") === normalizedPlayerName
   );
+  let reusablePlayerId: string | null = null;
 
-  if (hasDuplicatePlayerName) {
-    throw new Error("A player profile with that name already exists.");
+  if (duplicatePlayerRow) {
+    const duplicatePlayerId = typeof duplicatePlayerRow.id === "string" ? duplicatePlayerRow.id : null;
+    let linkedMemberId = typeof duplicatePlayerRow.member_id === "string"
+      ? duplicatePlayerRow.member_id
+      : null;
+
+    if (!linkedMemberId && duplicatePlayerId) {
+      const { data: existingLinkRow, error: existingLinkError } = await supabase
+        .from("member_links")
+        .select("member_id")
+        .eq("player_id", duplicatePlayerId)
+        .maybeSingle();
+
+      if (existingLinkError) {
+        throw new Error("Could not validate the existing player link.");
+      }
+
+      linkedMemberId = typeof existingLinkRow?.member_id === "string"
+        ? existingLinkRow.member_id
+        : null;
+    }
+
+    if (linkedMemberId) {
+      throw new Error(
+        "A player profile with that name is already linked to another member. Update that existing member instead of creating a duplicate."
+      );
+    }
+
+    reusablePlayerId = duplicatePlayerId;
   }
 
   if (input.isCaptain) {
@@ -512,32 +540,66 @@ export async function createSquadPlayer(input: CreateSquadPlayerInput) {
 
   const memberId = memberRow.id;
 
-  const { data: playerRow, error: playerError } = await supabase
-    .from("players")
-    .insert({
-      team_id: access.teamId,
-      member_id: memberId,
-      name: normalizedName,
-      is_guest: false,
-      batting_style: normalizedBattingStyle,
-      is_captain: input.isCaptain,
-      is_wicket_keeper: input.isWicketKeeper,
-      role_tags: normalizedRoleTags
-    })
-    .select("*")
-    .single();
+  let playerRow: RawPlayerRecord | null = null;
+  let playerId: string | null = null;
 
-  if (playerError || !playerRow || typeof playerRow.id !== "string") {
-    await supabase
-      .from("team_members")
-      .delete()
-      .eq("id", memberId)
-      .eq("team_id", access.teamId);
+  if (reusablePlayerId) {
+    const { data: updatedPlayerRow, error: updatePlayerError } = await supabase
+      .from("players")
+      .update({
+        member_id: memberId,
+        name: normalizedName,
+        batting_style: normalizedBattingStyle,
+        is_captain: input.isCaptain,
+        is_wicket_keeper: input.isWicketKeeper,
+        role_tags: normalizedRoleTags
+      })
+      .eq("id", reusablePlayerId)
+      .eq("team_id", access.teamId)
+      .select("*")
+      .single();
 
-    throw new Error("Could not create the linked player profile.");
+    if (updatePlayerError || !updatedPlayerRow || typeof updatedPlayerRow.id !== "string") {
+      await supabase
+        .from("team_members")
+        .delete()
+        .eq("id", memberId)
+        .eq("team_id", access.teamId);
+
+      throw new Error("Could not link the existing player profile.");
+    }
+
+    playerRow = updatedPlayerRow as RawPlayerRecord;
+    playerId = updatedPlayerRow.id;
+  } else {
+    const { data: createdPlayerRow, error: playerError } = await supabase
+      .from("players")
+      .insert({
+        team_id: access.teamId,
+        member_id: memberId,
+        name: normalizedName,
+        is_guest: false,
+        batting_style: normalizedBattingStyle,
+        is_captain: input.isCaptain,
+        is_wicket_keeper: input.isWicketKeeper,
+        role_tags: normalizedRoleTags
+      })
+      .select("*")
+      .single();
+
+    if (playerError || !createdPlayerRow || typeof createdPlayerRow.id !== "string") {
+      await supabase
+        .from("team_members")
+        .delete()
+        .eq("id", memberId)
+        .eq("team_id", access.teamId);
+
+      throw new Error("Could not create the linked player profile.");
+    }
+
+    playerRow = createdPlayerRow as RawPlayerRecord;
+    playerId = createdPlayerRow.id;
   }
-
-  const playerId = playerRow.id;
 
   const { error: linkError } = await supabase
     .from("member_links")
@@ -547,11 +609,20 @@ export async function createSquadPlayer(input: CreateSquadPlayerInput) {
     });
 
   if (linkError) {
-    await supabase
-      .from("players")
-      .delete()
-      .eq("id", playerId)
-      .eq("team_id", access.teamId);
+    if (reusablePlayerId) {
+      await supabase
+        .from("players")
+        .update({ member_id: null })
+        .eq("id", playerId)
+        .eq("team_id", access.teamId)
+        .eq("member_id", memberId);
+    } else {
+      await supabase
+        .from("players")
+        .delete()
+        .eq("id", playerId)
+        .eq("team_id", access.teamId);
+    }
 
     await supabase
       .from("team_members")

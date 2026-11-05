@@ -106,6 +106,8 @@ type PlannerFairnessBuildOptions = {
   includePlayersWithoutAvailability?: boolean;
 };
 
+type PlannerFairnessDashboardOptions = PlannerFairnessBuildOptions;
+
 function isPlannerPersistenceMissingError(error: { code?: string | null } | null) {
   return error?.code === "42P01" || error?.code === "42703";
 }
@@ -823,11 +825,14 @@ function buildPlannerFairnessMemberSnapshot(
   } satisfies PlannerFairnessMemberSnapshot;
 }
 
-export async function getPlannerFairnessDashboard(season?: string) {
+export async function getPlannerFairnessDashboard(
+  season?: string,
+  options?: PlannerFairnessDashboardOptions
+) {
   const access = await requireFairnessWorkspaceAccess();
   const roster = await getPlannerPlayerSummaries(season);
 
-  return buildPlannerFairnessDashboard(access.teamId, roster, season);
+  return buildPlannerFairnessDashboard(access.teamId, roster, season, options);
 }
 
 export async function getCurrentMemberFairnessSnapshot(season?: string) {

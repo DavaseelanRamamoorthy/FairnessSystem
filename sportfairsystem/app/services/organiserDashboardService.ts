@@ -172,7 +172,9 @@ export async function getOrganiserDashboardData(): Promise<OrganiserDashboardDat
     getTopWicketLeaders(5),
     getRunsPerMatch(),
     getWicketsPerMatch(),
-    getPlannerFairnessDashboard(),
+    getPlannerFairnessDashboard(undefined, {
+      includePlayersWithoutAvailability: true
+    }),
     getDashboardRecentMatches(5),
     getPlannerOutcomeSnapshot()
   ]);

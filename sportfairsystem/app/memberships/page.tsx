@@ -47,6 +47,7 @@ import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import AutoHideAlert from "@/app/components/common/AutoHideAlert";
 import CreatePlayerIconButton from "@/app/components/common/CreatePlayerIconButton";
 import TeamPageHeader from "@/app/components/common/TeamPageHeader";
+import Toast from "@/app/components/common/Toast";
 import PlayerRosterDialog, { CreateRosterPlayerValues } from "@/app/components/players/PlayerRosterDialog";
 import {
   canAccessMembershipWorkspace,
@@ -1440,7 +1441,7 @@ export default function MembershipsPage() {
       setErrorMessage(null);
       setSuccessMessage(null);
 
-      await createSquadPlayer({
+      const result = await createSquadPlayer({
         name: values.name,
         seasonId: values.seasonId,
         status: values.status === "inactive" ? "inactive" : "active",
@@ -1450,9 +1451,16 @@ export default function MembershipsPage() {
         roleTags: values.roleTags
       });
 
+      const normalizedStatus = values.status === "inactive" ? "inactive" : "active";
+      setSelectedSeason(values.seasonId);
+      setSelectedStatus(normalizedStatus);
+      setSelectedRole("all");
+      setSearchQuery("");
       await refreshMembershipWorkspace();
+      setExpandedMemberId(result.memberId);
+      setEditingMemberId(result.memberId);
       setIsCreateRosterPlayerDialogOpen(false);
-      setSuccessMessage(`Created ${formatName(values.name)} in the roster.`);
+      setSuccessMessage(`${formatName(result.player.name)} was added to Memberships.`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not create the roster player.");
     } finally {
@@ -1488,12 +1496,6 @@ export default function MembershipsPage() {
         )}
 
         {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-        {successMessage && (
-          <AutoHideAlert severity="success" resetKey={successMessage}>
-            {successMessage}
-          </AutoHideAlert>
-        )}
-
         {canAccessWorkspace && isLoading ? (
           <Box sx={{ minHeight: 320, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <CircularProgress />
@@ -2123,6 +2125,14 @@ export default function MembershipsPage() {
         isSaving={Boolean(creatingLinkedPlayerMemberId)}
         onClose={handleCloseLinkedPlayerDialog}
         onSave={handleCreateLinkedPlayer}
+      />
+
+      <Toast
+        open={Boolean(successMessage)}
+        message={successMessage ?? ""}
+        severity="success"
+        autoHideDuration={5000}
+        onClose={() => setSuccessMessage(null)}
       />
     </Container>
   );

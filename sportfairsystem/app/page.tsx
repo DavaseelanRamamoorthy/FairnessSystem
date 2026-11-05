@@ -1,25 +1,87 @@
-import Container from "@mui/material/Container";
+"use client";
+
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { DEFAULT_RULES } from "@/src/engine";
+import NextLink from "next/link";
+import { LABELS } from "@/src/membership/form";
+import { Page, Section } from "@/src/ui/kit";
+import { MyDues } from "@/src/ui/MyDues";
+import { useSession } from "@/src/ui/session";
 
-// Placeholder until the v3 screens land (build order step 3+).
 export default function HomePage() {
-  const w = DEFAULT_RULES.battingWeights;
+  const { season, member, seasonMember, application, team } = useSession();
+
+  if (seasonMember?.status === "left") {
+    return (
+      <Page title="You've left the team">
+        <Alert severity="info">Your match history is kept. Ask your organiser if you&apos;d like to come back.</Alert>
+      </Page>
+    );
+  }
+
+  if (!season) {
+    return (
+      <Page title={`Welcome to ${team?.name ?? "the team"}`}>
+        <Alert severity="info">Registration isn&apos;t open right now. Ask your organiser when it opens.</Alert>
+      </Page>
+    );
+  }
+
+  const inSquad = seasonMember && seasonMember.season_id === season.id;
+
+  if (!inSquad) {
+    if (application?.status === "applied") {
+      return (
+        <Page title="Application sent">
+          <Alert severity="info">The organiser will review it soon. You&apos;ll see your dues here once it&apos;s approved.</Alert>
+        </Page>
+      );
+    }
+    return (
+      <Page title={`Welcome to ${team?.name ?? "the team"}`}>
+        {application?.status === "rejected" && (
+          <Alert severity="warning">
+            Your application wasn&apos;t approved{application.decision_note ? `: ${application.decision_note}` : "."}
+          </Alert>
+        )}
+        <Section title={`${season.year} membership`}>
+          <Typography>
+            {season.registration_open
+              ? member
+                ? "Renew your membership to play this season."
+                : "Fill in the membership form to join the squad."
+              : "Registration isn't open right now."}
+          </Typography>
+          {season.registration_open && (
+            <Button component={NextLink} href="/register" variant="contained" sx={{ alignSelf: "flex-start" }}>
+              {member ? "Renew membership" : "Join the team"}
+            </Button>
+          )}
+        </Section>
+      </Page>
+    );
+  }
+
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
-      <Stack spacing={2}>
-        <Typography variant="h4">Moonwalkers</Typography>
-        <Typography color="text.secondary">
-          v3 is being rebuilt. How fair chances will be counted:
-        </Typography>
-        <Typography component="ul" sx={{ pl: 3 }}>
-          <li>Selection: every paid player who confirms on Spond before the deadline is owed an equal share of the {DEFAULT_RULES.xiSize} places.</li>
-          <li>Batting: top-order slots count {w.top}, middle {w.middle}, lower {w.lower}; the order rotates toward whoever is owed most, within each player&apos;s preference.</li>
-          <li>Bowling: overs are shared between the bowlers in the XI.</li>
-          <li>Late answers only fill gaps. Unpaid members are not selected.</li>
-        </Typography>
-      </Stack>
-    </Container>
+    <Page title={`Hello, ${member?.display_name}`} subtitle={`${season.year} season`}>
+      {seasonMember.status === "pending_payment" && (
+        <Alert severity="warning">
+          You can&apos;t be picked until your membership is paid. Your status changes once the treasurer confirms payment.
+        </Alert>
+      )}
+      <Section title="My membership">
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+          <Chip color={seasonMember.status === "active" ? "success" : "warning"} label={LABELS[seasonMember.status]} />
+          <Chip variant="outlined" label={LABELS[seasonMember.role]} />
+          {seasonMember.responsibilities.map((item) => (
+            <Chip key={item} variant="outlined" label={LABELS[item]} />
+          ))}
+        </Stack>
+      </Section>
+      <MyDues seasonId={season.id} memberId={seasonMember.member_id} />
+    </Page>
   );
 }

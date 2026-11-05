@@ -31,10 +31,10 @@ const MuiButton: Components<Theme>['MuiButton'] = {
     }),
     contained: ({ theme }) => ({
       color: theme.vars.palette.primary.contrastText,
-      background: 'linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)',
+      background: `linear-gradient(135deg, ${theme.vars.palette.primary.dark} 0%, ${theme.vars.palette.primary.main} 100%)`,
       boxShadow: theme.vars.customShadows.primary,
       '&:hover': {
-        background: 'linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)',
+        background: `linear-gradient(135deg, ${theme.vars.palette.primary.dark} 0%, ${theme.vars.palette.primary.main} 100%)`,
         boxShadow: theme.vars.customShadows.z12,
       },
     }),
@@ -78,10 +78,10 @@ const MuiFab: Components<Theme>['MuiFab'] = {
   styleOverrides: {
     root: ({ theme }) => ({
       color: theme.vars.palette.common.white,
-      background: 'linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)',
+      background: `linear-gradient(135deg, ${theme.vars.palette.primary.dark} 0%, ${theme.vars.palette.primary.main} 100%)`,
       boxShadow: theme.vars.customShadows.primary,
       '&:hover': {
-        background: 'linear-gradient(135deg, var(--app-header-start) 0%, var(--app-header-mid) 62%, var(--app-header-end) 100%)',
+        background: `linear-gradient(135deg, ${theme.vars.palette.primary.dark} 0%, ${theme.vars.palette.primary.main} 100%)`,
         boxShadow: theme.vars.customShadows.z12,
       },
     }),
@@ -98,13 +98,9 @@ const MuiCard: Components<Theme>['MuiCard'] = {
       position: 'relative',
       color: theme.vars.palette.text.primary,
       backgroundColor: theme.vars.palette.background.paper,
-      backgroundImage: [
-        `linear-gradient(180deg, ${varAlpha(theme.vars.palette.common.whiteChannel, theme.palette.mode === 'dark' ? 0.02 : 0.7)} 0%, transparent 100%)`,
-      ].join(', '),
-      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], theme.palette.mode === 'dark' ? 0.12 : 0.16)}`,
-      boxShadow: theme.palette.mode === 'dark'
-        ? `0 10px 28px ${varAlpha(theme.vars.palette.common.blackChannel, 0.22)}`
-        : `0 10px 28px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
+      backgroundImage: 'none',
+      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.16)}`,
+      boxShadow: `0 10px 28px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
       borderRadius:
         typeof theme.shape.borderRadius === 'number'
           ? theme.shape.borderRadius * 1.5
@@ -140,11 +136,9 @@ const MuiPaper: Components<Theme>['MuiPaper'] = {
     outlined: ({ theme }) => ({
       color: theme.vars.palette.text.primary,
       backgroundColor: theme.vars.palette.background.paper,
-      backgroundImage: `linear-gradient(180deg, ${varAlpha(theme.vars.palette.common.whiteChannel, theme.palette.mode === 'dark' ? 0.02 : 0.7)} 0%, transparent 100%)`,
-      borderColor: varAlpha(theme.vars.palette.grey['500Channel'], theme.palette.mode === 'dark' ? 0.12 : 0.16),
-      boxShadow: theme.palette.mode === 'dark'
-        ? `0 10px 28px ${varAlpha(theme.vars.palette.common.blackChannel, 0.22)}`
-        : `0 10px 28px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
+      backgroundImage: 'none',
+      borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
+      boxShadow: `0 10px 28px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
       borderRadius:
         typeof theme.shape.borderRadius === 'number'
           ? theme.shape.borderRadius * 1.5
@@ -165,7 +159,7 @@ const MuiAlert: Components<Theme>['MuiAlert'] = {
           : `calc(${theme.shape.borderRadius} * 1.25)`,
     }),
     outlined: ({ theme }) => ({
-      backgroundColor: varAlpha(theme.vars.palette.background.paperChannel, theme.palette.mode === 'dark' ? 0.88 : 0.96),
+      backgroundColor: varAlpha(theme.vars.palette.background.paperChannel, 0.96),
       backdropFilter: 'blur(10px)',
     }),
   },
@@ -178,11 +172,9 @@ const MuiDialog: Components<Theme>['MuiDialog'] = {
         typeof theme.shape.borderRadius === 'number'
           ? theme.shape.borderRadius * 2
           : `calc(${theme.shape.borderRadius} * 2)`,
-      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], theme.palette.mode === 'dark' ? 0.14 : 0.18)}`,
-      backgroundImage: `linear-gradient(180deg, ${varAlpha(theme.vars.palette.common.whiteChannel, theme.palette.mode === 'dark' ? 0.03 : 0.75)} 0%, transparent 100%)`,
-      boxShadow: theme.palette.mode === 'dark'
-        ? `0 24px 60px ${varAlpha(theme.vars.palette.common.blackChannel, 0.34)}`
-        : `0 24px 60px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.16)}`,
+      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+      backgroundImage: 'none',
+      boxShadow: `0 24px 60px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.16)}`,
     }),
   },
 };

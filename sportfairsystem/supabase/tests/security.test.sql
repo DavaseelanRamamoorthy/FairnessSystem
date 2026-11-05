@@ -1,7 +1,7 @@
 -- Run with: npm run db:test   (needs `npm run db:start` first)
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(37);
 
 -- Two people: organiser Olga and player Pete.
 insert into auth.users (id, email, instance_id, aud, role)
@@ -91,6 +91,54 @@ select throws_ok(
   $$ insert into public.competitions (season_id, name, kind) values ((select id from public.seasons), 'X', 'tournament') $$,
   '42501', null, 'player cannot create competitions');
 select is((select count(*)::int from public.transactions), 0, 'player cannot see the cash book');
+
+-- claim tokens would let a teammate take over an unclaimed profile
+select throws_ok($$ select claim_token from public.members $$, '42501', null, 'player cannot read claim tokens');
+select throws_ok(
+  $$ select public.member_claim_token((select id from public.members limit 1)) $$,
+  '42501', 'Only the organiser can create claim links', 'player cannot create claim links');
+select lives_ok(
+  $$ select public.submit_payment_reference((select id from public.charges), 'PAYPAL-1') $$,
+  'player can add a reference to their own dues');
+select lives_ok(
+  $$ select public.update_my_profile((select id from public.teams), '{"bat_pref":"middle"}'::jsonb) $$,
+  'player can update their own profile');
+select is((select bowls from public.members where display_name = 'Pete'), true, 'a partial profile update keeps other fields');
+reset role;
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000a');
+select lives_ok(
+  $$ select public.add_member((select id from public.teams), 'Quinn',
+       '[{"source":"spond","display_name":"Quinn Q"}]'::jsonb) $$,
+  'organiser can add a member without an account');
+select isnt(public.member_claim_token((select id from public.members where display_name = 'Quinn')), null,
+  'organiser gets a claim token');
+select throws_ok(
+  $$ select public.link_identity((select id from public.members where display_name = 'Olga'), 'spond', null, 'Quinn Q') $$,
+  'P0001', 'The spond name "Quinn Q" already belongs to another member', 'one Spond name cannot point at two people');
+select is(public.add_to_season((select id from public.members where display_name = 'Quinn')), 'pending_payment',
+  'adding to a paid season waits for payment');
+select throws_ok(
+  $$ select public.leave_team((select id from public.members where display_name = 'Olga')) $$,
+  '42501', 'The team must keep at least one organiser', 'the last organiser cannot leave');
+select lives_ok($$ select public.leave_team((select id from public.members where display_name = 'Pete')) $$,
+  'organiser can mark a player as left');
+select is(public.add_to_season((select id from public.members where display_name = 'Pete')), 'active',
+  'a paid member comes back active');
+reset role;
+
+-- ticking "treasurer" on the form must not grant treasurer access
+insert into auth.users (id, email, instance_id, aud, role)
+values ('00000000-0000-0000-0000-00000000000c', 'rae@example.test', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000c');
+select public.submit_membership((select id from public.seasons), 'new',
+  '{"display_name":"Rae","consent":true,"responsibilities_interest":["treasurer"]}'::jsonb);
+reset role;
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000a');
+select public.approve_membership((select id from public.membership_applications where status = 'applied'));
+select is(
+  (select responsibilities from public.season_members sm join public.members m on m.id = sm.member_id where m.display_name = 'Rae'),
+  '{}'::text[], 'applying as treasurer grants nothing');
 reset role;
 
 select * from finish();

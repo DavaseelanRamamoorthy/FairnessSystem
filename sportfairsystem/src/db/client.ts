@@ -1,16 +1,20 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+let client: SupabaseClient | null = null;
 
 /** Browser client. All authorisation is enforced by row-level security and RPC checks. */
-export function createClient() {
+export function supabase(): SupabaseClient {
+  if (client) return client;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
   if (!url || !key) {
     throw new Error("Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY in .env.local");
   }
-  return createBrowserClient(url, key);
+  client = createBrowserClient(url, key);
+  return client;
 }
 
 /** Supabase caps a response at 1000 rows; page through larger reads. */

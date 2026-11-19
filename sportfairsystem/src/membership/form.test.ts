@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  birthdayProblem,
   buildAnswers,
+  normalizeInstagram,
   emptyMembershipForm,
   fieldErrors,
   identitiesFromAnswers,
@@ -63,6 +65,29 @@ describe("buildAnswers", () => {
 
   it("adds nothing when available from the start", () => {
     expect(buildAnswers({ ...valid, available_from: "2027-04-01" }, "2027-04-01").unavailability).toEqual([]);
+  });
+});
+
+describe("profile extras", () => {
+  it("accepts an Instagram username, @handle or profile link", () => {
+    expect(normalizeInstagram("moon.walkers_1")).toBe("moon.walkers_1");
+    expect(normalizeInstagram(" @moonwalkers ")).toBe("moonwalkers");
+    expect(normalizeInstagram("https://www.instagram.com/moonwalkers/")).toBe("moonwalkers");
+    expect(normalizeInstagram("")).toBe("");
+  });
+
+  it("rejects things that aren't Instagram handles", () => {
+    expect(normalizeInstagram("not a handle")).toBeNull();
+    expect(normalizeInstagram("https://facebook.com/x")).toBeNull();
+    expect(normalizeInstagram("a".repeat(31))).toBeNull();
+  });
+
+  it("checks the date of birth", () => {
+    const today = "2026-11-19";
+    expect(birthdayProblem("", today)).toBeNull();
+    expect(birthdayProblem("1995-06-15", today)).toBeNull();
+    expect(birthdayProblem("2030-01-01", today)).toMatch(/future/);
+    expect(birthdayProblem("1890-01-01", today)).toMatch(/year/);
   });
 });
 

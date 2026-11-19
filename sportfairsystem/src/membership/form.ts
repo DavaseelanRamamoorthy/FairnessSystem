@@ -159,6 +159,30 @@ export function identitiesFromAnswers(answers: {
   return identities;
 }
 
+/**
+ * Accepts "name", "@name" or an instagram.com link and returns just the handle.
+ * Returns "" for empty input and null when it isn't a valid handle.
+ * Must match the clean-up in update_my_profile.
+ */
+export function normalizeInstagram(input: string): string | null {
+  const handle = input
+    .trim()
+    .replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, "")
+    .replace(/^@/, "")
+    .replace(/\/+$/, "");
+  if (handle === "") return "";
+  return /^[A-Za-z0-9._]{1,30}$/.test(handle) ? handle : null;
+}
+
+/** A plausible birthday: a real past date, no earlier than 1920. Empty is allowed. */
+export function birthdayProblem(value: string, today = new Date().toISOString().slice(0, 10)): string | null {
+  if (value === "") return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) return "Pick a date";
+  if (value > today) return "Date of birth can't be in the future";
+  if (value < "1920-01-01") return "Check the year";
+  return null;
+}
+
 /** First problem per field, keyed by field name, for showing under inputs. */
 export function fieldErrors(error: z.ZodError) {
   const errors: Record<string, string> = {};

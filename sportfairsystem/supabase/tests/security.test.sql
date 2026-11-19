@@ -1,7 +1,11 @@
 -- Run with: npm run db:test   (needs `npm run db:start` first)
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(44);
+
+-- Start from an empty team so the tests also run on a database that has data.
+-- Everything here is inside the transaction and rolled back at the end.
+truncate public.teams cascade;
 
 -- Two people: organiser Olga and player Pete.
 insert into auth.users (id, email, instance_id, aud, role)
@@ -104,6 +108,22 @@ select lives_ok(
   $$ select public.update_my_profile((select id from public.teams), '{"bat_pref":"middle"}'::jsonb) $$,
   'player can update their own profile');
 select is((select bowls from public.members where display_name = 'Pete'), true, 'a partial profile update keeps other fields');
+select lives_ok(
+  $$ select public.update_my_profile((select id from public.teams),
+       '{"date_of_birth":"1995-06-15","instagram":"https://www.instagram.com/pete.plays/"}'::jsonb) $$,
+  'player can add a date of birth and Instagram');
+select is((select instagram from public.member_private), 'pete.plays', 'Instagram link is stored as the handle');
+select throws_ok(
+  $$ select public.update_my_profile((select id from public.teams), '{"date_of_birth":"2999-01-01"}'::jsonb) $$,
+  '23514', null, 'a future date of birth is rejected');
+select throws_ok(
+  $$ select public.update_my_profile((select id from public.teams), '{"instagram":"not a handle"}'::jsonb) $$,
+  '23514', null, 'an invalid Instagram handle is rejected');
+select lives_ok(
+  $$ select public.update_my_profile((select id from public.teams), '{"instagram":""}'::jsonb) $$,
+  'player can clear their Instagram');
+select is((select (instagram is null and date_of_birth = '1995-06-15') from public.member_private), true,
+  'clearing Instagram keeps the date of birth');
 reset role;
 
 select pg_temp.act_as('00000000-0000-0000-0000-00000000000a');
@@ -139,6 +159,14 @@ select public.approve_membership((select id from public.membership_applications 
 select is(
   (select responsibilities from public.season_members sm join public.members m on m.id = sm.member_id where m.display_name = 'Rae'),
   '{}'::text[], 'applying as treasurer grants nothing');
+-- Pete adds a birthday again, then teammate Rae must not see it
+reset role;
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000b');
+select public.update_my_profile((select id from public.teams), '{"date_of_birth":"1995-06-15","instagram":"pete.plays"}'::jsonb);
+reset role;
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000c');
+select is((select count(*)::int from public.member_private where date_of_birth is not null or instagram is not null), 0,
+  'a teammate cannot see another player''s date of birth or Instagram');
 reset role;
 
 select * from finish();

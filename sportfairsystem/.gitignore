@@ -49,3 +49,7 @@ output/playwright/
 /imports/
 /supabase/.temp/
 
+
+# Local-only test account details
+/test-accounts.local.md
+

@@ -95,7 +95,14 @@ export type Due = {
 };
 
 export type Unavailability = { id: string; member_id: string; from_date: string; to_date: string; reason: string | null };
-export type MemberContact = { member_id: string; email: string | null; phone: string | null; whatsapp: string | null };
+export type MemberContact = {
+  member_id: string;
+  email: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  date_of_birth: string | null;
+  instagram: string | null;
+};
 
 // `select *` is not allowed on members: claim_token is deliberately hidden.
 const MEMBER_COLUMNS =
@@ -288,7 +295,11 @@ export function updateMyProfile(teamId: string, profile: Record<string, unknown>
 
 export async function loadContact(memberId: string) {
   return must(
-    await supabase().from("member_private").select("member_id, email, phone, whatsapp").eq("member_id", memberId).maybeSingle()
+    await supabase()
+      .from("member_private")
+      .select("member_id, email, phone, whatsapp, date_of_birth, instagram")
+      .eq("member_id", memberId)
+      .maybeSingle()
   ) as MemberContact | null;
 }
 

@@ -13,6 +13,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
 import IconButton from "@mui/material/IconButton";
+import Link from "@mui/material/Link";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -182,6 +183,17 @@ export default function MemberPage() {
       <Section title="Contact">
         <Typography variant="body2">Email: {contact?.email ?? "Not given"}</Typography>
         <Typography variant="body2">Phone: {contact?.phone ?? "Not given"}</Typography>
+        <Typography variant="body2">Date of birth: {contact?.date_of_birth ?? "Not given"}</Typography>
+        <Typography variant="body2">
+          Instagram:{" "}
+          {contact?.instagram ? (
+            <Link href={`https://www.instagram.com/${contact.instagram}/`} target="_blank" rel="noopener noreferrer">
+              @{contact.instagram}
+            </Link>
+          ) : (
+            "Not given"
+          )}
+        </Typography>
         {!member.user_id && (
           <Stack spacing={1}>
             <Typography variant="body2" color="text.secondary">

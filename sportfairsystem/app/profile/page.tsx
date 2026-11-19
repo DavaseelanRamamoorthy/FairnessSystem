@@ -28,7 +28,7 @@ import {
   type Member,
   type MemberContact
 } from "@/src/db/membership";
-import { BAT_PREFS, BOWL_PREFS, LABELS, PLAYER_ROLES } from "@/src/membership/form";
+import { BAT_PREFS, birthdayProblem, BOWL_PREFS, LABELS, normalizeInstagram, PLAYER_ROLES } from "@/src/membership/form";
 import { ErrorNote, Loading, NoAccess, Page, Section, useAction, useLoad } from "@/src/ui/kit";
 import { useSession } from "@/src/ui/session";
 
@@ -40,24 +40,37 @@ function ProfileForm({ member, contact, teamId, onSaved }: { member: Member; con
     bowl_pref: member.bowl_pref as string,
     email: contact?.email ?? "",
     phone: contact?.phone ?? "",
-    whatsapp: contact?.whatsapp ?? ""
+    whatsapp: contact?.whatsapp ?? "",
+    date_of_birth: contact?.date_of_birth ?? "",
+    instagram: contact?.instagram ? `@${contact.instagram}` : ""
   });
   const [saved, setSaved] = useState(false);
+  const [problems, setProblems] = useState<{ date_of_birth?: string; instagram?: string }>({});
   const { busy, error, run } = useAction();
 
-  const field = (key: "display_name" | "email" | "phone" | "whatsapp" | "bat_pref" | "bowl_pref") => ({
+  type Key = "display_name" | "email" | "phone" | "whatsapp" | "bat_pref" | "bowl_pref" | "date_of_birth" | "instagram";
+  const field = (key: Key) => ({
     value: form[key],
     onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
       setSaved(false);
+      setProblems((current) => ({ ...current, [key]: undefined }));
       setForm({ ...form, [key]: event.target.value });
     }
   });
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
+    const instagram = normalizeInstagram(form.instagram);
+    const next = {
+      date_of_birth: birthdayProblem(form.date_of_birth) ?? undefined,
+      instagram: instagram === null ? "Enter your Instagram username, for example @moonwalkers" : undefined
+    };
+    setProblems(next);
+    if (next.date_of_birth || next.instagram) return;
     const ok = await run(() =>
       updateMyProfile(teamId, {
         ...form,
+        instagram,
         is_wicketkeeper: form.primary_roles.includes("wicket_keeper"),
         bowls: form.primary_roles.includes("bowler") || form.primary_roles.includes("all_rounder")
       })
@@ -112,6 +125,25 @@ function ProfileForm({ member, contact, teamId, onSaved }: { member: Member; con
         <TextField label="Email" type="email" {...field("email")} />
         <TextField label="Mobile number" type="tel" {...field("phone")} />
         <TextField label="WhatsApp number" type="tel" {...field("whatsapp")} />
+        <TextField
+          label="Date of birth"
+          type="date"
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: "1920-01-01", max: new Date().toISOString().slice(0, 10) } }}
+          error={Boolean(problems.date_of_birth)}
+          helperText={problems.date_of_birth}
+          {...field("date_of_birth")}
+        />
+        <TextField
+          label="Instagram"
+          placeholder="@username"
+          autoCapitalize="none"
+          error={Boolean(problems.instagram)}
+          helperText={problems.instagram ?? "Your username or profile link."}
+          {...field("instagram")}
+        />
+        <Typography variant="body2" color="text.secondary">
+          Your contact details, date of birth and Instagram are only visible to you, the captains and the organiser.
+        </Typography>
         <ErrorNote message={error} />
         {saved && <Alert severity="success">Saved.</Alert>}
         <Button type="submit" variant="contained" disabled={busy} sx={{ alignSelf: "flex-start" }}>

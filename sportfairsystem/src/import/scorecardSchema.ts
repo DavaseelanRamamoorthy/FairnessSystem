@@ -22,7 +22,7 @@ const oversValue = z.union([z.string(), z.number()]).transform((value, ctx) => {
 const battingRow = z.object({
   name: z.string().min(1),
   cricheroes_player_id: z.string().optional(),
-  position: z.number().int().min(1).max(11),
+  position: z.number().int().min(1).max(15), // tournaments sometimes let 12+ bat
   runs: z.number().int().min(0).default(0),
   balls: z.number().int().min(0).default(0),
   fours: z.number().int().min(0).default(0),

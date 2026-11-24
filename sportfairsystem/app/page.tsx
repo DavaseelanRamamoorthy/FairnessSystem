@@ -8,6 +8,7 @@ import Typography from "@mui/material/Typography";
 import NextLink from "next/link";
 import { LABELS } from "@/src/membership/form";
 import { Page, Section } from "@/src/ui/kit";
+import { HomeFairness } from "@/src/ui/HomeFairness";
 import { MyDues } from "@/src/ui/MyDues";
 import { useSession } from "@/src/ui/session";
 
@@ -81,6 +82,7 @@ export default function HomePage() {
           ))}
         </Stack>
       </Section>
+      <HomeFairness seasonId={season.id} memberId={seasonMember.member_id} />
       <MyDues seasonId={season.id} memberId={seasonMember.member_id} />
     </Page>
   );

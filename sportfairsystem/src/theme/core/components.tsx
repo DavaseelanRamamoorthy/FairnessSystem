@@ -29,12 +29,14 @@ const MuiButton: Components<Theme>['MuiButton'] = {
       paddingInline: theme.spacing(2),
       minHeight: 40,
     }),
+    // Main buttons are kit navy in both light and dark mode, like the club shirts.
     contained: ({ theme }) => ({
-      color: theme.vars.palette.primary.contrastText,
-      background: `linear-gradient(135deg, ${theme.vars.palette.primary.dark} 0%, ${theme.vars.palette.primary.main} 100%)`,
-      boxShadow: theme.vars.customShadows.primary,
+      color: '#FFFFFF',
+      background: 'linear-gradient(135deg, #1B2150 0%, #2A3275 100%)',
+      border: '1px solid rgba(120,130,210,.35)',
+      boxShadow: '0 4px 14px rgba(27,33,80,.35)',
       '&:hover': {
-        background: `linear-gradient(135deg, ${theme.vars.palette.primary.dark} 0%, ${theme.vars.palette.primary.main} 100%)`,
+        background: 'linear-gradient(135deg, #0B0F2E 0%, #2A3275 100%)',
         boxShadow: theme.vars.customShadows.z12,
       },
     }),

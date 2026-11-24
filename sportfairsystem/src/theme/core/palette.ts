@@ -66,6 +66,16 @@ export type GreyExtend = {
 // Primary color
 export const primary = createPaletteChannel(themeConfig.palette.primary);
 
+// Kit navy is too dark for text on a dark page, so dark mode lifts it.
+export const primaryOnDark = createPaletteChannel({
+  lighter: '#E3E6FA',
+  light: '#A7B0F0',
+  main: '#8A96E8',
+  dark: '#4A56A8',
+  darker: '#2A3275',
+  contrastText: '#0B0F2E',
+});
+
 // Secondary color
 export const secondary = createPaletteChannel(themeConfig.palette.secondary);
 
@@ -109,9 +119,9 @@ export const background = {
     neutral: grey[200],
   }),
   dark: createPaletteChannel({
-    paper: '#111827',
-    default: '#0B1220',
-    neutral: '#1F2937',
+    paper: '#151A36',
+    default: '#0C0F22',
+    neutral: '#1B2142',
   }),
 };
 
@@ -156,6 +166,7 @@ export const palette: Partial<Record<ThemeColorScheme, ColorSystemOptions['palet
   },
   dark: {
     ...basePalette,
+    primary: primaryOnDark,
     text: text.dark,
     background: background.dark,
     action: action.dark,

@@ -1,0 +1,462 @@
+<title>Moonwalkers App Walkthrough</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a flow rail (steps in order) beside a live screen of the app, with notes on what each screen does. */
+:root{
+  --bg:#EEF2F7; --surface:#FFFFFF; --surface-2:#F4F6F8; --line:#DFE3E8;
+  --fg:#1C252E; --muted:#637381; --accent:#1877F2; --accent-soft:#D0ECFE; --accent-fg:#0C44AE;
+  --ok:#118D57; --ok-soft:#D3FCD2; --warn:#B76E00; --warn-soft:#FFF5CC; --bad:#B71D18; --bad-soft:#FFE9D5;
+  --chrome:#1C252E; --chrome-fg:#FFFFFF;
+  --display:"Lexend Deca", "Segoe UI", system-ui, sans-serif;
+  --body:"Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --shadow:0 1px 2px rgba(28,37,46,.06), 0 8px 24px rgba(28,37,46,.08);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B1220; --surface:#111827; --surface-2:#18212F; --line:#2A3546;
+  --fg:#E8EDF3; --muted:#919EAB; --accent:#5AA2F8; --accent-soft:#16305A; --accent-fg:#A9D0FD;
+  --ok:#5BE49B; --ok-soft:#123B28; --warn:#FFD666; --warn-soft:#3A2E0B; --bad:#FFAC82; --bad-soft:#40180F;
+  --chrome:#060B14; --chrome-fg:#E8EDF3; --shadow:0 8px 24px rgba(0,0,0,.35); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --surface:#111827; --surface-2:#18212F; --line:#2A3546;
+  --fg:#E8EDF3; --muted:#919EAB; --accent:#5AA2F8; --accent-soft:#16305A; --accent-fg:#A9D0FD;
+  --ok:#5BE49B; --ok-soft:#123B28; --warn:#FFD666; --warn-soft:#3A2E0B; --bad:#FFAC82; --bad-soft:#40180F;
+  --chrome:#060B14; --chrome-fg:#E8EDF3; --shadow:0 8px 24px rgba(0,0,0,.35); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.5}
+.wrap{max-width:1480px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+header.top{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:end;justify-content:space-between;margin-bottom:20px}
+header.top h1{font-size:28px;font-weight:700;letter-spacing:-.01em}
+.titlerow{display:flex;gap:14px;align-items:center}
+.titlerow .logo{width:52px;height:56px;flex:0 0 52px}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.roles{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.roles button{font:600 14px var(--body);border:0;background:none;color:var(--muted);padding:8px 14px;border-radius:9px;cursor:pointer}
+.roles button[aria-selected="true"]{background:var(--accent);color:#fff}
+.roles button:focus-visible,.steps a:focus-visible,.pager button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px;align-items:start}
+.steps{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);display:flex;flex-direction:column;gap:2px}
+.phase{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 10px 4px}
+.phase:first-child{margin-top:0}
+.steps a{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:baseline;padding:7px 10px;border-radius:9px;color:var(--fg);text-decoration:none}
+.steps a .n{font:600 12px var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.steps a small{display:block;color:var(--muted);font-size:12px}
+.steps a:hover{background:var(--surface)}
+.steps a[aria-current="page"]{background:var(--surface);box-shadow:var(--shadow)}
+.steps a[aria-current="page"] .n{color:var(--accent)}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:start;min-width:0}
+.notes{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.notes h2{font-size:18px}
+.notes .route{font:500 12px ui-monospace,Consolas,monospace;color:var(--accent-fg);background:var(--accent-soft);padding:2px 8px;border-radius:6px;align-self:flex-start}
+.notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.notes .lbl{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.notes p{margin:0}
+.pager{display:flex;gap:8px;justify-content:space-between}
+.pager button{font:600 13px var(--body);border:1px solid var(--line);background:var(--surface-2);color:var(--fg);padding:8px 12px;border-radius:9px;cursor:pointer;flex:1}
+.pager button.next{background:var(--accent);border-color:var(--accent);color:#fff}
+.pager button:disabled{opacity:.4;cursor:default}
+.sample{font-size:12px;color:var(--muted)}
+
+/* ---------- the app screen, in the v2 look with the club kit ----------
+   v2 design: left sidebar, page title bar, navy gradient banner on every page,
+   colourful stat tiles, rounded dark cards.
+   Kit colours from the 2026 jersey: deep navy shirt, bright red trousers and
+   shoulder pattern; orange from the club logo's outline. Red is kept to accents
+   so it never reads as a "lost" result. */
+.device{
+  --app-bg:#F4F5F9; --app-side:#FFFFFF; --app-card:#FFFFFF; --app-card-2:#F3F4F8; --app-line:#E2E4EE;
+  --app-fg:#1A1D33; --app-muted:#636A85; --app-active:rgba(38,46,107,.10); --app-active-fg:#262E6B;
+  --navy-1:#0B0F2E; --navy-2:#1B2150; --navy-3:#2A3275; --mark:#D7192D;
+  --kit-red:#D7192D; --logo-orange:#F5A31A;
+  --t-blue-1:#141A45; --t-blue-2:#262E6B; --t-blue-3:#4A56A8;
+  --t-green-1:#118D57; --t-green-2:#22C55E; --t-green-3:#77ED8B;
+  --t-orange-1:#B96A00; --t-orange-2:#F5A31A; --t-orange-3:#FFD27A;
+  --t-purple-1:#8E0E1C; --t-purple-2:#D7192D; --t-purple-3:#F2545F;
+  --surface:var(--app-card); --surface-2:var(--app-card-2); --line:var(--app-line); --fg:var(--app-fg); --muted:var(--app-muted);
+  background:var(--app-bg);color:var(--app-fg);border:1px solid var(--app-line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);min-width:0;container-type:inline-size}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .device{
+  --app-bg:#0C0F22; --app-side:#10142C; --app-card:#151A36; --app-card-2:#1B2142; --app-line:#272E55;
+  --app-fg:#E9EAF3; --app-muted:#9A9FBC; --app-active:rgba(74,86,168,.30); --app-active-fg:#FFFFFF}}
+:root[data-theme="dark"] .device{
+  --app-bg:#0C0F22; --app-side:#10142C; --app-card:#151A36; --app-card-2:#1B2142; --app-line:#272E55;
+  --app-fg:#E9EAF3; --app-muted:#9A9FBC; --app-active:rgba(74,86,168,.30); --app-active-fg:#FFFFFF}
+.logo{display:block;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))}
+.side .brandrow{display:flex;align-items:center;gap:9px}
+.side .brandrow .logo{width:38px;height:42px}
+.hero{border-bottom:3px solid var(--kit-red)}
+.hero .hlogo{width:64px;height:70px;flex:0 0 auto;position:relative;z-index:1}
+.authcard .hero{border-bottom:3px solid var(--kit-red)}
+.authcard .hero .ht{display:flex;flex-direction:column}
+.shell{display:grid;grid-template-columns:168px minmax(0,1fr);min-height:520px}
+.side{background:var(--app-side);border-right:1px solid var(--app-line);display:flex;flex-direction:column;gap:14px;padding:16px 10px}
+.side .ts small{display:block;font:700 10px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--app-muted)}
+.side .ts b{font:700 15px var(--display)}
+.side nav em,.bottomnav em{font-style:normal}
+.side nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.side nav span{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;padding:8px 10px;border-radius:10px;color:var(--app-muted);position:relative}
+.side nav span.on{background:var(--app-active);color:var(--app-active-fg)}
+.side nav span.on::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--mark)}
+.ico{width:17px;height:17px;flex:0 0 17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.side .me{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;border-top:1px solid var(--app-line);padding-top:12px}
+.side .me .av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--navy-3),var(--kit-red));color:#fff;display:grid;place-items:center;font-size:12px;flex:0 0 26px}
+.side .me small{display:block;font-weight:500;color:var(--app-muted)}
+.mainc{min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--app-line)}
+.topbar .burger{width:30px;height:30px;border-radius:50%;background:var(--app-card-2);display:grid;place-items:center;flex:0 0 30px;color:var(--app-muted)}
+.topbar h3{font:700 19px var(--display);line-height:1.2}
+.topbar small{display:block;color:var(--app-muted);font-size:12px}
+.page{padding:20px;display:flex;flex-direction:column;gap:16px;min-height:420px}
+.hero{position:relative;overflow:hidden;border-radius:18px;padding:18px 22px 20px;color:#fff;background:linear-gradient(135deg,var(--navy-1) 0%,var(--navy-2) 58%,var(--navy-3) 100%);border:1px solid rgba(120,130,210,.22);display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center;justify-content:space-between}
+.hero .eb{font:700 10px var(--body);letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+.hero h3{font:700 26px var(--display);line-height:1.15;margin:4px 0 2px;color:#fff}
+.hero p{margin:0;color:rgba(255,255,255,.78);font-size:13px;max-width:52ch}
+.hero .ht{position:relative;z-index:1;min-width:0;flex:1 1 260px}
+.hero .hr{position:relative;z-index:1;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hero .deco{position:absolute;right:0;top:0;width:60%;height:100%;pointer-events:none}
+.hero .deco path{stroke:rgba(215,25,45,.75);stroke-width:1.3}
+.hero .deco path.k{stroke:none;fill:rgba(215,25,45,.22)}
+.hero .deco path.f{stroke:rgba(255,255,255,.16)}
+.htog{display:flex;background:rgba(255,255,255,.08);border-radius:10px;padding:3px;font-size:12px;font-weight:600}
+.htog span{padding:5px 10px;border-radius:8px;color:rgba(255,255,255,.7)}
+.htog span.on{background:rgba(255,255,255,.16);color:#fff}
+.hsel{border:1px solid rgba(255,255,255,.22);border-radius:9px;padding:3px 10px 5px;min-width:130px;background:rgba(6,18,48,.35)}
+.hsel small{display:block;font-size:10px;color:rgba(255,255,255,.65)}
+.hsel b{font-size:13px;font-weight:600}
+.hsel b::after{content:"▾";float:right;margin-left:10px;color:rgba(255,255,255,.65)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{border-radius:16px;overflow:hidden;background:var(--app-card);border:1px solid var(--app-line);display:flex;flex-direction:column}
+.kpi .top{position:relative;padding:12px 14px 14px;color:#fff;display:flex;flex-direction:column;gap:6px}
+.kpi .top::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at top right,rgba(255,255,255,.16),transparent 32%);pointer-events:none}
+.kpi .lab{display:flex;align-items:center;gap:8px;font:700 10px var(--body);letter-spacing:.08em;text-transform:uppercase}
+.kpi .lab i{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.2);display:grid;place-items:center;font-style:normal}
+.kpi .lab .ico{width:13px;height:13px;flex-basis:13px}
+.kpi .val{font:700 24px var(--display);text-align:center;line-height:1.15;overflow-wrap:anywhere}
+.kpi .cap{font:700 10px var(--body);letter-spacing:.06em;text-transform:uppercase;text-align:center;color:var(--app-muted);padding:7px 8px}
+.kpi.blue .top{background:linear-gradient(135deg,var(--t-blue-1),var(--t-blue-2) 55%,var(--t-blue-3))}
+.kpi.green .top{background:linear-gradient(135deg,var(--t-green-1),var(--t-green-2) 55%,var(--t-green-3))}
+.kpi.orange .top{background:linear-gradient(135deg,var(--t-orange-1),var(--t-orange-2) 55%,var(--t-orange-3))}
+.kpi.purple .top{background:linear-gradient(135deg,var(--t-purple-1),var(--t-purple-2) 55%,var(--t-purple-3))}
+.stat{background:var(--app-card);border:1px solid var(--app-line);border-radius:14px;padding:12px 14px}
+.stat small{display:block;font-size:12px;color:var(--app-muted)}
+.stat b{display:block;font:700 22px var(--display);margin:2px 0}
+.auth{min-height:520px;display:grid;place-items:center;padding:28px 16px;background:radial-gradient(circle at 20% 0%,#2A3275 0%,transparent 55%),radial-gradient(circle at 100% 100%,rgba(215,25,45,.25) 0%,transparent 40%),linear-gradient(160deg,#0B0F2E,#1B2150)}
+.authcard{width:min(460px,100%);border-radius:22px;overflow:hidden;background:var(--app-card);border:1px solid rgba(120,130,210,.25);box-shadow:0 20px 50px rgba(0,0,0,.35);display:flex;flex-direction:column}
+.authcard .hero{border-radius:0;border:0}
+.authcard .body{padding:18px;display:flex;flex-direction:column;gap:14px}
+.authcard .body > .card{border:0;padding:0;background:none}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card .ch{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.card .ch h4{font:600 16px var(--display);margin:0}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row > *{flex:1 1 180px;min-width:0}
+.f{border:1px solid var(--line);border-radius:8px;padding:6px 10px 7px;background:var(--surface);position:relative;min-width:0}
+.f label{display:block;font-size:11px;color:var(--muted);font-weight:600}
+.f .v{font-size:14px;min-height:20px;overflow-wrap:anywhere}
+.f .v.ph{color:var(--muted)}
+.f.sel .v::after{content:"▾";float:right;color:var(--muted)}
+.f.err{border-color:var(--bad)}
+.help{font-size:12px;color:var(--muted);margin-top:-6px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.b{font:600 13px var(--body);border-radius:8px;padding:7px 14px;border:1px solid transparent;display:inline-block}
+.b.c{background:linear-gradient(135deg,var(--navy-2),var(--navy-3));color:#fff;border-color:rgba(120,130,210,.35);box-shadow:0 4px 14px rgba(27,33,80,.35)}
+.b.o{border-color:var(--line);color:var(--fg);background:var(--surface)}
+.b.t{color:var(--accent);padding-inline:6px}
+.b.d{background:var(--bad-soft);color:var(--bad)}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.chip.ok{background:none;color:var(--ok);border-color:currentColor}
+.chip.warn{background:none;color:var(--warn);border-color:currentColor}
+.chip.bad{background:none;color:var(--bad);border-color:currentColor}
+.chip.info{background:none;color:var(--accent);border-color:currentColor}
+.chip.win{background:#22C55E;color:#fff;border-color:transparent}
+.chip.loss{background:#E53935;color:#fff;border-color:transparent}
+.alert{border-radius:10px;padding:10px 14px;font-size:13px}
+.alert.ok{background:var(--ok-soft);color:var(--ok)}
+.alert.warn{background:var(--warn-soft);color:var(--warn)}
+.alert.info{background:var(--accent-soft);color:var(--accent-fg)}
+.tbl{overflow-x:auto;margin:0 -4px}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;padding:8px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs span{padding:8px 12px;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs span.on{color:var(--accent);border-color:var(--accent)}
+.bal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.bal div{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.bal small{display:block;color:var(--muted);font-size:12px}
+.bal b{font:600 20px var(--display)}
+.bal .owed{color:var(--ok)} .bal .ahead{color:var(--warn)}
+.pos{color:var(--ok);font-weight:600} .neg{color:var(--warn);font-weight:600}
+.namerow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center}
+.drop{border:1.5px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--muted)}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:13px}
+.check i{flex:0 0 16px;height:16px;border-radius:4px;border:2px solid var(--accent);background:var(--accent);margin-top:2px}
+.check i.off{background:none;border-color:var(--muted)}
+.big{font:600 17px var(--display)}
+.muted{color:var(--muted)}
+.dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px;max-width:420px}
+.bottomnav{display:none}
+
+@media (max-width:980px){
+  .grid{grid-template-columns:1fr}
+  .steps{position:static;flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:6px}
+  .phase{display:none}
+  .steps a{flex:0 0 auto;grid-template-columns:auto auto;background:var(--surface);border:1px solid var(--line)}
+  .steps a small{display:none}
+  .stage{grid-template-columns:1fr}
+}
+/* Narrow device: sidebar shrinks to icons, then becomes v2's bottom navigation. */
+@container (max-width:760px){
+  .shell{grid-template-columns:60px minmax(0,1fr)}
+  .side{padding:16px 8px;align-items:center}
+  .side .ts,.side nav span em,.side .me span{display:none}
+  .side nav span{justify-content:center;padding:9px}
+  .side nav span.on::before{left:-8px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi .val{font-size:20px}
+}
+@container (max-width:540px){
+  .shell{grid-template-columns:1fr}
+  .side{display:none}
+  .bottomnav{display:flex;justify-content:space-around;border-top:1px solid var(--app-line);background:var(--app-side);padding:8px 4px;font-size:10px;font-weight:600;color:var(--app-muted)}
+  .bottomnav span{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .bottomnav span.on{color:var(--app-active-fg)}
+  .bottomnav span.on .ico{color:var(--kit-red)}
+  .topbar{padding:12px 14px}
+  .page{padding:14px}
+  .hero{padding:16px}
+  .hero h3{font-size:22px}
+  .namerow{grid-template-columns:1fr}
+  .bal b{font-size:17px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi .val{font-size:19px}
+}
+@media (prefers-reduced-motion:no-preference){.page{animation:in .18s ease-out}@keyframes in{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="titlerow">
+      <img id="toplogo" class="logo" alt="Moonwalkers logo" width="52" height="56">
+      <div>
+      <h1>Moonwalkers app, screen by screen</h1>
+      <p>Every page of the v3 app in the order people use it, drawn in the v2 look with the club's kit colours and logo. Players and numbers are made-up test data.</p>
+      </div>
+    </div>
+    <div class="roles" role="tablist" aria-label="Whose flow">
+      <button role="tab" id="role-admin" data-role="admin" aria-selected="true">Organiser &amp; captains</button>
+      <button role="tab" id="role-player" data-role="player" aria-selected="false">Players</button>
+    </div>
+  </header>
+  <div class="grid">
+    <nav class="steps" id="steps" aria-label="Screens"></nav>
+    <div class="stage">
+      <div class="device" id="device"></div>
+      <aside class="notes" id="notes"></aside>
+    </div>
+  </div>
+</div>
+
+<script>
+// Club logo (from instagram/assets/logo.png, shrunk to 128px).
+const LOGO="data:image/png;base64,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";
+document.getElementById("toplogo").src=LOGO;
+// ---------- tiny view helpers ----------
+const card=(t,b,a="")=>`<section class="card">${t?`<div class="ch"><h4>${t}</h4>${a}</div>`:""}${b}</section>`;
+const f=(l,v,o={})=>`<div class="f${o.sel?" sel":""}${o.err?" err":""}"><label>${l}</label><div class="v${v?"":" ph"}">${v||o.ph||"&nbsp;"}</div></div>${o.help?`<div class="help">${o.help}</div>`:""}`;
+const s=(l,v,o={})=>f(l,v,{...o,sel:true});
+const row=(...x)=>`<div class="row">${x.map(i=>`<div>${i}</div>`).join("")}</div>`;
+const b=(t,k="c")=>`<span class="b ${k}">${t}</span>`;
+const btns=(...x)=>`<div class="btns">${x.join("")}</div>`;
+const chip=(t,k="")=>`<span class="chip ${k}">${t}</span>`;
+const alert=(t,k="info")=>`<div class="alert ${k}">${t}</div>`;
+const tbl=(h,r)=>`<div class="tbl"><table><thead><tr>${h.map(x=>`<th${/^(Runs|Balls|Overs|Wkts|Owed|Given|Balance|Amount|Bats at|SR|Econ|R|B|O|W)$/.test(x)?' class="num"':""}>${x}</th>`).join("")}</tr></thead><tbody>${r.map(c=>`<tr>${c.map((x,i)=>`<td${/^(Runs|Balls|Overs|Wkts|Owed|Given|Balance|Amount|Bats at|SR|Econ|R|B|O|W)$/.test(h[i])?' class="num"':""}>${x}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+const tabs=(l,on)=>`<div class="tabs">${l.map(x=>`<span class="${x===on?"on":""}">${x}</span>`).join("")}</div>`;
+const check=(t,on=true)=>`<div class="check"><i class="${on?"":"off"}"></i><span>${t}</span></div>`;
+// v2 page banner: navy gradient, small eyebrow, big title, optional controls on the right.
+let EYEBROW="Team space";
+// Banner decoration: v2's cross marks in kit red, plus the jersey's red shoulder flare.
+const DECO=`<svg class="deco" viewBox="0 0 400 140" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><path class="k" d="M400 0h-70c-10 22 4 34-14 52 22-4 30 10 50-6 6 16 22 14 34 4z"/><path class="k" d="M400 140h-46c8-14-2-24 12-36 10 10 22 4 34 12z"/><path d="M290 22v40M270 42h40M318 92v20M308 102h20"/><path class="f" d="M200 60v44M178 82h44M120 100h70"/></svg>`;
+const logo=(cls="")=>`<img class="logo ${cls}" src="${LOGO}" alt="Moonwalkers logo">`;
+const title=(t,sub,right="")=>`<section class="hero">${DECO}${EYEBROW==="Moonwalkers"?logo("hlogo"):""}<div class="ht"><div class="eb">${EYEBROW}</div><h3>${t}</h3>${sub?`<p>${sub}</p>`:""}</div>${right?`<div class="hr">${right}</div>`:""}</section>`;
+const htog=(l,on)=>`<div class="htog">${l.map(x=>`<span class="${x===on?"on":""}">${x}</span>`).join("")}</div>`;
+const hsel=(l,v)=>`<div class="hsel"><small>${l}</small><b>${v}</b></div>`;
+const kpi=(color,icon,label,val,cap)=>`<div class="kpi ${color}"><div class="top"><div class="lab"><i>${ico(icon)}</i>${label}</div><div class="val">${val}</div></div><div class="cap">${cap}</div></div>`;
+const kpis=(...x)=>`<div class="kpis">${x.join("")}</div>`;
+const stats=(...x)=>`<div class="kpis">${x.map(([l,v,n])=>`<div class="stat"><small>${l}</small><b>${v}</b><small>${n}</small></div>`).join("")}</div>`;
+const ICONS={Home:"M3 11l9-8 9 8v10h-6v-6H9v6H3z",Fixtures:"M4 5h16v16H4zM4 10h16M8 3v4M16 3v4",Fairness:"M12 3v18M7 21h10M4 7h16M4 7l-3 7h6zM20 7l-3 7h6z",Stats:"M4 20V11M10 20V5M16 20v-7M21 20H3",Profile:"M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6",Dues:"M3 7h18v13H3zM16 14h2M3 7l3-3h12l3 3",Admin:"M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",trophy:"M8 4h8v5a4 4 0 0 1-8 0zM8 6H4a4 4 0 0 0 4 4M16 6h4a4 4 0 0 1-4 4M12 13v4M8 21h8",ball:"M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM6 6c3 3 3 9 0 12M18 6c-3 3-3 9 0 12",trend:"M3 17l6-6 4 4 8-8M15 7h6v6"};
+const ico=n=>`<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n]||ICONS.Home}"/></svg>`;
+const NAV_INFO={
+  Home:["Welcome to Moonwalkers","Your next match, your membership and your fair chances.","Team space"],
+  Fixtures:["Moonwalkers Fixtures","Upcoming matches, availability, team picks and scorecards.","Match workspace"],
+  Fairness:["Moonwalkers Fairness","Chances owed and given for every player, and the rules behind them.","Fairness"],
+  Stats:["Moonwalkers Dashboard","Results, leaders and head-to-head across every season.","Dashboard"],
+  Profile:["Moonwalkers Profile","Your details, preferences and time away.","My account"],
+  Dues:["Moonwalkers Dues","Membership fees and payments for the season.","Finance"],
+  Admin:["Moonwalkers Admin","Season settings, applications and members.","Admin workspace"]};
+const bal=(g,bt,bw)=>`<div class="bal">${[["Games",g,"games"],["Batting",bt,"pts"],["Bowling",bw,"overs"]].map(([l,v,u])=>`<div><small>${l}</small><b class="${v>0?"owed":v<0?"ahead":""}">${v>0?"+":""}${v} ${u}</b><small>${v>0?"owed to you":v<0?"ahead of fair share":"even"}</small></div>`).join("")}</div>`;
+const dialog=(t,b)=>`<div class="dialog"><div class="big">${t}</div>${b}</div>`;
+
+const ADMIN_NAV=["Home","Fixtures","Fairness","Stats","Profile","Dues","Admin"];
+const PLAYER_NAV=["Home","Fixtures","Fairness","Stats","Profile"];
+
+// ---------- screens ----------
+const FLOWS={
+admin:[
+ {phase:"Before the season",id:"admin-setup",name:"Set up the team",short:"Once only",route:"/setup",nav:null,who:"The first person to sign in. They become the organiser.",
+  body:()=>title("Set up your team","You'll be the organiser. This only happens once.")+card("",row(f("Team name","Moonwalkers"),f("Your name","Olga"))+row(f("Season year","2027"),f("Membership fee (EUR)","60"))+row(f("Season starts","01.04.2027"),f("Season ends","30.09.2027"))+btns(b("Set up team"))),
+  does:["Creates the team, the first season and your own member profile.","Gives you the organiser role, which can manage members, money and matches.","Never shown again once a team exists."]},
+ {phase:"Before the season",id:"admin-season",name:"Season",short:"Dates, fee, registration",route:"/admin/season",nav:"Admin",who:"Organiser only.",
+  body:()=>title("Season")+card("2027 season",row(f("Starts","01.04.2027"),f("Ends","30.09.2027"))+row(f("Fee (EUR)","60",{help:"Applies to members approved from now on."}),s("Registration open","Yes"))+btns(b("Save")))+card("Start the next season",row(f("Year","2028"),f("Membership fee (EUR)","60"))+row(f("Season starts","01.04.2028"),f("Season ends","30.09.2028"))+btns(b("Start season","o"))),
+  does:["Turn registration on so new players can send the membership form.","The fee is charged to each player when you approve them.","Starting the next season keeps all history; players renew from their home page."]},
+ {phase:"Membership",id:"admin-applications",name:"Applications",short:"Approve new players",route:"/admin",nav:"Admin",who:"Organiser only.",
+  body:()=>title("Applications")+card("Hari Iyer",`<div class="muted">Applied 14.03.2027 · batter, top order · Saturdays, friendlies</div>`+row(f("Spond name","Hari I"),f("CricHeroes name","Hari Iyer"))+f("CricHeroes player ID","2240198",{help:"Open their profile link and copy the number from the address, if it isn't filled in."})+s("Is this an existing player?","No, create a new player",{help:"Suggestions are listed first. Picking one keeps their match history."})+btns(b("Approve"),b("Reject","o")))+card("Pete Brown",`<div class="muted">Applied 20.03.2027 · all-rounder · away until 31.05</div>`+s("Is this an existing player?","Pete B (played 2026)",{help:"Picking an existing player keeps their match history."})+btns(b("Approve"),b("Reject","o"))),
+  does:["Every form from “Join the team” lands here.","Link the person to an existing player so old matches stay theirs, or create a new one.","Approving adds them to this season, charges the fee and records their Spond and CricHeroes names so imports match them automatically.","Rejecting asks for a reason, which the applicant sees."]},
+ {phase:"Membership",id:"admin-members",name:"Members",short:"The whole squad",route:"/admin/members",nav:"Admin",who:"Organiser only.",
+  body:()=>title("Members")+card("",row(f("Search by name","",{ph:"Search by name"}))+tbl(["Name","Role","Status",""],[["Olga","Captain",chip("Paid","ok"),""],["Arun Kumar","Player",chip("Paid","ok"),""],["Bilal Shah","Vice-captain · Kit",chip("Paid","ok"),""],["Chris Long","Player",chip("Paid","ok"),""],["Dev Patel","Player · Treasurer",chip("Paid","ok"),""],["Imran Ali","Player",chip("Fee due","warn"),""],["Jay Rao","Player",chip("Away all season"),""],["Sam Field","—",chip("No account yet"),""]]))+card("Add a member",row(f("Name","Sam Field"),f("Name in Spond","Sam F"),f("Name in CricHeroes","Sam Field"))+btns(b("Add a member"))),
+  does:["Shows everyone in the club, with their role and whether this season's fee is paid.","Add a member by hand for someone who won't fill in the form; they get a claim link to attach their own account later."]},
+ {phase:"Membership",id:"admin-member",name:"Member details",short:"Roles, names, merge",route:"/admin/members/[id]",nav:"Admin",who:"Organiser only. Contact details are visible to captains and the organiser.",
+  body:()=>title("Bilal Shah")+card("Role this season",row(s("Role this season","Vice-captain"),s("Responsibilities","Kit manager")))+card("Contact",row(f("Email","bilal@example.com"),f("Mobile number","+49 151 0000000"))+row(f("Date of birth","12.06.1994"),f("Instagram","@bilal.bowls")))+card("Names on other systems",tbl(["Where","Name","Player ID",""],[["Spond","Bilal S","",b("Remove","t")],["CricHeroes","Bilal Shah","1987345",b("Remove","t")]])+btns(b("Link a name","o")))+card("Merge a duplicate",s("Duplicate of this player","",{ph:"Choose a player"})+btns(b("Merge","o")))+card("",btns(b("Leave this season","d"))+`<div class="help">They won't be picked from today. Their history stays, and you can bring them back.</div>`),
+  does:["Set the season role: organiser, captain, vice-captain or player.","Add responsibilities: treasurer, kit manager, ground booking, scouting.","See and fix how this person is named in Spond and CricHeroes.","Merge two profiles of the same person; all match history moves to the one you keep."]},
+ {phase:"Membership",id:"admin-dues",name:"Dues",short:"Record payments",route:"/dues",nav:"Dues",who:"Organiser and treasurer.",
+  body:()=>title("Dues")+card("Outstanding",tbl(["Name","For","Amount","Reference",""],[["Imran Ali","Membership 2027","60.00 €",chip("PP-88213","info"),b("Record payment","t")],["Hari Iyer","Membership 2027","60.00 €","—",b("Record payment","t")],["Chris Long","Bonn Cup entry","15.00 €","Cash",b("Record payment","t")]])+check("Show paid",false))+card("Record payment · Imran Ali",row(f("Amount","60.00"),s("Currency","EUR"))+row(f("Paid on","22.03.2027"),s("Method","Bank transfer"))+row(f("Reference","PP-88213"),s("Who received it","Club account"))+btns(b("Save payment"),b("Cancel","o"))),
+  does:["Lists every unpaid charge, with the reference a player gave if they already paid.","Record the payment and the player becomes pickable straight away.","Players who haven't paid are never picked: the team page shows them as “unpaid”."]},
+ {phase:"Match week",id:"admin-newfixture",name:"New fixture",short:"Create a match",route:"/fixtures/new",nav:"Fixtures",who:"Captain, vice-captain and organiser.",
+  body:()=>title("New fixture")+card("",s("Competition","Saturday friendlies 2027")+row(s("Type","Friendly series"),s("How much these matches count for fairness","Fully",{help:"Tournaments count half by default, so the captain can pick a stronger side without a big fairness debt."}))+row(f("Match date","08.05.2027"),s("Match on the day","1"))+row(f("Opponent","Rivals CC"),f("Ground","Rheinaue, Bonn"))+row(f("Overs per side","20"),f("Spond deadline","Thu 06.05.2027 20:00",{help:"Filled in as two days before at 20:00. You can change it."}))+btns(b("Create fixture"))),
+  does:["Pick a competition or create one; a tournament is set to count half.","The Spond deadline fills itself in two days before at 20:00.","Two matches on one day get “match 1” and “match 2” and are planned together."]},
+ {phase:"Match week",id:"admin-availability",name:"Availability",short:"Import Spond",route:"/fixtures/[id] · Availability",nav:"Fixtures",who:"Captains import. Everyone can see the list.",
+  body:()=>title("Sat 08.05 · vs Rivals CC","Saturday friendlies 2027 · 20 overs · Spond deadline Thu 20:00")+tabs(["Availability","Team","Scorecard"],"Availability")+card("Import from Spond",alert("The first import is the deadline snapshot: everyone who said yes counts as on time.")+`<div class="drop">Upload Spond snapshot, or paste the JSON Claude wrote</div>`+`<div class="muted" style="font-size:13px">13 of 15 names are already known. 1 needs you to choose. Linked names are remembered for next time.</div>`+`<div class="namerow"><div><b>Arun K</b><br>${chip("Needs a decision","warn")}</div>${s("This is","Arun Kumar (initials match)")}</div><div class="namerow"><div><b>Max (guest)</b><br>${chip("Check this")}</div>${s("This is","Ignore this name")}</div>`+btns(b("Import 14 answers")))+card("Who's available",tbl(["Player","Answer","Status"],[["Olga","Yes",chip("On time","ok")],["Arun Kumar","Yes",chip("On time","ok")],["Chris Long","Yes",chip("Late","warn")],["Imran Ali","Yes",chip("Unpaid","bad")],["Pete Brown","Yes",chip("On leave")],["Eli Moss","Maybe",chip("Not available")]]))+card("Change one answer",row(s("Player","Gopal Nair"),s("Answer","Yes"))+btns(b("Save","o"))),
+  does:["Claude reads the Spond event in the built-in browser at the deadline and writes the snapshot file; you upload it here.","Known names match on their own; anything else you choose once and it's remembered.","Answers added after the snapshot count as late, so late players only fill gaps.","Statuses come from the rules: unpaid, on leave or away players are never picked."]},
+ {phase:"Match week",id:"admin-team",name:"Pick the team",short:"Suggest, adjust, publish",route:"/fixtures/[id] · Team",nav:"Fixtures",who:"Captains and organiser. Players see it only after it's published.",
+  body:()=>title("Sat 08.05 · vs Rivals CC")+tabs(["Availability","Team","Scorecard"],"Team")+card("Pick the team",btns(b("Suggest team"),b("Save draft","o"),b("Publish team"))+tbl(["Player","Slot","Bats at","Overs","Why"],[["Olga","Playing XI","6","—","Captain"],["Arun Kumar","Playing XI","1","4","Owed 1.2 games"],["Faiz Rahman","Playing XI","2","4","Owed batting at the top"],["Gopal Nair","Playing XI","9","4","Owed bowling"],["Hari Iyer","Playing XI","3","—","Wicketkeeper"],["Dev Patel","Playing XI","5","4","Owed 0.4 games"],["Chris Long","12th","—","—","Late answer, fills a gap"],["Imran Ali","Not picked","—","—","Membership not paid"]])+`<div class="namerow"><div><b>Eli Moss</b><br>${chip("Changed","warn")}</div>${f("Why the change?","Swapped in for pace on a green pitch")}</div>`+alert("Add a short note for each change you made to the suggestion.","warn")),
+  does:["“Suggest team” builds a fair XI: captain and a keeper locked in, then whoever is owed the most games.","Batting order respects where each player likes to bat; overs are shared with a cap per bowler.","Every pick shows a reason. If you change one, you add a short note.","“Save draft” keeps it private. “Publish team” shows it to the squad."]},
+ {phase:"After the match",id:"admin-scorecard",name:"Import scorecard",short:"From CricHeroes",route:"/fixtures/[id] · Scorecard",nav:"Fixtures",who:"Captains and organiser.",
+  body:()=>title("Sat 08.05 · vs Rivals CC")+tabs(["Availability","Team","Scorecard"],"Scorecard")+card("Import the scorecard",`<div class="drop">Upload scorecard (Claude's JSON from CricHeroes, or the PDF)</div>`+alert("Checks passed: batting adds up to 130/4 in 20 overs.","ok")+`<div class="muted" style="font-size:13px">7 of 10 names are already known. 2 more have an exact name match: check them below. 1 needs you to choose.</div>`+`<div class="namerow"><div><b>G Nair</b><br>${chip("Needs a decision","warn")}</div>${s("This is","Gopal Nair (initials match)")}</div><div class="namerow"><div><b>Olga</b><br>${chip("Check this")}</div>${s("This is","Olga")}</div><div class="namerow"><div><b>Sunil (sub)</b><br>${chip("Check this")}</div>${s("This is","A guest (not a member)")}</div>`+btns(b("Import scorecard")))+card("Planned vs played",`<div>Picked but didn't play: <b>Dev Patel</b></div><div>Played from outside the XI: <b>Chris Long</b></div>`),
+  does:["After the match, sign in to CricHeroes in Claude's browser; Claude captures the scorecard as a file.","The app checks the totals before importing and warns you if CricHeroes doesn't add up.","Only our own players need names confirmed; the opposition stays as names.","The fixture becomes Played and everyone's balances update. A wrong import can be re-opened with a reason."]},
+ {phase:"After the match",id:"admin-fairness",name:"Fairness board",short:"Everyone's balances",route:"/fairness",nav:"Fairness",who:"Everyone in the squad sees the same board.",
+  body:()=>fairnessBoard(),
+  does:["Three accounts per player: games, batting and bowling.","Owed means the team owes that player chances; ahead means they've had more than their share.","The planner uses these numbers next week, so whoever is owed most is picked first."]},
+ {phase:"After the match",id:"admin-player",name:"Player stats",short:"One player's season",route:"/players/[id]",nav:"Fairness",who:"Everyone in the squad.",
+  body:()=>playerStats("Arun Kumar"),
+  does:["Season numbers from every imported scorecard: runs, average, strike rate, wickets, economy.","Match-by-match history shows each pick and what happened, so any balance can be checked."]},
+ {phase:"After the match",id:"admin-dashboard",name:"Stats dashboard",short:"Every season at a glance",route:"/dashboard",nav:"Stats",who:"Everyone in the squad.",
+  body:()=>dashboard(),
+  does:["One page for the club's whole history: results, leaders and head-to-head, read live from the imported scorecards.","Switch between all seasons and a single season; click a season row to jump to it.","Older seasons without Spond answers count for stats only, never for fairness."]},
+ {phase:"After the match",id:"admin-history",name:"Import past seasons",short:"CricHeroes PDFs",route:"imports/cricheroes-pdf/<year>",nav:"Admin",who:"Organiser, once, with Claude.",
+  body:()=>title("Import past seasons","A one-off load of the club's history")+card("1 · Drop the scorecards",`<div class="muted" style="font-size:13px">Download each match's PDF from CricHeroes (<b>Download Scorecard</b>) into one folder per season.</div>`+tbl(["Folder","PDFs","Matches on CricHeroes"],[["2024","22","36"],["2025","70","68"],["2026","24","67"]]))+card("2 · Claude checks every file",alert("113 of 171 matches converted. Totals, extras and overs checked against each scorecard.","ok")+`<div class="muted" style="font-size:13px">Files without a match id (Match1.1.pdf…) are matched by date, opponent and margin.</div>`+btns(b("See the 58 still missing","o")))+card("3 · Names become players",tbl(["Spellings found","Player"],[["DEV P · Dev · Dev Patel","Dev Patel"],["Arun K · Arun Kumar","Arun Kumar"],["G Nair · Gopal","Gopal Nair"]])+`<div class="muted" style="font-size:13px">Every spelling is remembered, so future imports match on their own.</div>`),
+  does:["For history only: weekly matches still go through the fixture pages.","Spond's attendance export adds who said yes, so those match days count for fairness.","Missing scorecards can be added later; the import runs again and replaces the history."]}
+],
+player:[
+ {phase:"Joining",id:"player-signup",name:"Create account",short:"Email and password",route:"/signup",nav:null,who:"Anyone with the app link.",
+  body:()=>title("Create your account","You'll fill in the membership form next.")+card("",f("Email","dev@example.com")+f("Password","••••••••••",{help:"At least 8 characters"})+btns(b("Create account"))+`<div class="muted">Already have an account? <span class="b t">Sign in</span></div>`)+alert("Check your email and open the link to finish signing up.","ok"),
+  does:["Creates the login only. Being in the team comes from the membership form.","Forgot your password? “Reset your password” emails a link."]},
+ {phase:"Joining",id:"player-register",name:"Join the team",short:"Membership form",route:"/register",nav:"Home",who:"Signed-in people while registration is open.",
+  body:()=>title("Join the team")+card("About you",row(f("Full name","Dev Patel"),f("Name your teammates use","Dev"))+row(f("Mobile number","+49 160 0000000"),f("WhatsApp number, if different",""))+row(f("Date of birth (optional)","03.02.1996"),f("Instagram (optional)","@devbats",{help:"Your username or profile link."})))+card("Your cricket",row(s("I am a","Batter"),s("Where I like to bat","Middle order"))+row(s("Batting hand","Right"),s("When I like to bowl","Sometimes"))+row(f("Name in Spond","Dev P"),f("CricHeroes profile link","cricheroes.com/player-profile/…",{help:"So we can keep your match history."}))+s("Played for us before under another name?","No"))+card("Availability",row(s("Matches I prefer","Friendlies, Tournaments"),s("Preferred days","Saturday"))+`<div class="muted" style="font-size:13px">Known long absences</div>`+row(f("From","01.08.2027"),f("To","20.08.2027")))+card("Payment",f("Payment reference","",{ph:"PayPal / bank reference, or Cash",help:"If you've already paid, enter the reference. You can also add it later."}))+card("",check("I agree to the club rules, and to the club storing these details to run the team. My contact details are only shared with the captains and the organiser.")+btns(b("Send application"))),
+  does:["One form with everything the captain needs: contact, playing style, Spond and CricHeroes names, holidays.","The Spond and CricHeroes names mean your availability and scores are matched to you automatically.","Date of birth and Instagram are optional and only visible to captains and the organiser."]},
+ {phase:"Joining",id:"player-waiting",name:"Application sent",short:"Waiting for approval",route:"/",nav:"Home",who:"Applicants.",
+  body:()=>title("Hi Dev")+card("Application sent",`<div>The organiser will review it soon. You'll see your dues here once it's approved.</div>`+chip("Waiting for the organiser","info")),
+  does:["Shown until the organiser approves or rejects the form.","If it's rejected, the reason the organiser gave is shown here."]},
+ {phase:"Joining",id:"player-claim",name:"Claim profile",short:"If the organiser added you",route:"/claim/[token]",nav:null,who:"Players the organiser added by hand, using the claim link they were sent.",
+  body:()=>title("Claim your profile")+card("",`<div>The organiser added <b>Dev Patel</b> to the Moonwalkers. Claim this profile to connect it to your account and keep your match history.</div>`+btns(b("Claim my profile"))),
+  does:["An alternative to the form for existing players the organiser already added.","The link works once; after that the profile is yours."]},
+ {phase:"Joining",id:"player-dues",name:"My dues",short:"Pay the fee",route:"/",nav:"Home",who:"Approved members.",
+  body:()=>title("Hi Dev")+card("My membership",`<div class="row"><div><div class="big">2027 season</div><div class="muted">Player · approved 22.03.2027</div></div><div style="flex:0 0 auto">${chip("Fee due","warn")}</div></div>`)+card("My dues",tbl(["For","Amount","Status"],[["Membership 2027","60.00 €",chip("Due","warn")]])+f("Payment reference","PP-77120",{help:"After paying, enter the PayPal or bank reference, or the word Cash."})+btns(b("Save"))+alert("Saved. The treasurer will confirm your payment.","ok")),
+  does:["Shows what you owe the club this season.","You can only be picked once the treasurer confirms the fee.","Entering your payment reference helps the treasurer find it."]},
+ {phase:"During the season",id:"player-profile",name:"My profile",short:"Details and time away",route:"/profile",nav:"Profile",who:"Each player, for their own profile.",
+  body:()=>title("My profile")+card("My details",row(f("Name your teammates use","Dev"),f("Email","dev@example.com"))+row(f("Mobile number","+49 160 0000000"),f("WhatsApp number",""))+row(f("Date of birth","03.02.1996"),f("Instagram","@devbats",{ph:"@username"})))+card("",row(s("Where I like to bat","Middle order"),s("When I like to bowl","Sometimes"))+f("My roles","Player · Treasurer")+btns(b("Save")))+card("Time away",row(f("From","01.08.2027"),f("To","20.08.2027"))+f("Reason (optional)","Holiday")+btns(b("Add","o")))+card("Leaving the team",`<div class="muted">You'll stop being picked, and only the organiser can bring you back this season.</div>`+btns(b("Leave the team","d"))),
+  does:["Keep your contact details, batting band and bowling preference up to date; the planner uses them.","Time away marks you as unavailable for those dates without touching your fairness balance.","Leaving keeps all your history."]},
+ {phase:"During the season",id:"player-fixtures",name:"Fixtures",short:"What's coming up",route:"/fixtures",nav:"Fixtures",who:"Everyone in the squad.",
+  body:()=>title("Fixtures")+alert("Mark your availability in Spond before the deadline. The team is published here.")+card("Coming up",tbl(["Date","Match","Deadline","You"],[["Sat 08.05","vs Rivals CC · friendly","Thu 06.05 20:00",chip("Playing XI","ok")],["Sat 15.05","vs Bonn Strikers · friendly","Thu 13.05 20:00",chip("You: available","info")],["Sun 23.05","Bonn Cup · 2 matches","Fri 21.05 20:00",chip("You: not available")]]))+card("Played and past",tbl(["Date","Match","Result"],[["Sat 24.04","vs Köln Kings","Won by 20 runs"]])),
+  does:["Availability is still answered in Spond, as today.","Your status for each match shows here once the captain imports Spond and publishes the team."]},
+ {phase:"During the season",id:"player-team",name:"Published team",short:"Am I playing?",route:"/fixtures/[id] · Team",nav:"Fixtures",who:"Everyone in the squad, once the captain publishes.",
+  body:()=>title("Sat 08.05 · vs Rivals CC","Saturday friendlies 2027 · 20 overs · Rheinaue, Bonn")+tabs(["Availability","Team","Scorecard"],"Team")+alert("<b>You're in the playing XI, batting at 5.</b> Why: you were owed 0.4 games. Planned overs: 4.","ok")+card("Playing XI",tbl(["Bats at","Player","Overs"],[["1","Arun Kumar","4"],["2","Faiz Rahman","4"],["3","Hari Iyer (wk)","—"],["4","Bilal Shah","4"],["5","Dev Patel","4"],["6","Olga (c)","—"],["7","Eli Moss","4"],["8","Test Player","—"],["9","Gopal Nair","4"],["10","Jai Singh","—"],["11","Test Admin","—"]])+`<div class="muted">12th: Chris Long · Reserves: Imran Ali</div>`),
+  does:["Shows the team and your slot with the reason, so picks are never a mystery.","Before it's published, players see “The team hasn't been published yet.”"]},
+ {phase:"After the match",id:"player-result",name:"Match result",short:"The scorecard",route:"/fixtures/[id] · Scorecard",nav:"Fixtures",who:"Everyone in the squad.",
+  body:()=>title("Sat 08.05 · vs Rivals CC")+tabs(["Availability","Team","Scorecard"],"Scorecard")+alert("Moonwalkers won by 20 runs","ok")+card("Moonwalkers 130/4 (20.0)",tbl(["Batter","How out","Runs","Balls"],[["Arun Kumar","c X b Y","30","25"],["Bilal Shah","b Y","22","20"],["Eli Moss","lbw b Z","15","14"],["Faiz Rahman","not out","40","30"],["Dev Patel","run out","10","12"],["Olga","not out","5","8"]]))+card("Our bowling",tbl(["Bowler","O","R","W"],[["Arun Kumar","4.0","22","1"],["Bilal Shah","4.0","20","1"],["Faiz Rahman","3.0","18","1"],["Dev Patel","3.0","16","1"],["Gopal Nair","3.0","17","1"]])),
+  does:["The full scorecard appears once the captain imports it.","Your runs, balls and overs feed your stats and your fairness balances."]},
+ {phase:"After the match",id:"player-home",name:"Home",short:"Next match and my balance",route:"/",nav:"Home",who:"Each player sees their own.",
+  body:()=>title("Hi Dev")+card("Next match",`<div class="big">Sat 15.05 · vs Bonn Strikers</div><div class="muted">Saturday friendlies 2027 · Spond deadline Thu 13.05 20:00</div><div>Mark your availability in Spond before the deadline.</div>`+btns(b("Open fixture","t")))+card("My fair chances",bal(0.6,-1.5,0.2),b("See everyone","t"))+card("My membership",`<div class="row"><div><div class="big">2027 season</div><div class="muted">Player · Treasurer</div></div><div style="flex:0 0 auto">${chip("Paid","ok")}</div></div>`),
+  does:["The one place to check the next match, your status and your three balances.","Positive means the team owes you chances; negative means you're ahead of your share."]},
+ {phase:"After the match",id:"player-fairness",name:"Fairness board",short:"Same view for all",route:"/fairness",nav:"Fairness",who:"Everyone in the squad sees the same board.",
+  body:()=>fairnessBoard(),
+  does:["Every player sees the same numbers and the same rules.","Tap a name to see how their balance was built up, match by match."]},
+ {phase:"After the match",id:"player-stats",name:"My stats",short:"Runs, wickets, history",route:"/players/[id]",nav:"Fairness",who:"Everyone in the squad.",
+  body:()=>playerStats("Dev Patel"),
+  does:["Your season in numbers, built from imported scorecards.","Match by match: when you were picked, 12th or left out, and why."]},
+ {phase:"After the match",id:"player-dashboard",name:"Stats dashboard",short:"Club history and leaders",route:"/dashboard",nav:"Stats",who:"Everyone in the squad.",
+  body:()=>dashboard(),
+  does:["The club's results across every season, and where you rank for runs, wickets, average and economy.","Tap any name to open that player's page, or a result to open its scorecard."]}
+]};
+
+function dashboard(){
+  const seasons=[[2024,22,6,16,0],[2025,65,25,37,2],[2026,25,8,15,1]];
+  const max=Math.max(...seasons.map(s=>s[1]));
+  const bars=seasons.map(([y,p,w,l,t])=>`<div style="display:grid;grid-template-columns:42px minmax(0,1fr) 46px;gap:8px;align-items:center;font-size:12px"><span class="muted">${y}</span><div style="display:flex;gap:2px;height:16px;width:${p/max*100}%">${[[w,"var(--accent)"],[l,"#eb6834"],[t,"#1baf7a"]].filter(x=>x[0]).map(([n,c])=>`<span title="${n}" style="flex:${n};background:${c};border-radius:3px"></span>`).join("")}</div><span style="text-align:right">${p}</span></div>`).join("");
+  return title("Team Dashboard","Results, leaders and head-to-head from every imported CricHeroes scorecard, 2024–2026.",hsel("Season","All seasons"))
+   +kpis(kpi("blue","Fixtures","Matches played","112","+1 abandoned"),kpi("green","trend","Win ratio","35%","39 won · 68 lost · 3 tied"),kpi("orange","trophy","Top run scorer","Arun Kumar","1,149 runs"),kpi("purple","ball","Top wicket taker","Gopal Nair","93 wickets"))
+   +card("Results by season",`<div style="display:flex;flex-direction:column;gap:8px">${bars}</div><div class="muted" style="font-size:12px;display:flex;gap:14px"><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent)"></span> Won</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#eb6834"></span> Lost</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#1baf7a"></span> Tied</span></div>`+tbl(["Season","Played","Won","Lost","Win rate"],seasons.map(([y,p,w,l])=>[y,p,w,l,Math.round(w/p*100)+"%"])))
+   +`<div class="row">`
+   +`<div>${card("Most runs",tbl(["Player","Runs","Best"],[["Arun Kumar","1149","55"],["Faiz Rahman","735","46"],["Dev Patel","662","60"],["Bilal Shah","538","37"]]))}</div>`
+   +`<div>${card("Most wickets",tbl(["Player","Wkts","Overs"],[["Gopal Nair","93","169.5"],["Faiz Rahman","83","131.2"],["Arun Kumar","59","116.0"],["Bilal Shah","59","106.5"]]))}</div>`
+   +`</div><div class="row">`
+   +`<div>${card("Best economy (20+ overs)",tbl(["Player","Econ","Wkts"],[["Dev Patel","6.57","25"],["Faiz Rahman","6.85","83"],["Eli Moss","6.87","41"]]))}</div>`
+   +`<div>${card("Against each opponent",tbl(["Opponent","P","W","L"],[["Rivals CC","16","8","7"],["Bonn Strikers","12","7","5"],["Köln Kings","9","0","9"]]))}</div>`
+   +`</div>`
+   +card("Latest results",`<div>${chip("Won","win")} vs Rivals CC · Sun 4 Oct · won by 25 runs</div><div>${chip("Lost","loss")} vs Rivals CC · Sun 4 Oct · lost by 13 runs</div><div>${chip("Won","win")} vs Bonn Strikers · Sun 31 May · won by 3 wickets</div>`);
+}
+
+function fairnessBoard(){
+  return title("Fairness","Everyone sees the same balances: chances owed and given for games, batting and bowling.",hsel("Season","2027"))
+   +stats(["Matches counted","6","Friendlies count fully, tournaments half"],["Players tracked","24","Paid up and in this season's squad"],["Most owed games","Gopal Nair","+0.9 games"],["Ahead of share","5","Players who've had more than their share"])
+   +card("How it's counted",`<div style="font-size:13px">Everyone who is paid up and says yes in Spond before the deadline is owed an equal share of the 11 places. Each match you play is a chance given. <b>Owed</b> means the team owes you chances; <b>ahead</b> means you've had more than your share.</div><div style="font-size:13px">Batting counts where you bat (top 3, middle 2, lower order 1), within the band you asked for. Bowling counts overs shared among the bowlers. Tournament games count half, and late answers only fill gaps.</div>`)+card("Players",s("Sort by","Most owed games")+tbl(["Name","Games","Batting","Bowling"],[
+   ["Gopal Nair",'<span class="pos">+0.9</span>','<span class="pos">+2.4</span>','<span class="neg">−0.6</span>'],
+   ["Dev Patel",'<span class="pos">+0.6</span>','<span class="neg">−1.5</span>','<span class="pos">+0.2</span>'],
+   ["Pete Brown",'<span class="pos">+0.4</span>','<span class="pos">+0.8</span>','0.0'],
+   ["Arun Kumar","0.0",'<span class="neg">−2.1</span>','<span class="pos">+0.4</span>'],
+   ["Olga",'<span class="neg">−0.3</span>','<span class="pos">+1.0</span>',"0.0"],
+   ["Chris Long",'<span class="neg">−1.0</span>','<span class="pos">+1.6</span>','<span class="pos">+0.8</span>']]),"")
+}
+function playerStats(name){
+  return title(name,"2027 season")+card("Batting",`<div class="bal"><div><small>Matches</small><b>6</b></div><div><small>Runs</small><b>${name==="Dev Patel"?"94":"188"}</b></div><div><small>Average</small><b>${name==="Dev Patel"?"23.5":"37.6"}</b></div><div><small>Strike rate</small><b>${name==="Dev Patel"?"104.4":"121.3"}</b></div><div><small>Best</small><b>${name==="Dev Patel"?"31*":"54"}</b></div><div><small>Wickets</small><b>${name==="Dev Patel"?"5":"7"}</b></div></div>`)+card("Fairness history",bal(...(name==="Dev Patel"?[0.6,-1.5,0.2]:[0,-2.1,0.4])))+card("Match by match",tbl(["Date","Status","Bats at","Runs","Overs"],[["08.05","Playing XI","5","10","3.0"],["24.04","Playing XI","4","31*","2.0"],["17.04","12th","—","—","—"],["10.04","Not available","—","—","—"]]))
+}
+
+// ---------- render ----------
+let role="admin", idx=0;
+const $=id=>document.getElementById(id);
+function renderSteps(){
+  const list=FLOWS[role]; let html="", last="";
+  list.forEach((st,i)=>{ if(st.phase!==last){html+=`<div class="phase">${st.phase}</div>`; last=st.phase;}
+    html+=`<a href="#${st.id}" ${i===idx?'aria-current="page"':""}><span class="n">${String(i+1).padStart(2,"0")}</span><span>${st.name}<small>${st.short}</small></span></a>`;});
+  $("steps").innerHTML=html;
+}
+function renderScreen(){
+  const st=FLOWS[role][idx]; const navList=role==="admin"?ADMIN_NAV:PLAYER_NAV;
+  if(!st.nav){
+    // Signed-out and one-off screens use v2's centred sign-in card.
+    EYEBROW="Moonwalkers";
+    $("device").innerHTML=`<div class="auth"><div class="authcard">${st.body().replace(/(<\/section>)/,"$1<div class=\"body\">")}</div></div></div>`;
+  } else {
+    const [top,sub,eb]=NAV_INFO[st.nav]; EYEBROW=eb;
+    const me=role==="admin"?["O","Olga","Organiser"]:["D","Dev","Player"];
+    const side=`<aside class="side"><div class="brandrow">${logo()}<div class="ts"><small>Team space</small><b>Moonwalkers</b></div></div><nav>${navList.map(n=>`<span class="${n===st.nav?"on":""}">${ico(n)}<em>${n}</em></span>`).join("")}</nav><div class="me"><i class="av" style="font-style:normal">${me[0]}</i><span>${me[1]}<small>${me[2]}</small></span></div></aside>`;
+    const bottom=`<div class="bottomnav">${navList.map(n=>`<span class="${n===st.nav?"on":""}">${ico(n)}<em>${n}</em></span>`).join("")}</div>`;
+    $("device").innerHTML=`<div class="shell">${side}<div class="mainc"><div class="topbar"><span class="burger">${'<svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'}</span><div><h3>${top}</h3><small>${sub}</small></div></div><div class="page">${st.body()}</div></div></div>${bottom}`;
+  }
+  const list=FLOWS[role];
+  $("notes").innerHTML=`<span class="route">${st.route}</span><h2>${String(idx+1).padStart(2,"0")} · ${st.name}</h2><div><div class="lbl">What happens here</div><ul>${st.does.map(d=>`<li>${d}</li>`).join("")}</ul></div><div><div class="lbl">Who uses it</div><p>${st.who}</p></div><div class="pager"><button id="prev" ${idx===0?"disabled":""}>← Back</button><button id="next" class="next" ${idx===list.length-1?"disabled":""}>Next →</button></div><p class="sample">Sample data: made-up players, not your real squad.</p>`;
+  $("prev").onclick=()=>go(idx-1); $("next").onclick=()=>go(idx+1);
+}
+function setRole(r){ role=r; document.querySelectorAll(".roles button").forEach(x=>x.setAttribute("aria-selected",String(x.dataset.role===r))); }
+function go(i){ const st=FLOWS[role][i]; if(st) location.hash=st.id; }
+function fromHash(){
+  const h=location.hash.slice(1);
+  for(const r of ["admin","player"]){ const i=FLOWS[r].findIndex(s=>s.id===h); if(i>=0){setRole(r); idx=i; break;} }
+  renderSteps(); renderScreen();
+}
+document.querySelectorAll(".roles button").forEach(x=>x.onclick=()=>{ setRole(x.dataset.role); idx=0; location.hash=FLOWS[role][0].id; renderSteps(); renderScreen(); });
+window.addEventListener("hashchange",fromHash);
+fromHash();
+</script>

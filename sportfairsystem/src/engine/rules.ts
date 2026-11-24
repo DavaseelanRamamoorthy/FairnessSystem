@@ -8,7 +8,8 @@ export const DEFAULT_RULES: FairnessRules = {
   maxOversPerBowler: null,
   lockCaptain: true,
   carryOver: 0,
-  respectBatPref: true
+  respectBatPref: true,
+  deadlineDaysBefore: 2
 };
 
 /** Shape of `seasons.rules`; every key is optional and falls back to the default. */
@@ -24,7 +25,8 @@ export const rulesSchema = z
     maxOversPerBowler: z.number().int().min(1).nullable(),
     lockCaptain: z.boolean(),
     carryOver: z.number().min(0).max(1),
-    respectBatPref: z.boolean()
+    respectBatPref: z.boolean(),
+    deadlineDaysBefore: z.number().int().min(0).max(14)
   })
   .partial();
 

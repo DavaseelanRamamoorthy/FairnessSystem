@@ -1,7 +1,7 @@
 -- Run with: npm run db:test   (needs `npm run db:start` first)
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(60);
 
 -- Start from an empty team so the tests also run on a database that has data.
 -- Everything here is inside the transaction and rolled back at the end.
@@ -168,6 +168,72 @@ select pg_temp.act_as('00000000-0000-0000-0000-00000000000c');
 select is((select count(*)::int from public.member_private where date_of_birth is not null or instagram is not null), 0,
   'a teammate cannot see another player''s date of birth or Instagram');
 reset role;
+
+-- ---------------------------------------------------------------- fixtures
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000a');
+insert into public.competitions (season_id, name, kind, fairness_weight)
+values ((select id from public.seasons), 'Friendlies', 'friendly_series', 1);
+insert into public.fixtures (competition_id, match_date, opponent, overs)
+values ((select id from public.competitions), current_date + 7, 'Rivals', 20);
+select lives_ok(
+  $$ select public.import_availability_snapshot((select id from public.fixtures),
+       (select jsonb_agg(jsonb_build_object('member_id', id, 'answer', 'yes')) from public.members where display_name in ('Pete', 'Olga')),
+       'spond', '{}'::jsonb) $$,
+  'captain/organiser imports availability');
+select is((select bool_and(on_time) from public.availability), true, 'the first snapshot counts as on time');
+select lives_ok(
+  $$ select public.set_availability((select id from public.fixtures), (select id from public.members where display_name = 'Rae'), 'yes') $$,
+  'a later manual yes is accepted');
+select is((select on_time from public.availability a join public.members m on m.id = a.member_id where m.display_name = 'Rae'), false,
+  'a yes after the snapshot counts as late');
+select lives_ok(
+  $$ select public.save_selection((select id from public.fixtures),
+       (select jsonb_agg(jsonb_build_object('member_id', member_id, 'slot', 'xi', 'reason', 'test')) from public.availability)) $$,
+  'organiser saves a draft team');
+reset role;
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000b');
+select is((select count(*)::int from public.selections), 0, 'players cannot see a draft team');
+select is((select count(*)::int from public.v_fixture_facts), 3, 'players can read everyone''s fairness facts');
+select is((select bool_and(membership_paid) from public.v_fixture_facts where member_id <> (select id from public.members where display_name = 'Rae')),
+  true, 'players see teammates'' paid status, so balances agree');
+select throws_ok($$ select public.publish_selection((select id from public.fixtures)) $$,
+  '42501', 'Only captains can publish the team', 'player cannot publish');
+select throws_ok($$ select public.set_availability((select id from public.fixtures), (select id from public.members where display_name = 'Pete'), 'no') $$,
+  '42501', 'Only captains can change availability', 'player cannot change availability');
+select throws_ok($$ select public.import_scorecard((select id from public.fixtures), '{"innings":[]}'::jsonb, 'manual') $$,
+  '42501', 'Only captains can import scorecards', 'player cannot import a scorecard');
+reset role;
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000a');
+select public.publish_selection((select id from public.fixtures));
+reset role;
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000b');
+select is((select count(*)::int from public.selections), 3, 'players see the team once published');
+reset role;
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000a');
+select public.import_scorecard((select id from public.fixtures),
+  '{"result":"won","innings":[{"innings_no":1,"ours":true,"team_name":"Moonwalkers","runs":10,"wickets":0,"balls":12,"extras":0,"batting":[],"bowling":[]}]}'::jsonb,
+  'manual');
+select throws_ok($$ delete from public.fixtures $$, '42501', null, 'a played fixture cannot be deleted');
+select lives_ok($$ select public.reopen_fixture((select id from public.fixtures), 'wrong scorecard') $$, 'captain can re-open a played fixture');
+select is((select status from public.fixtures), 'selected', 're-opening sets it back to selected');
+reset role;
+
+-- the membership form's date of birth and Instagram reach the private profile
+insert into auth.users (id, email, instance_id, aud, role)
+values ('00000000-0000-0000-0000-00000000000d', 'sam@example.test', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000d');
+select public.submit_membership((select id from public.seasons), 'new',
+  '{"display_name":"Sam","consent":true,"date_of_birth":"2000-02-29","instagram":"@sam.bowls"}'::jsonb);
+reset role;
+select pg_temp.act_as('00000000-0000-0000-0000-00000000000a');
+select public.approve_membership((select id from public.membership_applications where status = 'applied'));
+reset role;
+select is(
+  (select date_of_birth::text || ' ' || instagram from public.member_private mp join public.members m on m.id = mp.member_id where m.display_name = 'Sam'),
+  '2000-02-29 sam.bowls', 'approval copies date of birth and Instagram');
 
 select * from finish();
 rollback;

@@ -42,6 +42,13 @@ describe("membership form", () => {
     }
   });
 
+  it("accepts optional date of birth and Instagram, storing just the handle", () => {
+    const result = membershipFormSchema.safeParse({ ...valid, date_of_birth: "1995-06-15", instagram: "@pete.plays" });
+    expect(result.success && result.data.instagram).toBe("pete.plays");
+    expect(membershipFormSchema.safeParse({ ...valid, instagram: "not a handle" }).success).toBe(false);
+    expect(membershipFormSchema.safeParse({ ...valid, date_of_birth: "2999-01-01" }).success).toBe(false);
+  });
+
   it("rejects a leave period that ends before it starts", () => {
     const result = membershipFormSchema.safeParse({
       ...valid,

@@ -72,6 +72,16 @@ export const membershipFormSchema = z.object({
   previous_name: z.string().trim().optional(),
   payment_reference: z.string().trim().optional(),
   notes: z.string().trim().optional(),
+  date_of_birth: z
+    .string()
+    .superRefine((value, ctx) => {
+      const problem = birthdayProblem(value);
+      if (problem) ctx.addIssue({ code: "custom", message: problem });
+    }),
+  instagram: z
+    .string()
+    .refine((value) => normalizeInstagram(value) !== null, "Enter your Instagram username, for example @moonwalkers")
+    .transform((value) => normalizeInstagram(value) ?? ""),
   consent: z.literal(true, { error: "You must accept to join" })
 });
 
@@ -99,6 +109,8 @@ export function emptyMembershipForm(): Omit<MembershipForm, "consent"> & { conse
     cricheroes_url: "",
     previous_name: "",
     payment_reference: "",
+    date_of_birth: "",
+    instagram: "",
     notes: "",
     consent: false
   };

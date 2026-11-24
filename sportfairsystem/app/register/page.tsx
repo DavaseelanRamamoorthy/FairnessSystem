@@ -155,6 +155,19 @@ export default function RegisterPage() {
           <TextField label="Email" type="email" required {...text("email")} />
           <TextField label="Mobile number" type="tel" required {...text("phone")} />
           <TextField label="WhatsApp number, if different" type="tel" {...text("whatsapp")} />
+          <TextField
+            label="Date of birth (optional)"
+            type="date"
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: "1920-01-01", max: new Date().toISOString().slice(0, 10) } }}
+            {...text("date_of_birth")}
+          />
+          <TextField
+            label="Instagram (optional)"
+            placeholder="@username"
+            autoCapitalize="none"
+            {...text("instagram")}
+            helperText={errors.instagram ?? "Your username or profile link."}
+          />
         </Section>
 
         <Section title="Your cricket">

@@ -81,7 +81,9 @@ export function computeLedger(
       const entry = entryFor(row.memberId);
       const xiOwed = eligibility === "on_time" ? xiOwedEach : 0;
       const xiGiven = row.played ? w : 0;
-      const batOwed = row.played ? Math.min(batOwedEach, w * batPrefCap(row.batPref, rules)) : 0;
+      // An uncapped preference stays uncapped even in a stats-only match (0 × ∞ is NaN).
+      const cap = batPrefCap(row.batPref, rules);
+      const batOwed = row.played ? Math.min(batOwedEach, Number.isFinite(cap) ? w * cap : Number.POSITIVE_INFINITY) : 0;
       const batGiven = row.played ? w * weightOf(row.batPosition, rules) : 0;
       const inBowlingGroup = row.played && (row.bowls || row.ballsBowled > 0);
       const bowlOwed = inBowlingGroup ? bowlOwedEach : 0;

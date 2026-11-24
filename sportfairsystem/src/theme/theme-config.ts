@@ -37,20 +37,22 @@ export const themeConfig: ThemeConfig = {
    * Palette
    *************************************** */
   palette: {
+    // Club kit: navy shirts. Dark mode uses `primaryOnDark` so links stay readable.
     primary: {
-      lighter: '#D0ECFE',
-      light: '#73BAFB',
-      main: '#1877F2',
-      dark: '#0C44AE',
-      darker: '#042174',
+      lighter: '#DDE0F5',
+      light: '#6F7BC8',
+      main: '#2A3275',
+      dark: '#1B2150',
+      darker: '#0B0F2E',
       contrastText: '#FFFFFF',
     },
+    // Club kit: red trousers and shoulder pattern. Used for accents only.
     secondary: {
-      lighter: '#EFD6FF',
-      light: '#C684FF',
-      main: '#8E33FF',
-      dark: '#5119B7',
-      darker: '#27097A',
+      lighter: '#FFE3E5',
+      light: '#F2545F',
+      main: '#D7192D',
+      dark: '#A3101F',
+      darker: '#6E0712',
       contrastText: '#FFFFFF',
     },
     info: {

@@ -8,22 +8,57 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useCallback, useEffect, useState } from "react";
+import { Banner, useShell } from "./brand";
 
-export function Page({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+/**
+ * Every page opens with the navy club banner. On signed-out pages (sign in,
+ * set up, claim) the banner becomes the header of a centred card instead.
+ */
+export function Page({
+  title,
+  subtitle,
+  actions,
+  children
+}: {
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const { bare, eyebrow } = useShell();
+  if (bare) {
+    return (
+      <Card sx={{ borderRadius: 3, overflow: "hidden", border: "1px solid rgba(120,130,210,.25)", boxShadow: "0 20px 50px rgba(0,0,0,.35)" }}>
+        <Banner eyebrow={eyebrow} title={title} subtitle={subtitle} actions={actions} logo square />
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Stack spacing={2.5}>{children}</Stack>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4" component="h1">
-          {title}
-        </Typography>
-        {subtitle && <Typography color="text.secondary">{subtitle}</Typography>}
-      </Box>
+      <Banner eyebrow={eyebrow} title={title} subtitle={subtitle} actions={actions} />
       {children}
     </Stack>
   );
 }
 
 export function Section({ title, children, action }: { title?: string; children: React.ReactNode; action?: React.ReactNode }) {
+  const { bare } = useShell();
+  if (bare) {
+    // Already inside the signed-out card: no second frame.
+    return (
+      <Stack spacing={2}>
+        {title && (
+          <Typography variant="h6" component="h2">
+            {title}
+          </Typography>
+        )}
+        {children}
+      </Stack>
+    );
+  }
   return (
     <Card variant="outlined">
       <CardContent>

@@ -433,26 +433,64 @@ function parseBowlingStats(block: string): BowlingStat[] {
     return [];
   }
 
-  const bowlingSection = bowlingSectionMatch[1];
-  const rowRegex =
-    /(\d+)\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)/g;
+  // Rows are "<no> <name> O M R W 0s 4s 6s WD NB Eco". A name can contain
+  // numbers ("GUEST - 1"), so read token by token: the name ends where ten
+  // figures follow whose runs and overs agree with the economy rate.
+  const tokens = normalizeMatchWhitespace(bowlingSectionMatch[1]).split(" ").filter(Boolean);
+  const isInt = (t: string | undefined) => t !== undefined && /^\d+$/.test(t);
+  const isNum = (t: string | undefined) => t !== undefined && /^\d+(?:\.\d+)?$/.test(t);
+  const ballsOf = (overs: number) => Math.floor(overs) * 6 + Math.round((overs % 1) * 10);
+  const fits = (at: number) =>
+    isNum(tokens[at]) && [1, 2, 3, 4, 5, 6, 7, 8].every((k) => isInt(tokens[at + k])) && isNum(tokens[at + 9]);
+  const economyAgrees = (at: number) => {
+    const balls = ballsOf(parseFloat(tokens[at]));
+    const runs = parseInt(tokens[at + 2], 10);
+    const eco = parseFloat(tokens[at + 9]);
+    return balls === 0 ? eco === 0 : Math.abs((runs * 6) / balls - eco) < 0.02;
+  };
   const bowlingStats: BowlingStat[] = [];
-
-  let rowMatch;
-  while ((rowMatch = rowRegex.exec(bowlingSection)) !== null) {
+  let i = 0;
+  let expected = 1;
+  while (i < tokens.length) {
+    if (tokens[i] !== String(expected)) {
+      i += 1;
+      continue;
+    }
+    let figuresAt = -1;
+    let fallback = -1;
+    for (let j = i + 2; j <= Math.min(tokens.length - 10, i + 12); j += 1) {
+      if (!fits(j)) continue;
+      // The row must end where the next bowler's number (or the table) begins.
+      const next = tokens[j + 10];
+      const endsRow = next === undefined || next === String(expected + 1) || !isNum(next);
+      if (!endsRow) continue;
+      if (fallback < 0) fallback = j;
+      if (economyAgrees(j)) {
+        figuresAt = j;
+        break;
+      }
+    }
+    if (figuresAt < 0) figuresAt = fallback;
+    if (figuresAt < 0) {
+      i += 1;
+      continue;
+    }
+    const n = (k: number) => parseInt(tokens[figuresAt + k], 10);
     bowlingStats.push({
-      player_name: stripNameAnnotations(rowMatch[2]),
-      overs: parseFloat(rowMatch[3]),
-      maidens: parseInt(rowMatch[4], 10),
-      runs: parseInt(rowMatch[5], 10),
-      wickets: parseInt(rowMatch[6], 10),
-      dot_balls: parseInt(rowMatch[7], 10),
-      fours_conceded: parseInt(rowMatch[8], 10),
-      sixes_conceded: parseInt(rowMatch[9], 10),
-      wides: parseInt(rowMatch[10], 10),
-      no_balls: parseInt(rowMatch[11], 10),
-      economy: parseFloat(rowMatch[12])
+      player_name: stripNameAnnotations(tokens.slice(i + 1, figuresAt).join(" ")),
+      overs: parseFloat(tokens[figuresAt]),
+      maidens: n(1),
+      runs: n(2),
+      wickets: n(3),
+      dot_balls: n(4),
+      fours_conceded: n(5),
+      sixes_conceded: n(6),
+      wides: n(7),
+      no_balls: n(8),
+      economy: parseFloat(tokens[figuresAt + 9])
     });
+    expected += 1;
+    i = figuresAt + 10;
   }
 
   return bowlingStats;

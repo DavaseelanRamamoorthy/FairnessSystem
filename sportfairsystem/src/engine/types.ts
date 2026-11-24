@@ -71,6 +71,8 @@ export type FairnessRules = {
   carryOver: number;
   /** Cap what a player is owed at the band they asked to bat in. */
   respectBatPref: boolean;
+  /** Default Spond deadline: this many days before the match, at 20:00. */
+  deadlineDaysBefore: number;
 };
 
 export type Candidate = {

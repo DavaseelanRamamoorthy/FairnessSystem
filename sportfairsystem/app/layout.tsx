@@ -1,10 +1,9 @@
-import "./globals.css";
-import { Plus_Jakarta_Sans, Lexend_Deca } from "next/font/google";
-import { ThemeProvider } from "@/app/themes/minimal/theme-provider";
-import { EmotionCacheProvider } from "@/app/themes/minimal/emotion-cache";
-import { AuthProvider } from "@/app/context/AuthContext";
-import { SettingsProvider } from "@/app/context/SettingsContext";
-import DashboardLayout from "./layout/DashboardLayout";
+import type { Metadata, Viewport } from "next";
+import { Lexend_Deca, Plus_Jakarta_Sans } from "next/font/google";
+import { EmotionCacheProvider } from "@/src/theme/emotion-cache";
+import { ThemeProvider } from "@/src/theme/minimal/theme-provider";
+import { AppShell } from "@/src/ui/AppShell";
+import { SessionProvider } from "@/src/ui/session";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta-sans",
@@ -18,24 +17,23 @@ const lexendDeca = Lexend_Deca({
   display: "swap"
 });
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const metadata: Metadata = {
+  title: "Moonwalkers",
+  description: "Fair chances and records for every Moonwalkers player"
+};
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className={`${plusJakartaSans.variable} ${lexendDeca.variable}`}>
         <EmotionCacheProvider>
-          <SettingsProvider>
-            <ThemeProvider>
-              <AuthProvider>
-                <DashboardLayout>
-                  {children}
-                </DashboardLayout>
-              </AuthProvider>
-            </ThemeProvider>
-          </SettingsProvider>
+          <ThemeProvider>
+            <SessionProvider>
+              <AppShell>{children}</AppShell>
+            </SessionProvider>
+          </ThemeProvider>
         </EmotionCacheProvider>
       </body>
     </html>

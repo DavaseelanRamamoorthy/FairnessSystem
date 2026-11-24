@@ -1,11 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  turbopack: {
-    resolveAlias: {
-      canvas: "./shims/canvas.js",
-    },
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

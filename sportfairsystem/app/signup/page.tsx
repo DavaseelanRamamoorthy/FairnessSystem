@@ -1,219 +1,70 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Link as MuiLink,
-  Stack,
-  TextField,
-  Typography
-} from "@mui/material";
-import { alpha } from "@mui/material/styles";
-import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
-
-import AutoHideAlert from "@/app/components/common/AutoHideAlert";
-import { useAuth } from "@/app/context/AuthContext";
-import {
-  normalizeAuthEmail,
-  validateAuthEmail,
-  validatePasswordForAuth
-} from "@/app/services/authValidation";
-
-const SIGNUP_NAVY = "#061230";
-const SIGNUP_NAVY_MID = "#0A1A49";
-const SIGNUP_RED = "#E53935";
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Link from "@mui/material/Link";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import NextLink from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { supabase } from "@/src/db/client";
+import { ErrorNote, Page, Section, useAction } from "@/src/ui/kit";
+import { safeNext } from "@/src/ui/nav";
 
 export default function SignupPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const nextPath = searchParams.get("next");
-  const safeNextPath = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
-    ? nextPath
-    : null;
+  const [checkEmail, setCheckEmail] = useState(false);
+  const { busy, error, run } = useAction();
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    const emailError = validateAuthEmail(email);
-
-    if (emailError) {
-      setErrorMessage(emailError);
-      setIsSubmitting(false);
-      return;
-    }
-
-    const passwordError = validatePasswordForAuth(password);
-
-    if (passwordError) {
-      setErrorMessage(passwordError);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setErrorMessage("Password and confirm password do not match.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const result = await signUp(normalizeAuthEmail(email), password);
-
-    if (result.error) {
-      setErrorMessage(result.error);
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (result.requiresEmailConfirmation) {
-      setSuccessMessage(
-        "Account created. Check your inbox to confirm your email, then sign in."
-      );
-      setIsSubmitting(false);
-      return;
-    }
-
-    router.replace(safeNextPath ?? "/dashboard");
+    await run(async () => {
+      const { data, error: authError } = await supabase().auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/` }
+      });
+      if (authError) throw new Error(authError.message);
+      if (data.session) router.replace(safeNext(window.location.search));
+      else setCheckEmail(true);
+    });
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        px: 3,
-        py: { xs: 5, md: 8 },
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: `linear-gradient(145deg, ${alpha(SIGNUP_NAVY, 0.98)} 0%, ${alpha(SIGNUP_NAVY_MID, 0.96)} 58%, #14337A 100%)`
-      }}
-    >
-      <Card
-        variant="outlined"
-        sx={{
-          width: "100%",
-          maxWidth: 520,
-          borderRadius: 4,
-          overflow: "hidden",
-          borderColor: alpha(SIGNUP_RED, 0.2),
-          boxShadow: `0 24px 56px ${alpha(SIGNUP_NAVY, 0.3)}`
-        }}
-      >
-        <Box
-          sx={{
-            px: 3,
-            py: 3,
-            color: "#FFFFFF",
-            background: `linear-gradient(135deg, ${SIGNUP_NAVY} 0%, ${SIGNUP_NAVY_MID} 68%, #14337A 100%)`
-          }}
-        >
-          <Stack spacing={1}>
-            <Typography variant="overline" sx={{ letterSpacing: 1.2, color: alpha("#FFFFFF", 0.7) }}>
-              SportFairSystem
-            </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800 }}>
-              Create your SportFairSystem account
-            </Typography>
-            <Typography sx={{ color: alpha("#FFFFFF", 0.74) }}>
-              Create your account first, then either create a team or join one with a shared code.
-            </Typography>
-          </Stack>
-        </Box>
-
-        <CardContent sx={{ p: 3 }}>
-          <Stack spacing={2.5} component="form" onSubmit={handleSubmit}>
-            {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-            {successMessage && (
-              <AutoHideAlert severity="success" resetKey={successMessage}>
-                {successMessage}
-              </AutoHideAlert>
-            )}
-
-            <TextField
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              fullWidth
-              autoComplete="email"
-            />
-
+    <Page title="Create your account" subtitle="You'll fill in the membership form next.">
+      <Section>
+        {checkEmail ? (
+          <Alert severity="success">Check your email and open the link to finish signing up.</Alert>
+        ) : (
+          <Stack component="form" spacing={2} onSubmit={submit}>
+            <ErrorNote message={error} />
+            <TextField label="Email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             <TextField
               label="Password"
               type="password"
+              autoComplete="new-password"
+              required
+              helperText="At least 8 characters"
+              slotProps={{ htmlInput: { minLength: 8 } }}
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              fullWidth
-              autoComplete="new-password"
+              onChange={(e) => setPassword(e.target.value)}
             />
-
-            <TextField
-              label="Confirm Password"
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              fullWidth
-              autoComplete="new-password"
-            />
-
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              disabled={isSubmitting}
-              startIcon={isSubmitting ? <CircularProgress size={18} color="inherit" /> : <PersonAddAlt1RoundedIcon />}
-              sx={{
-                mt: 1,
-                py: 1.2,
-                fontWeight: 800
-              }}
-            >
-              {isSubmitting ? "Creating Account..." : "Create Account"}
+            <Button type="submit" variant="contained" disabled={busy}>
+              Create account
             </Button>
-
-            <MuiLink
-              href={safeNextPath ? `/login?next=${encodeURIComponent(safeNextPath)}` : "/login"}
-              underline="hover"
-              sx={{
-                alignSelf: "flex-start",
-                fontWeight: 600
-              }}
-            >
-              Already have an account? Sign in
-            </MuiLink>
-
-            <MuiLink
-              href="/reset-password"
-              underline="hover"
-              sx={{
-                alignSelf: "flex-start",
-                fontWeight: 600
-              }}
-            >
-              Forgot your password?
-            </MuiLink>
+            <Typography variant="body2">
+              Already have an account?{" "}
+              <Link component={NextLink} href="/login">
+                Sign in
+              </Link>
+            </Typography>
           </Stack>
-        </CardContent>
-      </Card>
-    </Box>
+        )}
+      </Section>
+    </Page>
   );
 }

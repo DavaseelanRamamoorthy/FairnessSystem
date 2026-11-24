@@ -1,1160 +1,279 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
-import Alert from "@mui/material/Alert";
-import Accordion from "@mui/material/Accordion";
-import AccordionDetails from "@mui/material/AccordionDetails";
-import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
-import CircularProgress from "@mui/material/CircularProgress";
-import Container from "@mui/material/Container";
-import Divider from "@mui/material/Divider";
-import Grid from "@mui/material/Grid";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { alpha, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
+import NextLink from "next/link";
+import EmojiEventsOutlined from "@mui/icons-material/EmojiEventsOutlined";
+import SportsBaseballOutlined from "@mui/icons-material/SportsBaseballOutlined";
+import SportsCricketOutlined from "@mui/icons-material/SportsCricketOutlined";
+import TrendingUpOutlined from "@mui/icons-material/TrendingUpOutlined";
+import { useCallback, useMemo, useState } from "react";
+import { bannerSelectSx, StatTile, TileGrid } from "@/src/ui/brand";
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { loadDashboard } from "@/src/db/dashboard";
+import { headToHead, leaders, seasonResults, top, totals, type Leader } from "@/src/fairness/dashboard";
+import { formatMatchDate, oversText } from "@/src/ui/fixtureLabels";
+import { ErrorNote, Loading, NoAccess, Page, Section, useLoad } from "@/src/ui/kit";
+import { useSession } from "@/src/ui/session";
 
-import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
-import SportsCricketIcon from "@mui/icons-material/SportsCricket";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
-
-import TeamPageHeader from "@/app/components/common/TeamPageHeader";
-import ResponsiveTableContainer from "@/app/components/common/ResponsiveTableContainer";
-import {
-  numericTableCellSx,
-  numericTableHeadCellSx
-} from "@/app/components/common/tableCellStyles";
-import DashboardCard from "@/app/components/dashboard/dashboardCard";
-import OpportunityTrendChart from "@/app/components/dashboard/OpportunityTrendChart";
-import RunsTrendChart from "@/app/components/dashboard/RunsTrendChart";
-import SectionHeader from "@/app/components/dashboard/SectionHeader";
-import WicketsTrendChart from "@/app/components/dashboard/WicketsTrendChart";
-import { useAuth } from "@/app/context/AuthContext";
-import {
-  getCurrentTeamMembershipAccess,
-  getCurrentWorkspaceAccessSnapshot
-} from "@/app/services/accessControlService";
-import { DashboardFairnessStatus } from "@/app/services/fairnessSummaryService";
-import { formatName } from "@/app/services/formatname";
-import {
-  getOrganiserDashboardData,
-  OrganiserDashboardData
-} from "@/app/services/organiserDashboardService";
-import {
-  getPlayerDashboardData,
-  PlayerDashboardData
-} from "@/app/services/playerDashboardService";
-import { formatDate } from "@/app/utils/formatDate";
-
-type DashboardMode = "team" | "mine";
-
-type DashboardAccessState = {
-  hasTeam: boolean;
-  hasMember: boolean;
-  canToggleTeamView: boolean;
+// Categorical slots 1-3 of the validated reference palette (light / dark steps).
+const SERIES = {
+  light: { won: "#2a78d6", lost: "#eb6834", tied: "#1baf7a" },
+  dark: { won: "#3987e5", lost: "#d95926", tied: "#199e70" }
 };
 
-function SummaryMetricCard({
-  label,
-  value,
-  helper
-}: {
-  label: string;
-  value: string | number;
-  helper: string;
+function LeaderTable({ title, rows, value, valueLabel, extra, showMatches = true }: {
+  title: string;
+  rows: Leader[];
+  value: (l: Leader) => string | number | null;
+  valueLabel: string;
+  extra?: { label: string; get: (l: Leader) => string | number | null };
+  showMatches?: boolean;
 }) {
   return (
-    <Card variant="outlined" sx={{ height: "100%", borderRadius: 3 }}>
-      <CardContent sx={{ p: 2.5 }}>
-        <Stack spacing={0.75}>
-          <Typography variant="subtitle2" color="text.secondary">
-            {label}
-          </Typography>
-          <Typography variant="h3" sx={{ fontWeight: 800, lineHeight: 1 }}>
-            {value}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {helper}
-          </Typography>
-        </Stack>
-      </CardContent>
-    </Card>
+    <Section title={title}>
+      {rows.length === 0 ? (
+        <Typography color="text.secondary">Not enough matches yet.</Typography>
+      ) : (
+        <TableContainer>
+          <Table size="small" aria-label={title}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Player</TableCell>
+                <TableCell align="right">{valueLabel}</TableCell>
+                {extra && <TableCell align="right">{extra.label}</TableCell>}
+                {showMatches && <TableCell align="right">Matches</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((l, i) => (
+                <TableRow key={l.memberId}>
+                  <TableCell>
+                    <Typography component="span" color="text.secondary" sx={{ mr: 1, fontVariantNumeric: "tabular-nums" }}>
+                      {i + 1}
+                    </Typography>
+                    <Box component={NextLink} href={`/players/${l.memberId}`} sx={{ color: "inherit" }}>
+                      {l.name}
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                    {value(l) ?? "–"}
+                  </TableCell>
+                  {extra && (
+                    <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                      {extra.get(l) ?? "–"}
+                    </TableCell>
+                  )}
+                  {showMatches && (
+                    <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                      {l.matches}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Section>
   );
 }
 
-function getResultChip(match: { result: string | null; resultSummary?: string | null }) {
-  const rawResult = typeof match.result === "string" ? match.result.trim() : "";
-  const normalizedResult = rawResult.toLowerCase();
-  const summary = typeof match.resultSummary === "string"
-    ? match.resultSummary.trim().toLowerCase()
-    : "";
-
-  if (normalizedResult === "won") {
-    return { label: "Won", color: "success" as const };
-  }
-
-  if (normalizedResult === "lost") {
-    return { label: "Lost", color: "error" as const };
-  }
-
-  if (normalizedResult === "draw" || summary.includes("draw")) {
-    return { label: "Draw", color: "warning" as const };
-  }
-
-  if (normalizedResult === "tie" || summary.includes("tie")) {
-    return { label: "Tie", color: "info" as const };
-  }
-
-  if (rawResult) {
-    return { label: rawResult, color: "default" as const };
-  }
-
-  if (match.resultSummary) {
-    return { label: match.resultSummary, color: "default" as const };
-  }
-
-  return null;
-}
-
-function getDisplayFirstName(name: string) {
-  return formatName(name).split(/\s+/)[0] ?? formatName(name);
-}
-
-function getFairnessChipColor(status: DashboardFairnessStatus) {
-  switch (status) {
-    case "Balanced":
-      return "success" as const;
-    case "Underused":
-      return "warning" as const;
-    case "Overused":
-      return "error" as const;
-    case "Bench Heavy":
-      return "secondary" as const;
-    case "Recently Unused":
-      return "info" as const;
-    default:
-      return "default" as const;
-  }
-}
-
-function getPlannerAssignmentLabel(assignment: "xi" | "twelfth" | "bench" | "unavailable") {
-  if (assignment === "xi") {
-    return "Playing XI";
-  }
-
-  if (assignment === "twelfth") {
-    return "12th Man";
-  }
-
-  if (assignment === "bench") {
-    return "Bench";
-  }
-
-  return "Unavailable";
-}
-
-function getPlannerAssignmentColor(assignment: "xi" | "twelfth" | "bench" | "unavailable") {
-  if (assignment === "xi") {
-    return "success" as const;
-  }
-
-  if (assignment === "twelfth") {
-    return "warning" as const;
-  }
-
-  if (assignment === "bench") {
-    return "secondary" as const;
-  }
-
-  return "default" as const;
-}
-
-type PlannerWeekMatch = NonNullable<PlayerDashboardData["plannerWeek"]>["matches"][number];
-
-function getPlannerSummaryCounts(matches: PlannerWeekMatch[]) {
-  return {
-    xi: matches.filter((match) => match.assignment === "xi").length,
-    twelfth: matches.filter((match) => match.assignment === "twelfth").length,
-    bench: matches.filter((match) => match.assignment === "bench").length,
-    unavailable: matches.filter((match) => match.assignment === "unavailable").length
-  };
-}
-
-function formatSnapshotValue(value: number | null | undefined) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
 export default function DashboardPage() {
+  const { team, seasonMember } = useSession();
   const theme = useTheme();
-  const { profile } = useAuth();
-  const [dashboardMode, setDashboardMode] = useState<DashboardMode>("mine");
-  const [expandedFairnessPlayerId, setExpandedFairnessPlayerId] = useState<string | false>(false);
-  const [accessState, setAccessState] = useState<DashboardAccessState>({
-    hasTeam: false,
-    hasMember: false,
-    canToggleTeamView: false
-  });
-  const [teamData, setTeamData] = useState<OrganiserDashboardData | null>(null);
-  const [myData, setMyData] = useState<PlayerDashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [teamErrorMessage, setTeamErrorMessage] = useState<string | null>(null);
-  const [myErrorMessage, setMyErrorMessage] = useState<string | null>(null);
+  const colors = SERIES[theme.palette.mode];
+  const teamId = team?.id ?? "";
+  const load = useCallback(() => loadDashboard(teamId), [teamId]);
+  const { data, error, loading } = useLoad(load);
+  const [year, setYear] = useState<"all" | number>("all");
 
-  useEffect(() => {
-    let isActive = true;
-
-    const initializeDashboard = async () => {
-      setIsLoading(true);
-      setTeamErrorMessage(null);
-      setMyErrorMessage(null);
-
-      try {
-        const [membershipAccess, workspaceAccess] = await Promise.all([
-          getCurrentTeamMembershipAccess(),
-          getCurrentWorkspaceAccessSnapshot()
-        ]);
-        const hasTeam = Boolean(membershipAccess.teamId);
-        const hasMember = Boolean(membershipAccess.memberId);
-        const canUseTeamView = hasMember && (
-          membershipAccess.teamRole === "organiser"
-          || membershipAccess.teamRole === "captain"
-          || membershipAccess.legacyMembershipRole === "captain"
-          || workspaceAccess.canAccessAnalytics
-          || workspaceAccess.canSeeFairness
-          || membershipAccess.permissions.includes("planner_manage")
-          || membershipAccess.permissions.includes("stats_manage")
-        );
-
-        if (!isActive) {
-          return;
-        }
-
-        setAccessState({
-          hasTeam,
-          hasMember,
-          canToggleTeamView: canUseTeamView
-        });
-        setDashboardMode(canUseTeamView ? "team" : "mine");
-
-        if (!hasMember) {
-          setTeamData(null);
-          setMyData(null);
-          return;
-        }
-
-        const [teamResult, myResult] = await Promise.allSettled([
-          canUseTeamView ? getOrganiserDashboardData() : Promise.resolve(null),
-          getPlayerDashboardData(profile?.playerId ?? null)
-        ]);
-
-        if (!isActive) {
-          return;
-        }
-
-        if (teamResult.status === "fulfilled") {
-          setTeamData(teamResult.value);
-        } else {
-          setTeamErrorMessage(
-            teamResult.reason instanceof Error
-              ? teamResult.reason.message
-              : "Could not load the organiser dashboard."
-          );
-        }
-
-        if (myResult.status === "fulfilled") {
-          setMyData(myResult.value);
-        } else {
-          setMyErrorMessage(
-            myResult.reason instanceof Error
-              ? myResult.reason.message
-              : "Could not load your player dashboard."
-          );
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
-      }
+  const view = useMemo(() => {
+    if (!data) return null;
+    const inYear = <T extends { season_year: number }>(rows: T[]) => (year === "all" ? rows : rows.filter((r) => r.season_year === year));
+    const fixtures = inYear(data.fixtures);
+    const perSeason = seasonResults(fixtures);
+    const players = leaders(inYear(data.stats), data.names);
+    const minInnings = year === "all" ? 10 : 5;
+    const minBalls = year === "all" ? 120 : 60;
+    return {
+      perSeason,
+      total: totals(perSeason),
+      players: players.filter((p) => p.matches > 0).length,
+      runs: top(players, "runs", 10),
+      wickets: top(players, "wickets", 10),
+      average: top(players, "average", 5, { min: (l) => l.innings >= minInnings }),
+      strikeRate: top(players, "strikeRate", 5, { min: (l) => l.innings >= minInnings }),
+      economy: top(players, "economy", 5, { min: (l) => l.ballsBowled >= minBalls, ascending: true }),
+      appearances: top(players, "matches", 5),
+      h2h: headToHead(fixtures).slice(0, 12),
+      recent: fixtures.filter((f) => f.status === "played").slice(-8).reverse(),
+      minInnings,
+      minOvers: minBalls / 6
     };
+  }, [data, year]);
 
-    void initializeDashboard();
+  if (!team || !seasonMember || seasonMember.status === "left") return <NoAccess />;
+  if (loading) return <Loading />;
+  if (error || !data || !view) return <ErrorNote message={error ?? "Couldn't load the dashboard."} />;
 
-    return () => {
-      isActive = false;
-    };
-  }, [profile?.playerId]);
-
-  const sectionCardSx = {
-    borderRadius: 3,
-    backgroundColor: "background.paper"
-  } as const;
-  const fairnessColumns = useMemo(() => {
-    const fairnessEntries = [...(teamData?.fairnessTable ?? [])]
-      .sort((left, right) => left.name.localeCompare(right.name));
-
-    return fairnessEntries.reduce<
-      [OrganiserDashboardData["fairnessTable"], OrganiserDashboardData["fairnessTable"]]
-    >((columns, player, index) => {
-      columns[index % 2].push(player);
-      return columns;
-    }, [[], []]);
-  }, [teamData?.fairnessTable]);
-
-  const currentErrorMessage = dashboardMode === "team" ? teamErrorMessage : myErrorMessage;
-  const headerTitle = dashboardMode === "team" ? "Team Dashboard" : "My Dashboard";
-  const headerDescription = dashboardMode === "team"
-    ? "Team performance, fairness visibility, and planner outcomes in one organiser view."
-    : "Your opportunity visibility, fairness transparency, and personal contribution in one player view.";
-  const plannerWeekSummary = myData?.plannerWeek
-    ? getPlannerSummaryCounts(myData.plannerWeek.matches)
-    : null;
-
-  if (isLoading) {
-    return (
-      <Container maxWidth="xl">
-        <Box
-          sx={{
-            minHeight: 420,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
+  const t = view.total;
+  const label = year === "all" ? `${data.years[0]}–${data.years[data.years.length - 1]}` : String(year);
 
   return (
-    <Container maxWidth="xl">
-      <Stack spacing={4}>
-        <TeamPageHeader
-          eyebrow="Dashboard"
-          title={headerTitle}
-          description={headerDescription}
-          action={(
-            accessState.canToggleTeamView ? (
-              <ToggleButtonGroup
-                exclusive
-                value={dashboardMode}
-                onChange={(_event, nextMode: DashboardMode | null) => {
-                  if (nextMode) {
-                    setDashboardMode(nextMode);
-                  }
-                }}
-              >
-                <ToggleButton value="team">Team View</ToggleButton>
-                <ToggleButton value="mine">My View</ToggleButton>
-              </ToggleButtonGroup>
-            ) : null
-          )}
-        />
+    <Page
+      title="Team Dashboard"
+      subtitle={`${label} · from imported CricHeroes scorecards. Covers matches whose scorecard has been imported.`}
+      actions={
+        <TextField
+          select
+          size="small"
+          id="dashboard-season"
+          label="Season"
+          value={year}
+          onChange={(e) => setYear(e.target.value === "all" ? "all" : Number(e.target.value))}
+          sx={bannerSelectSx}
+        >
+          <MenuItem value="all">All seasons</MenuItem>
+          {[...data.years].reverse().map((y) => (
+            <MenuItem key={y} value={y}>
+              {y}
+            </MenuItem>
+          ))}
+        </TextField>
+      }
+    >
+      <TileGrid>
+        <StatTile color="navy" icon={<SportsCricketOutlined />} label="Matches played" value={t.played} caption={t.abandoned ? `+${t.abandoned} abandoned` : "Imported scorecards"} />
+        <StatTile color="green" icon={<TrendingUpOutlined />} label="Win ratio" value={t.winRate !== null ? `${t.winRate}%` : "–"} caption={`${t.won} won · ${t.lost} lost · ${t.tied} tied`} />
+        <StatTile color="orange" icon={<EmojiEventsOutlined />} label="Top run scorer" value={view.runs[0]?.name ?? "–"} caption={view.runs[0] ? `${view.runs[0].runs.toLocaleString("en-GB")} runs` : undefined} />
+        <StatTile color="red" icon={<SportsBaseballOutlined />} label="Top wicket taker" value={view.wickets[0]?.name ?? "–"} caption={view.wickets[0] ? `${view.wickets[0].wickets} wickets` : undefined} />
+      </TileGrid>
+      <Typography variant="body2" color="text.secondary">
+        {view.players} players used.
+      </Typography>
 
-        {currentErrorMessage ? <Alert severity="error">{currentErrorMessage}</Alert> : null}
-
-        {!accessState.hasTeam ? (
-          <Alert severity="info" variant="outlined">
-            Your account is not connected to a team yet. Join or create a team to unlock the dashboard.
-          </Alert>
-        ) : null}
-
-        {accessState.hasTeam && !accessState.hasMember ? (
-          <Alert severity="info" variant="outlined">
-            Your account is connected to a team, but not linked to a team member yet. The dashboard will unlock once your membership is linked.
-          </Alert>
-        ) : null}
-
-        {accessState.hasMember && dashboardMode === "team" && teamData ? (
-          <>
-            <Grid container spacing={3} alignItems="stretch">
-              <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
-                <DashboardCard
-                  title="Matches Played"
-                  value={teamData.summary.matchesPlayed}
-                  icon={<SportsCricketIcon color="primary" />}
-                  color="primary"
-                  layout="metric"
+      {year === "all" && (
+        <Section title="Results by season">
+          <Box sx={{ width: "100%", height: 260 }} role="img" aria-label="Won, lost and tied matches per season">
+            <ResponsiveContainer>
+              <BarChart data={view.perSeason} margin={{ top: 8, right: 8, bottom: 0, left: -16 }} barCategoryGap="30%">
+                <CartesianGrid vertical={false} stroke={theme.palette.divider} />
+                <XAxis dataKey="year" tickLine={false} axisLine={false} tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: theme.palette.text.secondary, fontSize: 12 }} />
+                <Tooltip
+                  cursor={{ fill: theme.palette.action.hover }}
+                  contentStyle={{ background: theme.palette.background.paper, border: `1px solid ${theme.palette.divider}`, borderRadius: 8 }}
+                  labelStyle={{ color: theme.palette.text.primary, fontWeight: 700 }}
+                  itemStyle={{ color: theme.palette.text.primary }}
                 />
-              </Grid>
+                <Legend wrapperStyle={{ color: theme.palette.text.secondary, fontSize: 13 }} />
+                <Bar dataKey="won" isAnimationActive={false} name="Won" stackId="r" fill={colors.won} stroke={theme.palette.background.paper} strokeWidth={2} />
+                <Bar dataKey="lost" isAnimationActive={false} name="Lost" stackId="r" fill={colors.lost} stroke={theme.palette.background.paper} strokeWidth={2} />
+                <Bar dataKey="tied" isAnimationActive={false} name="Tied" stackId="r" fill={colors.tied} stroke={theme.palette.background.paper} strokeWidth={2} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+          <TableContainer>
+            <Table size="small" aria-label="Results by season">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Season</TableCell>
+                  <TableCell align="right">Played</TableCell>
+                  <TableCell align="right">Won</TableCell>
+                  <TableCell align="right">Lost</TableCell>
+                  <TableCell align="right">Tied</TableCell>
+                  <TableCell align="right">Win rate</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {view.perSeason.map((r) => (
+                  <TableRow key={r.year} hover sx={{ cursor: "pointer" }} onClick={() => setYear(r.year)}>
+                    <TableCell>{r.year}</TableCell>
+                    <TableCell align="right">{r.played}</TableCell>
+                    <TableCell align="right">{r.won}</TableCell>
+                    <TableCell align="right">{r.lost}</TableCell>
+                    <TableCell align="right">{r.tied}</TableCell>
+                    <TableCell align="right">{r.played ? `${Math.round((r.won / r.played) * 100)}%` : "–"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Section>
+      )}
 
-              <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
-                <DashboardCard
-                  title="Win Ratio"
-                  value={`${teamData.summary.winRate}%`}
-                  icon={<TrendingUpIcon color="success" />}
-                  color="success"
-                  layout="metric"
+      <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, "& > *": { minWidth: 0 } }}>
+        <LeaderTable title="Most runs" rows={view.runs} value={(l) => l.runs} valueLabel="Runs" extra={{ label: "Best", get: (l) => l.highScore }} />
+        <LeaderTable title="Most wickets" rows={view.wickets} value={(l) => l.wickets} valueLabel="Wkts" extra={{ label: "Overs", get: (l) => oversText(l.ballsBowled) }} />
+        <LeaderTable title={`Best batting average (${view.minInnings}+ innings)`} rows={view.average} value={(l) => l.average} valueLabel="Avg" extra={{ label: "Runs", get: (l) => l.runs }} />
+        <LeaderTable title={`Best strike rate (${view.minInnings}+ innings)`} rows={view.strikeRate} value={(l) => l.strikeRate} valueLabel="SR" extra={{ label: "Runs", get: (l) => l.runs }} />
+        <LeaderTable title={`Best economy (${view.minOvers}+ overs)`} rows={view.economy} value={(l) => l.economy?.toFixed(2) ?? null} valueLabel="Econ" extra={{ label: "Wkts", get: (l) => l.wickets }} />
+        <LeaderTable title="Most matches" rows={view.appearances} value={(l) => l.matches} valueLabel="Matches" showMatches={false} />
+      </Box>
+
+      <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, "& > *": { minWidth: 0 } }}>
+        <Section title="Against each opponent">
+          <TableContainer>
+            <Table size="small" aria-label="Results against each opponent">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Opponent</TableCell>
+                  <TableCell align="right">P</TableCell>
+                  <TableCell align="right">W</TableCell>
+                  <TableCell align="right">L</TableCell>
+                  <TableCell align="right">T</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {view.h2h.map((h) => (
+                  <TableRow key={h.opponent}>
+                    <TableCell>{h.opponent}</TableCell>
+                    <TableCell align="right">{h.played}</TableCell>
+                    <TableCell align="right">{h.won}</TableCell>
+                    <TableCell align="right">{h.lost}</TableCell>
+                    <TableCell align="right">{h.tied || ""}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Section>
+        <Section title="Latest results">
+          <Stack spacing={1.5}>
+            {view.recent.map((f) => (
+              <Stack key={f.id} direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                <Chip
+                  size="small"
+                  label={f.result === "won" ? "Won" : f.result === "lost" ? "Lost" : f.result === "tied" ? "Tied" : "–"}
+                  sx={{ minWidth: 52, fontWeight: 700 }}
+                  variant={f.result === "won" || f.result === "lost" ? "filled" : "outlined"}
+                  color={f.result === "won" ? "success" : f.result === "lost" ? "error" : "default"}
                 />
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
-                <DashboardCard
-                  title="Top Run Scorer"
-                  value={teamData.summary.topRunScorer ? getDisplayFirstName(teamData.summary.topRunScorer.player) : "-"}
-                  icon={<EmojiEventsIcon color="warning" />}
-                  color="warning"
-                  layout="leader"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex" }}>
-                <DashboardCard
-                  title="Top Wicket Taker"
-                  value={teamData.summary.topWicketTaker ? getDisplayFirstName(teamData.summary.topWicketTaker.player) : "-"}
-                  icon={<EmojiEventsIcon color="secondary" />}
-                  color="secondary"
-                  layout="leader"
-                />
-              </Grid>
-            </Grid>
-
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card variant="outlined" sx={sectionCardSx}>
-                  <CardContent sx={{ p: 0 }}>
-                    <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                      <SectionHeader title="Top Run Leaders" />
-                    </Box>
-                    <ResponsiveTableContainer>
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={numericTableHeadCellSx}>Rank</TableCell>
-                            <TableCell>Player</TableCell>
-                            <TableCell sx={numericTableHeadCellSx}>Runs</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {teamData.leaders.runLeaders.map((player, index) => (
-                            <TableRow key={`${player.player}-${index}`}>
-                              <TableCell sx={numericTableCellSx}>{index + 1}</TableCell>
-                              <TableCell>{formatName(player.player)}</TableCell>
-                              <TableCell sx={numericTableCellSx}>{player.runs}</TableCell>
-                            </TableRow>
-                          ))}
-                          {teamData.leaders.runLeaders.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={3}>
-                                <Typography color="text.secondary">
-                                  No run leaders available yet.
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          ) : null}
-                        </TableBody>
-                      </Table>
-                    </ResponsiveTableContainer>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card variant="outlined" sx={sectionCardSx}>
-                  <CardContent sx={{ p: 0 }}>
-                    <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                      <SectionHeader title="Top Wicket Leaders" />
-                    </Box>
-                    <ResponsiveTableContainer>
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={numericTableHeadCellSx}>Rank</TableCell>
-                            <TableCell>Player</TableCell>
-                            <TableCell sx={numericTableHeadCellSx}>Wickets</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {teamData.leaders.wicketLeaders.map((player, index) => (
-                            <TableRow key={`${player.player}-${index}`}>
-                              <TableCell sx={numericTableCellSx}>{index + 1}</TableCell>
-                              <TableCell>{formatName(player.player)}</TableCell>
-                              <TableCell sx={numericTableCellSx}>{player.wickets}</TableCell>
-                            </TableRow>
-                          ))}
-                          {teamData.leaders.wicketLeaders.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={3}>
-                                <Typography color="text.secondary">
-                                  No wicket leaders available yet.
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          ) : null}
-                        </TableBody>
-                      </Table>
-                    </ResponsiveTableContainer>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card variant="outlined" sx={sectionCardSx}>
-                  <CardContent>
-                    <SectionHeader title="Runs Trend" />
-                    <RunsTrendChart data={teamData.trends.runs} />
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card variant="outlined" sx={sectionCardSx}>
-                  <CardContent>
-                    <SectionHeader title="Wickets Trend" />
-                    <WicketsTrendChart data={teamData.trends.wickets} />
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-
-            <Card variant="outlined" sx={sectionCardSx}>
-              <CardContent sx={{ p: 0 }}>
-                <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                  <SectionHeader title="Fairness Overview" />
+                <Box sx={{ minWidth: 0 }}>
+                  <Box component={NextLink} href={`/fixtures/${f.id}`} sx={{ color: "inherit", fontWeight: 600 }}>
+                    vs {f.opponent}
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {formatMatchDate(f.match_date)} · {f.result_summary ?? ""}
+                  </Typography>
                 </Box>
-                <Grid container spacing={1.5} alignItems="flex-start" sx={{ px: 1.5, pb: 1.5 }}>
-                  {fairnessColumns.map((columnPlayers, columnIndex) => (
-                    <Grid key={`fairness-column-${columnIndex}`} size={{ xs: 12, md: 6 }}>
-                      <Stack spacing={1.25}>
-                        {columnPlayers.map((player) => (
-                          <Accordion
-                            key={player.playerId}
-                            expanded={expandedFairnessPlayerId === player.playerId}
-                            onChange={(_, isExpanded) => setExpandedFairnessPlayerId(isExpanded ? player.playerId : false)}
-                            disableGutters
-                            sx={{
-                              borderRadius: "20px !important",
-                              overflow: "hidden",
-                              border: "1px solid",
-                              borderColor: "divider",
-                              backgroundColor: "background.paper",
-                              "&::before": {
-                                display: "none"
-                              }
-                            }}
-                          >
-                            <AccordionSummary
-                              expandIcon={<ExpandMoreRoundedIcon />}
-                              sx={{
-                                px: 2,
-                                py: 1.25,
-                                "& .MuiAccordionSummary-content": {
-                                  my: 0
-                                }
-                              }}
-                            >
-                              <Stack
-                                direction="row"
-                                spacing={1.25}
-                                justifyContent="space-between"
-                                alignItems="center"
-                                sx={{ width: "100%", minWidth: 0, pr: 1 }}
-                              >
-                                <Typography sx={{ fontWeight: 800, color: "text.primary" }}>
-                                  {formatName(player.name)}
-                                </Typography>
-                                <Chip
-                                  size="small"
-                                  label={player.fairnessStatus}
-                                  color={getFairnessChipColor(player.fairnessStatus)}
-                                />
-                              </Stack>
-                            </AccordionSummary>
-
-                            <AccordionDetails sx={{ px: 1.5, pb: 1.5, pt: 0 }}>
-                              <Divider sx={{ mb: 1.5 }} />
-
-                              <Grid container spacing={1.25}>
-                                <Grid size={{ xs: 6, md: 4 }}>
-                                  <SummaryMetricCard label="XI" value={player.xiCount} helper="Selections" />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 4 }}>
-                                  <SummaryMetricCard label="12th" value={player.twelfthCount} helper="12th man" />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 4 }}>
-                                  <SummaryMetricCard label="Bench" value={player.benchCount} helper="Bench count" />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 4 }}>
-                                  <SummaryMetricCard label="Unused" value={player.unusedInXiCount} helper="In XI, not used" />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 4 }}>
-                                  <SummaryMetricCard label="Bat" value={player.batCount} helper="Batted" />
-                                </Grid>
-                                <Grid size={{ xs: 6, md: 4 }}>
-                                  <SummaryMetricCard label="Bowl" value={player.bowlCount} helper="Bowled" />
-                                </Grid>
-                              </Grid>
-                            </AccordionDetails>
-                          </Accordion>
-                        ))}
-                      </Stack>
-                    </Grid>
-                  ))}
-                </Grid>
-              </CardContent>
-            </Card>
-
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, lg: 6 }}>
-                <Card variant="outlined" sx={{ ...sectionCardSx, height: "100%" }}>
-                  <CardContent>
-                    <Stack spacing={2}>
-                      <SectionHeader title="Underused Players" />
-                      {teamData.underusedPlayers.length > 0 ? teamData.underusedPlayers.map((player) => (
-                        <Box key={player.playerId}>
-                          <Typography fontWeight={700}>{formatName(player.name)}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {player.reason}
-                          </Typography>
-                        </Box>
-                      )) : (
-                        <Alert severity="success" variant="outlined">
-                          No strong underuse signals detected right now.
-                        </Alert>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid size={{ xs: 12, lg: 6 }}>
-                <Card variant="outlined" sx={{ ...sectionCardSx, height: "100%" }}>
-                  <CardContent>
-                    <Stack spacing={2}>
-                      <SectionHeader title="Overused Players" />
-                      {teamData.overusedPlayers.length > 0 ? teamData.overusedPlayers.map((player) => (
-                        <Box key={player.playerId}>
-                          <Typography fontWeight={700}>{formatName(player.name)}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {player.reason}
-                          </Typography>
-                        </Box>
-                      )) : (
-                        <Alert severity="info" variant="outlined">
-                          No strong overuse patterns are showing yet.
-                        </Alert>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-
-            <Card variant="outlined" sx={sectionCardSx}>
-              <CardContent>
-                <Stack spacing={2.5}>
-                  <Stack
-                    direction={{ xs: "column", md: "row" }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", md: "center" }}
-                    spacing={1.5}
-                  >
-                    <SectionHeader title="Planner Outcome Snapshot" />
-                    {teamData.plannerSnapshot ? (
-                      <Chip
-                        label={`${teamData.plannerSnapshot.label} • ${teamData.plannerSnapshot.matchCount} matches`}
-                        color={teamData.plannerSnapshot.mismatch ? "warning" : "success"}
-                        variant="outlined"
-                      />
-                    ) : null}
-                  </Stack>
-
-                  {teamData.plannerSnapshot ? (
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 12, sm: 4 }}>
-                        <SummaryMetricCard
-                          label="Planned XI / Match"
-                          value={formatSnapshotValue(teamData.plannerSnapshot.averagePlannedXiCount)}
-                          helper={`${teamData.plannerSnapshot.totalPlannedXiCount} total XI slots across ${teamData.plannerSnapshot.matchCount} matches.`}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 4 }}>
-                        <SummaryMetricCard
-                          label="Utilized / Match"
-                          value={formatSnapshotValue(teamData.plannerSnapshot.averageActualUtilizedCount)}
-                          helper={`${teamData.plannerSnapshot.totalActualUtilizedCount} utilized XI slots across ${teamData.plannerSnapshot.linkedActualMatchCount} linked matches.`}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 4 }}>
-                        <SummaryMetricCard
-                          label="Unused In XI / Match"
-                          value={formatSnapshotValue(teamData.plannerSnapshot.averageUnusedInXiCount)}
-                          helper={teamData.plannerSnapshot.mismatch
-                            ? `${teamData.plannerSnapshot.totalUnusedInXiCount} total unused XI slots detected.`
-                            : "Planner and actual usage stayed aligned."}
-                        />
-                      </Grid>
-                    </Grid>
-                  ) : (
-                    <Alert severity="info" variant="outlined">
-                      No saved friendly planner batch is available yet for a planner snapshot.
-                    </Alert>
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
-
-            <Card variant="outlined" sx={sectionCardSx}>
-              <CardContent sx={{ p: 0 }}>
-                <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                  <SectionHeader title="Recent Matches" />
-                </Box>
-                <ResponsiveTableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Opponent</TableCell>
-                        <TableCell>Result</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {teamData.recentMatches.map((match) => {
-                        const resultChip = getResultChip({
-                          result: match.result,
-                          resultSummary: match.resultSummary
-                        });
-
-                        return (
-                          <TableRow key={match.id}>
-                            <TableCell>{match.matchDate ? formatDate(match.matchDate) : "-"}</TableCell>
-                            <TableCell>{match.opponentName ?? "-"}</TableCell>
-                            <TableCell>
-                              {resultChip ? (
-                                <Chip label={resultChip.label} size="small" color={resultChip.color} />
-                              ) : (
-                                "-"
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </ResponsiveTableContainer>
-              </CardContent>
-            </Card>
-          </>
-        ) : null}
-        {accessState.hasMember && dashboardMode === "mine" && myData ? (
-          <Stack spacing={3}>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                <SummaryMetricCard
-                  label="Matches Played"
-                  value={myData.summary.matchesPlayed}
-                  helper="Linked scorecard appearances."
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                <SummaryMetricCard
-                  label="Total Runs"
-                  value={myData.summary.totalRuns}
-                  helper="Career team runs so far."
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                <SummaryMetricCard
-                  label="Total Wickets"
-                  value={myData.summary.totalWickets}
-                  helper="Career team wickets so far."
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                <SummaryMetricCard
-                  label="Fairness Status"
-                  value={myData.summary.fairnessStatus}
-                  helper="Your latest opportunity signal."
-                />
-              </Grid>
-            </Grid>
-
-            <Card variant="outlined" sx={sectionCardSx}>
-              <CardContent>
-                <Stack spacing={2.5}>
-                  <SectionHeader title="Opportunity Breakdown" />
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
-                      <SummaryMetricCard
-                        label="XI Appearances"
-                        value={myData.opportunityBreakdown.xiAppearances}
-                        helper="Tracked actual XI usage."
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
-                      <SummaryMetricCard
-                        label="12th Man"
-                        value={myData.opportunityBreakdown.twelfthCount}
-                        helper="12th-man assignments."
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
-                      <SummaryMetricCard
-                        label="Bench"
-                        value={myData.opportunityBreakdown.benchCount}
-                        helper="Bench outcomes across tracked weeks."
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
-                      <SummaryMetricCard
-                        label="Unused In XI"
-                        value={myData.opportunityBreakdown.unusedInXiCount}
-                        helper="Listed but did not bat or bowl."
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
-                      <SummaryMetricCard
-                        label="Unavailable"
-                        value={myData.opportunityBreakdown.unavailableCount}
-                        helper="Unavailable tracked match slots."
-                      />
-                    </Grid>
-                  </Grid>
-                </Stack>
-              </CardContent>
-            </Card>
-
-            <Card variant="outlined" sx={sectionCardSx}>
-              <CardContent>
-                <Stack spacing={2.5}>
-                  <SectionHeader title="Personal Performance" />
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                          <SummaryMetricCard
-                            label="Total Runs"
-                            value={myData.performance.totalRuns}
-                            helper="All linked batting runs."
-                          />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                          <SummaryMetricCard
-                            label="Total Wickets"
-                            value={myData.performance.totalWickets}
-                            helper="All linked bowling wickets."
-                          />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                      <SummaryMetricCard
-                        label="Strike Rate"
-                        value={formatSnapshotValue(myData.performance.strikeRate)}
-                        helper="Linked batting strike rate."
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                      <SummaryMetricCard
-                        label="Economy"
-                        value={formatSnapshotValue(myData.performance.economy)}
-                        helper="Linked bowling economy."
-                      />
-                    </Grid>
-                  </Grid>
-
-                  <Divider />
-
-                  <Stack spacing={1}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Recent Contribution Summary
-                    </Typography>
-                    <Typography>{myData.performance.recentContributionSummary}</Typography>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-
-            <Card variant="outlined" sx={sectionCardSx}>
-              <CardContent>
-                <Stack spacing={2.5}>
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        justifyContent="space-between"
-                        alignItems={{ xs: "flex-start", sm: "center" }}
-                        spacing={1.5}
-                      >
-                        <SectionHeader title="Current Week Friendly Matchday Plan" />
-                        {!accessState.canToggleTeamView ? (
-                          <Chip label="Read Only" icon={<VisibilityRoundedIcon />} variant="outlined" />
-                        ) : null}
-                      </Stack>
-
-                      {myData.plannerWeek ? (
-                        <>
-                          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                            <Chip label={myData.plannerWeek.weekendLabel} color="primary" variant="outlined" />
-                            <Chip label={`${myData.plannerWeek.matchCount} upcoming match${myData.plannerWeek.matchCount === 1 ? "" : "es"}`} variant="outlined" />
-                          </Stack>
-
-                          <Typography variant="body2" color="text.secondary">
-                            The latest saved friendly planner is shown here so you can see the complete weekly plan transparently, including the full Playing XI for Match 1, Match 2, and Match 3.
-                          </Typography>
-
-                          {plannerWeekSummary ? (
-                            <Grid container spacing={1.25}>
-                              <Grid size={{ xs: 6, md: 3 }}>
-                                <SummaryMetricCard
-                                  label="Playing XI"
-                                  value={plannerWeekSummary.xi}
-                                  helper="Matches selected in XI"
-                                />
-                              </Grid>
-                              <Grid size={{ xs: 6, md: 3 }}>
-                                <SummaryMetricCard
-                                  label="12th Man"
-                                  value={plannerWeekSummary.twelfth}
-                                  helper="12th-man assignments"
-                                />
-                              </Grid>
-                              <Grid size={{ xs: 6, md: 3 }}>
-                                <SummaryMetricCard
-                                  label="Bench"
-                                  value={plannerWeekSummary.bench}
-                                  helper="Bench assignments"
-                                />
-                              </Grid>
-                              <Grid size={{ xs: 6, md: 3 }}>
-                                <SummaryMetricCard
-                                  label="Unavailable"
-                                  value={plannerWeekSummary.unavailable}
-                                  helper="Unavailable match slots"
-                                />
-                              </Grid>
-                            </Grid>
-                          ) : null}
-
-                          <Grid container spacing={2}>
-                            {myData.plannerWeek.matches.map((match) => (
-                              <Grid key={`planner-week-${match.matchNumber}`} size={{ xs: 12, lg: 4 }}>
-                                <Card
-                                  variant="outlined"
-                                  sx={{
-                                    height: "100%",
-                                    borderRadius: 3,
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.04)
-                                  }}
-                                >
-                                  <CardContent sx={{ p: 2.5 }}>
-                                    <Stack spacing={1.5}>
-                                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                                          Match {match.matchNumber}
-                                        </Typography>
-                                        <Chip
-                                          label={getPlannerAssignmentLabel(match.assignment)}
-                                          color={getPlannerAssignmentColor(match.assignment)}
-                                          size="small"
-                                        />
-                                      </Stack>
-                                      <Typography variant="body2" color="text.secondary">
-                                        {match.assignment === "xi"
-                                          ? "You are selected in the planned XI for this match."
-                                          : match.assignment === "twelfth"
-                                            ? "You are planned as 12th man for this match."
-                                            : match.assignment === "bench"
-                                              ? "You are on the bench for this planned match."
-                                              : "You are marked unavailable for this match."}
-                                      </Typography>
-                                      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                                        {match.isCaptain ? <Chip label="Captain" size="small" variant="outlined" /> : null}
-                                        {match.isWicketKeeper ? <Chip label="Wicket Keeper" size="small" variant="outlined" /> : null}
-                                      </Stack>
-
-                                      <Divider />
-
-                                      <Stack spacing={1}>
-                                        <Typography variant="subtitle2" color="text.secondary">
-                                          Planned Playing XI
-                                        </Typography>
-                                        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                                          {match.xiPlayers
-                                            .slice()
-                                            .sort((left, right) => formatName(left).localeCompare(formatName(right)))
-                                            .map((playerName) => (
-                                            <Chip
-                                              key={`planner-week-${match.matchNumber}-${playerName}`}
-                                              label={formatName(playerName)}
-                                              size="small"
-                                              variant="outlined"
-                                            />
-                                          ))}
-                                        </Stack>
-                                      </Stack>
-                                    </Stack>
-                                  </CardContent>
-                                </Card>
-                              </Grid>
-                            ))}
-                          </Grid>
-
-                          {myData.plannerWeek.notes.length > 0 ? (
-                            <>
-                              <Divider />
-                              <Stack spacing={1}>
-                                <Typography variant="subtitle2" color="text.secondary">
-                                  Planner Notes
-                                </Typography>
-                                {myData.plannerWeek.notes.map((note) => (
-                                  <Typography key={note} variant="body2" color="text.secondary">
-                                    {note}
-                                  </Typography>
-                                ))}
-                              </Stack>
-                            </>
-                          ) : null}
-                        </>
-                      ) : (
-                        <Alert severity="info" variant="outlined">
-                          No current saved friendly planner week includes you yet.
-                        </Alert>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-
-            <Card variant="outlined" sx={sectionCardSx}>
-              <CardContent sx={{ p: 0 }}>
-                <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                  <SectionHeader title="Recent Opportunity Timeline" />
-                </Box>
-                <ResponsiveTableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Opponent</TableCell>
-                        <TableCell>Planned Status</TableCell>
-                        <TableCell>Actual Status</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {myData.timeline.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.date ? formatDate(item.date) : "-"}</TableCell>
-                          <TableCell>{item.opponent ?? "-"}</TableCell>
-                          <TableCell>{item.plannedStatus}</TableCell>
-                          <TableCell>{item.actualStatus}</TableCell>
-                        </TableRow>
-                      ))}
-                      {myData.timeline.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4}>
-                            <Typography color="text.secondary">
-                              No recent opportunity timeline is available yet.
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                    </TableBody>
-                  </Table>
-                </ResponsiveTableContainer>
-              </CardContent>
-            </Card>
-
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 6, xl: 4 }}>
-                <Card variant="outlined" sx={sectionCardSx}>
-                  <CardContent>
-                    <SectionHeader title="Runs Trend" />
-                    <RunsTrendChart data={myData.trends.runs} />
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6, xl: 4 }}>
-                <Card variant="outlined" sx={sectionCardSx}>
-                  <CardContent>
-                    <SectionHeader title="Wickets Trend" />
-                    <WicketsTrendChart data={myData.trends.wickets} />
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid size={{ xs: 12, xl: 4 }}>
-                <Card variant="outlined" sx={sectionCardSx}>
-                  <CardContent>
-                    <SectionHeader title="Opportunity Trend" />
-                    <OpportunityTrendChart data={myData.trends.opportunity} />
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-
-            <Card variant="outlined" sx={sectionCardSx}>
-              <CardContent sx={{ p: 0 }}>
-                <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-                  <SectionHeader title="Recent Matches" />
-                </Box>
-                <ResponsiveTableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Opponent</TableCell>
-                        <TableCell>Result</TableCell>
-                        <TableCell>Player Status</TableCell>
-                        <TableCell>Contribution</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {myData.recentMatches.map((match) => {
-                        const resultChip = getResultChip({
-                          result: match.result,
-                          resultSummary: match.resultSummary
-                        });
-
-                        return (
-                          <TableRow key={match.id}>
-                            <TableCell>{match.date ? formatDate(match.date) : "-"}</TableCell>
-                            <TableCell>{match.opponent ?? "-"}</TableCell>
-                            <TableCell>
-                              {resultChip ? (
-                                <Chip label={resultChip.label} size="small" color={resultChip.color} />
-                              ) : (
-                                "-"
-                              )}
-                            </TableCell>
-                            <TableCell>{match.playerStatus}</TableCell>
-                            <TableCell>{match.contribution}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      {myData.recentMatches.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5}>
-                            <Typography color="text.secondary">
-                              No linked recent matches are available yet.
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                    </TableBody>
-                  </Table>
-                </ResponsiveTableContainer>
-              </CardContent>
-            </Card>
+              </Stack>
+            ))}
           </Stack>
-        ) : null}
-      </Stack>
-    </Container>
+        </Section>
+      </Box>
+    </Page>
   );
 }
